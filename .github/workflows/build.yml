@@ -22,14 +22,16 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+        with:
+          nix_path: nixpkgs=channel:25.05
 
-      # Runs a set of commands using the runners shell
+        # Runs a set of commands using the runners shell
       - name: Build the compiler
         run: |
-          sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --no-daemon
-          . /home/runner/.nix-profile/etc/profile.d/nix.sh
+          # sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --no-daemon
+          # . /home/runner/.nix-profile/etc/profile.d/nix.sh
           nix-shell
           cd src/compiler
           dune build
