@@ -4,8 +4,6 @@
 
 ## Development environment
 
-## Development Environment
-
 ### Prerequisites
 
 - [Nix](https://nixos.org/download.html) (multi-user or single-user installation)
@@ -20,6 +18,6 @@
    nix-shell
    ```
 
-3. You now have all required dependencies (including OCaml and dune) available in your environment
+3. You now have all required dependencies (including OCaml and dune) available in your environment.
 
 ## Continuous Integration
