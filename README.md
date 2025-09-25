@@ -1,6 +1,6 @@
 # ForSyDe DevTools
 Compiler and visualisation development tools for ForSyDe Shallow
-### Project Contributes
+### Project Contributors
 - Michel Delli Abo
 - Samuel Miksits
 - Klara Modin
