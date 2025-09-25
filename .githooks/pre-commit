@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# Pre-commit hook for ocamlformat
+# Exit on any error
+set -e
+
+# Check if ocamlformat is installed
+if ! command -v ocamlformat >/dev/null 2>&1; then
+    echo "Error: ocamlformat not found. Please install it first."
+    echo "Run: opam install ocamlformat"
+    exit 1
+fi
+
+# Get list of staged .ml and .mli files
+FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ml|mli)$' || true)
+
+if [ -n "$FILES" ]; then
+    echo "Formatting OCaml files..."
+    echo "$FILES" | xargs ocamlformat --inplace
+    
+    # Add formatted files back to staging area
+    echo "$FILES" | xargs git add
+fi
+
+echo "Pre-commit hook completed successfully"
+exit 0
