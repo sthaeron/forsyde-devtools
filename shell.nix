@@ -28,7 +28,7 @@ pkgs.mkShell {
     # Initialize OPAM if needed
     if [ ! -d "$HOME/.opam" ]; then
       echo "Initializing OPAM..."
-      opam init --auto-setup --bare
+      opam init --auto-setup --bare --disable-sandboxing
     fi
 
     # copy githooks
