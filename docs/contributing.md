@@ -40,6 +40,32 @@ Now, create a pull request from the branch on the main repo
 
 Wait for someone else to review and merge the pull request
 
+### Commit Guideline
+
+Each commit message should be concise, and contain commit types. More information in [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary). Additional message can be placed on the body.
+
+Typical commit types:
+
+- fix
+- feat
+- build
+- chore
+- ci
+- docs
+- style
+- refactor
+- perf
+- test
+
+Example commit message:
+
+```
+fix: prevent racing of requests
+
+Introduce a request id and a reference to latest request. Dismiss
+incoming responses other than from latest request.
+```
+
 ## Development environment
 
 ### Prerequisites
