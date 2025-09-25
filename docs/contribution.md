@@ -1,4 +1,4 @@
-# Contributing
+# Contribution Documentation
 
 ## Git management
 
@@ -42,7 +42,7 @@ Wait for someone else to review and merge the pull request
 
 ### Commit Guideline
 
-Each commit message should be concise, and contain commit types. More information in [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary). Additional message can be placed on the body.
+Each commit message should be concise, and contain commit types. More information in [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary). Additional messages can be placed in the body.
 
 Typical commit types:
 
