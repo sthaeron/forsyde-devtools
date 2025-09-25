@@ -14,7 +14,7 @@ pkgs.mkShell {
     # Build tools
     ocamlPackages.menhir
     ocamlPackages.dune_3
-    ocamlPackages.ocamlformat
+    ocamlPackages.ocamlformat # needed by pre-commit hook
     ocamlPackages.utop
 
     # Development tools
@@ -30,6 +30,10 @@ pkgs.mkShell {
       echo "Initializing OPAM..."
       opam init --auto-setup --bare
     fi
+
+    # copy githooks
+    cp .githooks/* .git/hooks/
+    chmod +x .git/hooks/*
     
     echo "OCaml ${pkgs.ocaml.version} environment ready"
     echo "Dune version: $(dune --version)"
