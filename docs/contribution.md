@@ -50,6 +50,19 @@ in the next team meeting.
 Sometimes, a feature might depend on another feature or change
 which needs to be handled before the pull request can be merged.
 
+### Shared branches
+
+If you are working together with someone, and find that e.g. meeting
+in person and pair programming or sharing the screen is not enough,
+you can create a shared branch on
+[the main repository](https://github.com/sthaeron/forsyde-devtools).
+It should be in the general form of `collab/<feature>`.
+
+Another option is to invite the one you are collaborating with
+into your own forked repository.
+
+When the feature is ready, submit a pull request as usual.
+
 ### Commit Guideline
 
 Each commit message should be concise, and contain commit types. More information in [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary). Additional messages can be placed in the body.
