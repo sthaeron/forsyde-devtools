@@ -108,3 +108,26 @@ incoming responses other than from latest request.
 3. You now have all required dependencies (including OCaml and dune) available in your environment.
 
 ## Continuous Integration
+
+There are two relevant features we are using for this project:
+1. Local git hooks
+2. Github actions
+
+### Local git hooks
+
+These need to be copied into your local `.git/hooks` directory.
+If you use the nix environment, this is done automatically, but otherwise:
+```
+cp -r ./.githooks/. ./.git/hooks
+```
+
+At this point, they are used to ensure a consistent formatting of OCaml source code.
+
+### Github Actions
+
+Github Actions can be specified to run e.g. new commits on main or on pull requests.
+They are yaml files which live in the `.github/workflows` directory.
+
+At this point, we only have an automatic build configured for the compiler.
+In the future, we should add running the compiler on our examples and comparing the
+output from the binary when executed to the simulated output from the ForSyDe model.
