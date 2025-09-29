@@ -22,7 +22,13 @@ git push origin main
 
 ### Adding a new feature
 
-Create a separate branch, e.g:
+Look for a corresponding issue if there exists one.
+If there is none, look through [Chaos docs](chaos.md) and
+consider creating one before starting to work so other members
+of the project better know what is going on.
+
+When that's done, create a separate branch, e.g if you have added
+the main repo as the `upstream` remote:
 
 ```
 git checkout -b work/feature upstream/main
