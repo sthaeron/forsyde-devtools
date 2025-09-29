@@ -43,8 +43,12 @@ for e.g. the parser and the code generation.
 
 Now, create a pull request from the branch on the main repo
 (you can also use the link which appears when you push the new branch).
+Wait for someone else to review, and address any resulting comments.
+If there is no consensus on how to go forward it should be brought up
+in the next team meeting.
 
-Wait for someone else to review and merge the pull request
+Sometimes, a feature might depend on another feature or change
+which needs to be handled before the pull request can be merged.
 
 ### Commit Guideline
 
