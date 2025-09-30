@@ -22,7 +22,13 @@ git push origin main
 
 ### Adding a new feature
 
-Create a separate branch, e.g:
+Look for a corresponding issue if there exists one.
+If there is none, look through [Chaos docs](chaos.md) and
+consider creating one before starting to work so other members
+of the project better know what is going on.
+
+When that's done, create a separate branch, e.g if you have added
+the main repo as the `upstream` remote:
 
 ```
 git checkout -b work/feature upstream/main
@@ -37,8 +43,25 @@ for e.g. the parser and the code generation.
 
 Now, create a pull request from the branch on the main repo
 (you can also use the link which appears when you push the new branch).
+Wait for someone else to review, and address any resulting comments.
+If there is no consensus on how to go forward it should be brought up
+in the next team meeting.
 
-Wait for someone else to review and merge the pull request
+Sometimes, a feature might depend on another feature or change
+which needs to be handled before the pull request can be merged.
+
+### Shared branches
+
+If you are working together with someone, and find that e.g. meeting
+in person and pair programming or sharing the screen is not enough,
+you can create a shared branch on
+[the main repository](https://github.com/sthaeron/forsyde-devtools).
+It should be in the general form of `collab/<feature>`.
+
+Another option is to invite the one you are collaborating with
+into your own forked repository.
+
+When the feature is ready, submit a pull request as usual.
 
 ### Commit Guideline
 
@@ -85,3 +108,26 @@ incoming responses other than from latest request.
 3. You now have all required dependencies (including OCaml and dune) available in your environment.
 
 ## Continuous Integration
+
+There are two relevant features we are using for this project:
+1. Local git hooks
+2. Github actions
+
+### Local git hooks
+
+These need to be copied into your local `.git/hooks` directory.
+If you use the nix environment, this is done automatically, but otherwise:
+```
+cp -r ./.githooks/. ./.git/hooks
+```
+
+At this point, they are used to ensure a consistent formatting of OCaml source code.
+
+### Github Actions
+
+Github Actions can be specified to run e.g. new commits on main or on pull requests.
+They are yaml files which live in the `.github/workflows` directory.
+
+At this point, we only have an automatic build configured for the compiler.
+In the future, we should add running the compiler on our examples and comparing the
+output from the binary when executed to the simulated output from the ForSyDe model.
