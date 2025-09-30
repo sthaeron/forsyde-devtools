@@ -1,2 +1,8 @@
+(menhir
+  (modules parser)
+  (flags --explain))
+
+(ocamllex lexer)
+
 (library
  (name compiler))
