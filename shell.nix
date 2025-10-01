@@ -19,6 +19,7 @@ pkgs.mkShell {
 
     # mkdocs for making docs site from docs/ dir
     python313Packages.mkdocs-material
+    python313Packages.mkdocs-mermaid2-plugin
 
     # Development tools
     gnumake
