@@ -17,6 +17,9 @@ pkgs.mkShell {
     ocamlPackages.ocamlformat # needed by pre-commit hook
     ocamlPackages.utop
 
+    # mkdocs for making docs site from docs/ dir
+    python313Packages.mkdocs-material
+
     # Development tools
     gnumake
   ];
