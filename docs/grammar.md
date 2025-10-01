@@ -4,18 +4,19 @@
 The compiler and visualiser supports a simplified subset of the Haskell language. The language features currently supported are the minimum required for writing SDF models using ForSyDe along with simple functions. The currently supported language features are as follows, with some provided examples also listed:
 - **Types**
 	- Base integer type: `Int`
-    - Tuple types: `(a, b)` (at least 1 element)
-    - List types: `[a, b]` (at least 1 element)
+    - Tuple types: `(a, b)`
+    - List types: `[a, b]`
 - **Expressions**
     - Identifiers and integer literals
     - Binary operations: `x + y`, `x - y`, `x * y`
     - Unary operations: `-x`
-    - Tuples and lists as values: `(x, y)`, `[x, y]` (at least 1 element)
-    - Function applications: ```f x```
+    - Tuples and lists as values: `(x, y)`, `[x, y]`
+    - Function applications: `f x`
 - **Statements**
 	- Function definitions: `f x = y`
 	- Value bindings: `x = y`
 	- Type declarations: `f :: a -> b`
+
 ## Supported ForSyDe Models
 The compiler and visualiser currently only supports SDF models written using ForSyDe Shallow. The processor constructors are considered reserved identifiers similar to how keywords are implemented.
 - **ForSyDe Types**
