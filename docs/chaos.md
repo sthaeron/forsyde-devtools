@@ -12,14 +12,18 @@ The reasoning for such a system is as follows:
 - Prevent malicious compliance
 If you would like to be informed on the state of the project make sure to consult the chaos docs and issue tracker on a regular basis.
 
-In order to deal with potential chaos create an issue ticket in the main repo and use the `chaos` label. The issue ticket should have a title that is relevant to the content being raised. The description of a chaos related issue should refer to the issue number it corresponds to or if no issue is appropriate then state `new chaos` at the top. Your chaos ticket should include how to make the change you want, why that change should be made, and when to make the change.
+In order to deal with potential chaos create an issue ticket in the main repo and use the `chaos` label. The issue ticket should have a title that is relevant to the content being raised. The description of a chaos related issue should refer to the issue number it corresponds to or if no issue is appropriate then state `new chaos` at the top. Your chaos ticket should include what is the issue, how to make the change you want, why that change should be made, and when to make the change.
 
 Once a chaos issue has been resolved make sure to update the list at the end of this document to keep track of what we have changed. Include the title for the chaos related issue and refer to its corresponding issue number.
+### What to change
+Describe the issue you have seen clearly and concisely.
 ### How to change
-Describe the change you are looking for in simple words. Make sure you include a list of all the files that might be affected. 
+Describe the change you are looking for in simple words. Make sure you include a list of all the files that might be affected.
 ### Why to change
-Provide your reasoning for the change. You should convince your collaborators that the chaos is worth resolving and that your solution is a valid approach.
+Explain your reasoning for the change. You should convince your collaborators that the chaos is worth resolving and that your solution is a valid approach.
 ### When to change
-Provide a suggestion of when the chaos issue should be work on. Make sure it fits into the overall project time plan.
+Provide a suggestion of when the chaos issue should be worked on. Make sure it fits into the overall project time plan.
 ### What we have changed list
 - Clarify contribution docs #71
+- Refining the Chaos Docs #72
+- 
