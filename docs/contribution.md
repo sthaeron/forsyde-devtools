@@ -23,6 +23,7 @@ git push origin main
 ### Adding a new feature
 
 Look for a corresponding issue if there exists one.
+
 If there is none, look through [Chaos docs](chaos.md) and
 consider creating one before starting to work so other members
 of the project better know what is going on.
@@ -37,13 +38,17 @@ git commit
 git push origin work/feature
 ```
 
-Ideally, you should separate commits for different parts of the project,
-e.g. if you contributed actor11SDF, you should separate the commits
-for e.g. the parser and the code generation.
+### Feature Contribution Rule
 
-Now, create a pull request from the branch on the main repo
-(you can also use the link which appears when you push the new branch).
-Wait for someone else to review, and address any resulting comments.
+1. Separate commits for different parts of the project.
+   E.g. if you contributed actor11SDF, you should separate the commits for e.g. the parser and the code generation.
+
+2. Do the feature work in your own fork.
+
+3. Create a pull request from the branch on the dev repo or via the link which appears when you push the new branch.
+
+4. Wait for someone else to review, and address any resulting comments.
+
 If there is no consensus on how to go forward it should be brought up
 in the next team meeting.
 
@@ -101,15 +106,16 @@ incoming responses other than from latest request.
 
 2. Enter the development environment:
 
-   ```bash
-   nix-shell
-   ```
+```bash
+nix-shell
+```
 
 3. You now have all required dependencies (including OCaml and dune) available in your environment.
 
 ## Continuous Integration
 
 There are two relevant features we are using for this project:
+
 1. Local git hooks
 2. Github actions
 
@@ -117,7 +123,8 @@ There are two relevant features we are using for this project:
 
 These need to be copied into your local `.git/hooks` directory.
 If you use the nix environment, this is done automatically, but otherwise:
-```
+
+```bash
 cp -r ./.githooks/. ./.git/hooks
 ```
 
