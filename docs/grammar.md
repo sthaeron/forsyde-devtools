@@ -18,7 +18,7 @@ The compiler and visualiser supports a simplified subset of the Haskell language
 	- Type declarations: `f :: a -> b`
 
 ## Supported ForSyDe Models
-The compiler and visualiser currently only supports SDF models written using ForSyDe Shallow. The processor constructors are considered reserved identifiers similar to how keywords are implemented.
+The compiler and visualiser currently only supports SDF models written using ForSyDe Shallow. The process constructors are considered reserved identifiers similar to how keywords are implemented.
 - **ForSyDe Types**
 	- Signal type wrapper: `Signal Int`
 - **SDF Functions**
