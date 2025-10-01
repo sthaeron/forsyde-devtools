@@ -31,6 +31,9 @@ The pretty printing should closely match with the abstract syntax, with some dif
 
 ## Menhir
 
+The Menhir reference can be found as [PDF](https://pauillac.inria.fr/~fpottier/menhir/manual.pdf)
+or as [HTML](https://gallium.inria.fr/~scherer/tmp/menhir-manual/main.html).
+
 When run with the `--explain` flag which we have specified in our build, menhir
 will generate a description of all shift/reduce confilcts in the file
 `_build/default/lib/parser.conflicts`
