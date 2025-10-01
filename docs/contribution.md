@@ -101,15 +101,16 @@ incoming responses other than from latest request.
 
 2. Enter the development environment:
 
-   ```bash
-   nix-shell
-   ```
+```bash
+nix-shell
+```
 
 3. You now have all required dependencies (including OCaml and dune) available in your environment.
 
 ## Continuous Integration
 
 There are two relevant features we are using for this project:
+
 1. Local git hooks
 2. Github actions
 
@@ -117,7 +118,8 @@ There are two relevant features we are using for this project:
 
 These need to be copied into your local `.git/hooks` directory.
 If you use the nix environment, this is done automatically, but otherwise:
-```
+
+```bash
 cp -r ./.githooks/. ./.git/hooks
 ```
 
