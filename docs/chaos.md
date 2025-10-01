@@ -22,7 +22,7 @@ Describe the change you are looking for in simple words. Make sure you include a
 ### Why to change
 Explain your reasoning for the change. You should convince your collaborators that the chaos is worth resolving and that your solution is a valid approach.
 ### When to change
-Provide a suggestion of when the chaos issue should be work on. Make sure it fits into the overall project time plan.
+Provide a suggestion of when the chaos issue should be worked on. Make sure it fits into the overall project time plan.
 ### What we have changed list
 - Clarify contribution docs #71
 - Refining the Chaos Docs #72
