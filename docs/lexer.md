@@ -15,3 +15,8 @@ arising from parallel work on different features.
        (e.g. LESSTHAN or LESSEQUAL)
 - Keyword tokens should have the same name as the keyword but upper case
 - Process constructor tokens have the same name as in the ForSyDe shallow project but upper case (e.g. DELAYSDF, ACTOR11SDF)
+
+## Ocamllex
+
+The Ocamllex reference can be found [here](https://ocaml.org/manual/5.3/api/Lexing.html)
+and a a description on how to used [here](https://ocaml.org/manual/5.3/lexyacc.html)
