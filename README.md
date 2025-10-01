@@ -13,7 +13,7 @@ Compiler and visualisation development tools for ForSyDe Shallow
 
 ## Documentation
 
-Documentation is available on the 'docs' directory.
+Documentation is available on the `docs` directory.
 
 ### Build the docs
 
@@ -29,7 +29,7 @@ Build the webpage for the documents by running:
 mkdocs build
 ```
 
-The generated static site will be available at newly created 'site' directory
+The generated static site will be available at newly created `site` directory
 
 ### Serve the docs
 
