@@ -27,3 +27,9 @@ Provide a suggestion of when the chaos issue should be worked on. Make sure it f
 - Clarify contribution docs #71
 - Refining the Chaos Docs #72
 - Run workflows also on dev branch #86
+- Specific task related to static scheduling #95
+- Add external tasks #91
+- Add issues for updating docs as a result of using Core #100
+- Compiler improvement tasks #121
+- Add newer visualization issues #113
+- Remove issues relating to OCaml #111
