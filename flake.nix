@@ -4,20 +4,31 @@
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
-  outputs = { flake-utils, ... }@inputs:
-    flake-utils.lib.eachDefaultSystem (
+  outputs =
+    { flake-utils, ... }@inputs:
+    let
+      overlay = final: prev: {
+        haskell = prev.haskell // {
+          packageOverrides =
+            hfinal: hprev:
+            prev.haskell.packageOverrides hfinal hprev
+            // {
+              forsyde-devtools = hfinal.callCabal2nix "forsyde-devtools" ./. { };
+            };
+        };
+        forsyde-devtools = final.haskellPackages.forsyde-devtools;
+      };
+    in
+    {
+      inherit overlay;
+    }
+    // flake-utils.lib.eachDefaultSystem (
       system:
       let
-        overlay = final: prev: {
-          haskell = prev.haskell // {
-            packageOverrides = hfinal: hprev:
-              prev.haskell.packageOverrides hfinal hprev // {
-                forsyde-devtools = hfinal.callCabal2nix "forsyde-devtools" ./. { };
-              };
-          };
-          forsyde-devtools = final.haskell.lib.compose.justStaticExecutables final.haskellPackages.forsyde-devtools;
+        pkgs = import inputs.nixpkgs {
+          inherit system;
+          overlays = [ overlay ];
         };
-        pkgs = import inputs.nixpkgs { inherit system; overlays = [ overlay ]; };
         hspkgs = pkgs.haskellPackages;
         pypkgs = pkgs.python313Packages;
       in
@@ -37,7 +48,6 @@
             pypkgs.mkdocs-mermaid2-plugin
             # General dev tools
             pkgs.gnumake
-            pkgs.ocamlformat
           ];
           shellHook = ''
             cp .githooks/* .git/hooks/
