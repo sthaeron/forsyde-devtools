@@ -30,4 +30,4 @@ jobs:
         # Runs a set of commands using the runners shell
       - name: Build the compiler
         run: |
-          nix develop --command "cabal build"
+          nix shell --command bash -c "cabal build"
