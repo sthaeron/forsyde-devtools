@@ -119,3 +119,60 @@ From `bsp.h`.
 | `BSP_7SegDispFloat` | `void` | `float value` | Display floating `value` on the seven segment display |
 | `BSP_HasPSRam` | `size_t` | `void` | Get the size of the PSRAM (if any) |
 | `BSP_WaitClkCycles` | `void` | `uint32_t n` | Spin for `n` clock cycles (busy loop 3 cycles long) |
+
+### PicoSDK
+
+The information in this section is mostly just a summary of the [PicoSDK](https://www.raspberrypi.com/documentation/pico-sdk/index_doxygen.html#raspberry-pi-pico-sdk)
+documentation which is likely to be useful for this project.
+
+#### StdIO
+[`pico/stdio.h`](https://www.raspberrypi.com/documentation/pico-sdk/runtime.html#group_pico_stdio)
+
+Functions for more control over the IO on the pico2.
+Other than the standard input/output functions, it's also possible e.g. to limit IO
+to a specific driver.
+
+#### Time
+[`pico/time.h`](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_pico_time)
+
+Higher level abstractions around `hardware/timer.h`.
+
+This is divided into the modules:
+- [timestamp](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_timestamp):
+    Timestamp functions relating to points in time (including the current time).
+- [sleep](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_sleep):
+    Sleep functions for delaying execution in a lower power state.
+- [alarm](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_alarm):
+    Alarm functions for scheduling future execution.
+- [repeating\_timer](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_repeating_timer):
+    Repeating Timer functions for simple scheduling of repeated execution.
+
+#### StdLib
+
+[`pico/stdlib.h`](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_pico_stdlib)
+
+This header includes a few other commonly used headers, such as stdio, timers, gpio, and uart.
+
+#### Queues
+[`pico/util/queue.h`](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_queue)
+
+The queue library provided by picosdk. This is used for the buffers between the SDF actors.
+These are in the official documentation noted to be multi-core and IRQ safe.
+This means that we can use them directly in the multi-core implementation if we get there.
+
+Both blocking and non-blocking accessors are provided.
+The non-blocking variants could add some sanity checking for core-internal buffers,
+i.e. we get an error on a bad schedule instead of just hanging.
+For cross-core communication, it makes more sense to use the blocking variants.
+
+#### Multi-core control
+[`pico/multicore.h`](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_pico_multicore)
+
+Functions to control execution on the second core.
+
+#### Status-led
+
+[`pico/status_led.h`](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_pico_status_led)
+
+If for some reason, the LEDs accessible through the BSP are not enough,
+there is also control of the status led connected directly to the RP2350.
