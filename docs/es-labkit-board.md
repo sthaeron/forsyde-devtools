@@ -87,3 +87,35 @@ $OCD_DIR/openocd --search $OCD_DIR/scripts \
         --file interface/cmsis-dap.cfg --file target/rp2350.cfg \
         -c 'adapter speed 5000' -c "program build/$PROGRAM_NAME.elf"
 ```
+
+## Runtime environment
+
+The ES-LabKit BSP already manages much of the board initialization
+(the UART, gpio pin directions, etc).
+
+There are also support functions for setting the different leds, reading
+the accelerometer, setting the seven segment display, etc.
+
+### Functions from the BSP
+
+From `bsp.h`.
+
+| Function | Return | Arguments | Description |
+| -------- | ------ | --------- | ----------- |
+| `BSP_Init` | `void` | `void` | Initializes the ES-LabKit board |
+| `BSP_ShiftRegisterWriteAll` | `void` | `uint8_t *data` | Write contents of `data` to the shift register (controls the circular leds, D1-D24) |
+| `BSP_ShiftRegisterSetLed` | `void` | `uint8_t nr`, `bool state` | Set LED `nr` to `state` |
+| `BSP_ShiftRegisterSetBrightness` | `void` | `uint8_t value` | Set brightness of circular leds to `value` |
+| `BSP_SetLed` | `void` | `uint32_t gpio`, `bool value` | Wrapper around `gpio_put` (for leds D25-D29) |
+| `BSP_ToggleLed` | `void` | `uint32_t gpio` | Inverts the value of the GPIO `gpio` (for leds D25-D29) |
+| `BSP_GetInput` | `bool` | `uint32_t gpio` | Reads value of GPIO `gpio` (for buttons SW5-SW8 and switches SW10-SW17) |
+| `BSP_GetAxisAcceleration` | `float` | `axis_t axis` | Get the acceleration along axis `axis` |
+| `BSP_GetTapCount` | `int8_t` | `void` | Get "tap" along the Z-axis |
+| `BSP_GetAcceleration` | `bool` | `float *x`, `float *y`, `float *z` | Get the acceleration along all axes |
+| `BSP_7SegBrightness` | `bool` | `uint8_t level` | Set brightness of seven segment display to `level` |
+| `BSP_7SegClear` | `void` | `void` | Clear the seven segment display |
+| `BSP_7SegDispString` | `void` | `char *string` | Display `string` on seven segment display |
+| `BSP_7SegDispInt` | `void` | `int32_t value` | Display integer `value` on the seven segment display |
+| `BSP_7SegDispFloat` | `void` | `float value` | Display floating `value` on the seven segment display |
+| `BSP_HasPSRam` | `size_t` | `void` | Get the size of the PSRAM (if any) |
+| `BSP_WaitClkCycles` | `void` | `uint32_t n` | Spin for `n` clock cycles (busy loop 3 cycles long) |
