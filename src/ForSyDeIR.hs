@@ -23,6 +23,7 @@ data ActorType
   | Actor42
   | Actor43
   | Actor44
+  deriving (Show)
 
 data IRConstructor
   = IRDelay String
@@ -35,24 +36,6 @@ data IRFunction = IRFunction String (Maybe CoreExpr)
 data IRSystem = IRSystem [IRConstructor] [IRSignal] [IRFunction]
 
 -- Pretty printing functions for ForSyDe IR
-
-prettyActorType :: ActorType -> SDoc
-prettyActorType Actor11 = text "Actor11"
-prettyActorType Actor12 = text "Actor12"
-prettyActorType Actor13 = text "Actor13"
-prettyActorType Actor14 = text "Actor14"
-prettyActorType Actor21 = text "Actor21"
-prettyActorType Actor22 = text "Actor22"
-prettyActorType Actor23 = text "Actor23"
-prettyActorType Actor24 = text "Actor24"
-prettyActorType Actor31 = text "Actor31"
-prettyActorType Actor32 = text "Actor32"
-prettyActorType Actor33 = text "Actor33"
-prettyActorType Actor34 = text "Actor34"
-prettyActorType Actor41 = text "Actor41"
-prettyActorType Actor42 = text "Actor42"
-prettyActorType Actor43 = text "Actor43"
-prettyActorType Actor44 = text "Actor44"
 
 prettyIRSignal :: IRSignal -> SDoc
 prettyIRSignal (IRSignal signalId (inputId, inputRate) (outputId, outputRate)) =
@@ -83,7 +66,7 @@ prettyIRConstructor (IRActor actorId actorType functionId) =
     <+> parens
       ( text actorId
           <+> comma
-          <+> prettyActorType actorType
+          <+> text (show actorType)
           <+> comma
           <+> text functionId
       )
