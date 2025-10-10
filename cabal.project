@@ -1,1 +1,3 @@
 packages: ./
+package: forsyde-devtools
+tests: True
