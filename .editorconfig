@@ -1,0 +1,13 @@
+root = true
+
+[*.cabal]
+indent_style = space
+indent_size = 4
+
+[*.hs]
+indent_style = space
+indent_size = 2
+
+[*.nix]
+indent_style = space
+indent_size = 2
