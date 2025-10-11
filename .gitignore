@@ -29,3 +29,5 @@ result-*
 
 # Ignore automatically generated direnv output
 .direnv
+
+tests/
