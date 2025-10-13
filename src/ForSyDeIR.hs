@@ -93,13 +93,15 @@ prettyIRSystem (IRSystem constructors signals functions) =
                 2
                 ( vcat (punctuate comma (map prettyIRConstructor constructors))
                 )
-              $$ text "}",
+              $$ text "}"
+              <+> comma,
             text "{"
               $$ nest
                 2
                 ( vcat (punctuate comma (map prettyIRSignal signals))
                 )
-              $$ text "}",
+              $$ text "}"
+              <+> comma,
             text "{"
               $$ nest
                 2
