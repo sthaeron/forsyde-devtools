@@ -26,7 +26,7 @@ data ActorType
   deriving (Show)
 
 data IRConstructor
-  = IRDelay String
+  = IRDelay String [Int]
   | IRActor String ActorType String
 
 data IRSignal = IRSignal String (String, Int) (String, Int)
@@ -57,10 +57,13 @@ prettyIRSignal (IRSignal signalId (inputId, inputRate) (outputId, outputRate)) =
       )
 
 prettyIRConstructor :: IRConstructor -> SDoc
-prettyIRConstructor (IRDelay delayId) =
+prettyIRConstructor (IRDelay delayId tokenList) =
   text "IRDelay"
     <+> parens
-      (text delayId)
+      ( text delayId
+          <+> comma
+          <+> text (show tokenList)
+      )
 prettyIRConstructor (IRActor actorId actorType functionId) =
   text "IRActor"
     <+> parens
@@ -112,7 +115,7 @@ exampleSystem :: IRSystem
 exampleSystem =
   IRSystem
     [ IRActor "actor_1" Actor22 "add",
-      IRDelay "delay_1"
+      IRDelay "delay_1" [0]
     ]
     [ IRSignal "s_in" ("input", 1) ("actor_1", 1),
       IRSignal "s_1" ("actor_1", 1) ("delay_1", 1),
