@@ -1,7 +1,7 @@
 module ForSyDeIR where
 
 import GHC.Core
-import GHC.Core.Ppr (pprCoreExpr)
+import GHC.Core.Ppr (pprCoreBindingWithSize)
 import GHC.Utils.Outputable
 
 -- ForSyDe IR data types
@@ -31,7 +31,7 @@ data IRConstructor
 
 data IRSignal = IRSignal String (String, Int) (String, Int)
 
-data IRFunction = IRFunction String (Maybe CoreExpr)
+data IRFunction = IRFunction String (Maybe CoreBind)
 
 data IRSystem = IRSystem [IRConstructor] [IRSignal] [IRFunction]
 
@@ -80,7 +80,7 @@ prettyIRFunction (IRFunction functionId function) =
     <+> parens
       ( text functionId
           <+> comma
-          <+> maybe empty pprCoreExpr function
+          <+> maybe empty pprCoreBindingWithSize function
       )
 
 prettyIRSystem :: IRSystem -> SDoc
