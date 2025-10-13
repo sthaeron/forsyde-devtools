@@ -8,8 +8,8 @@ import Data.Ratio (approxRational, numerator, denominator)
 -- Data structures definitions
 ----------------------------------------------------------
 
-data Actor = Actor { name :: String, isInput :: Bool, isOutput :: Bool } deriving (Show, Eq, Generic)
-data Edge  = Edge  { src :: Actor, dst :: Actor, prod :: Int, cons :: Int } deriving (Show, Eq, Generic)
+data Actor = Actor { name :: String, isInput :: Bool } deriving (Show, Eq, Generic)
+data Edge  = Edge  { src :: Actor, dst :: Actor, prod :: Int, cons :: Int , isDelay :: Bool } deriving (Show, Eq, Generic)
 
 ----------------------------------------------------------
 -- Example graph
@@ -17,20 +17,20 @@ data Edge  = Edge  { src :: Actor, dst :: Actor, prod :: Int, cons :: Int } deri
 -- But scheduling will need to know the actor with input to initiate with
 ----------------------------------------------------------
 
-a = Actor "A" True False
-b = Actor "B" True False
-c = Actor "C" False False
-d = Actor "D" False True
+a = Actor "A" True
+b = Actor "B" True
+c = Actor "C" False
+d = Actor "D" False
 
 actors :: [Actor]
 actors = [a,b,c,d]
 
 edges :: [Edge]
 edges =
-  [ Edge a c 1 2
-  , Edge b d 2 2
-  , Edge d c 1 1
-  , Edge c d 1 1
+  [ Edge a c 1 2 False
+  , Edge b d 2 2 False
+  , Edge d c 1 1 True
+  , Edge c d 1 1 False
   ]
 
 ----------------------------------------------------------
@@ -106,14 +106,14 @@ printMatrixEdgesRows edges actors matrix = do
   mapM_ printRow (zip edges (toLists matrix))
   where
     pad width str = take width (str ++ repeat ' ')
-    edgeLabel (Edge src dst _ _) = name src ++ "→" ++ name dst
+    edgeLabel (Edge src dst _ _ _) = name src ++ "→" ++ name dst
     printRow (edge, rowValues) =
       putStrLn $ pad 8 (edgeLabel edge) ++ concatMap (pad 10 . show) rowValues
 
 ----------------------------------------------------------
--- Scheduler: Greedy + Forced approach with special handling for inputs/outputs.
--- Actors marked as isInput=True can always fire (external tokens available).
--- Actors marked as isOutput=True have no token constraints on outputs.
+-- Scheduler: Greedy + Forced approach with special handling for inputs.
+-- Actors marked as isInput=True have a infinite external tokens
+-- To fire an actor, it must have enough input tokens for all its incoming edges.
 ----------------------------------------------------------
 
 -- | Get all the incoming edges for a given actor
@@ -187,7 +187,7 @@ fireOnce actors edges actorIndex tokens minTokens =
 -- Steps:
 -- 1. Find all the fireable actors (repetition count > 0 and has enough input tokens)
 -- 2. Fire all the fireable actors with the sequence order (could be optimized for minimal buffer size)
--- 3. If there is no fireable actor, force fire an actor with remaining times (to determine the initial token count)
+-- 3. If there is no fireable actor, force fire an remaining actor with delay edges check (to determine the initial token count)
 -- 4. Record the minimum token value of each edge during the execution
 -- 5. If there are negative minimum token values, it will be the required initial token count
 --
@@ -229,14 +229,25 @@ greedyForcedSchedule actors edges repetitionCounts =
                     let (newTokens, newMinTokens) = fireOnce actors edges actorIdx currentTokens minTokens
                         newRemaining = updateAt actorIdx (subtract 1) remainingReps
                     in worker newRemaining newTokens newMinTokens (actorIdx:accSchedule)
-                  [] ->  -- If there is no fireable actor, force fire an actor with remaining times
-                    case findIndex (>0) remainingReps of
-                      -- "Nothing" should not happen, since we have already checked sum remainingReps != 0
-                      Nothing -> (reverse accSchedule, minTokens)
+                  [] ->  -- If there is no fireable actor, force fire an remaining actor with delay edges check
+                    case findForceFireActor remainingReps currentTokens of
                       Just forcedIdx ->
                         let (newTokens, newMinTokens) = fireOnce actors edges forcedIdx currentTokens minTokens  
                             newRemaining = updateAt forcedIdx (subtract 1) remainingReps
                         in worker newRemaining newTokens newMinTokens (forcedIdx:accSchedule)
+                      Nothing -> 
+                          error "Deadlock detected: Cannot find actor to force fire.\n"
+              where
+                findForceFireActor :: [Int] -> [Int] -> Maybe Int
+                findForceFireActor remainingReps currentTokens =
+                  findIndex (isForceFireable currentTokens) [0..nActors-1]
+                  where 
+                    isForceFireable tokens actorIndex = 
+                      remainingReps !! actorIndex > 0 &&
+                      all (isDelayOrHasTokens tokens) (incomingEdgeIndices actors edges actorIndex)
+                    isDelayOrHasTokens tokens edgeIndex =
+                      let edge = edges !! edgeIndex
+                      in isDelay edge || tokens !! edgeIndex >= cons edge
   
   in
     let (schedule, minTokens) = worker repetitionCounts initialTokens initialMinTokens []
