@@ -13,11 +13,11 @@ git remote add upstream git@github.com:sthaeron/forsyde-devtools.git
 
 ### Sync your fork
 
-The local main branch can be updated e.g. by:
+The local dev branch can be updated e.g. by:
 
 ```
-git pull upstream main
-git push origin main
+git pull upstream dev
+git push origin dev
 ```
 
 ### Adding a new feature
@@ -32,7 +32,7 @@ When that's done, create a separate branch, e.g if you have added
 the main repo as the `upstream` remote:
 
 ```
-git checkout -b work/feature upstream/main
+git checkout -b work/feature upstream/dev
 # Do your work
 git commit
 git push origin work/feature
@@ -41,7 +41,7 @@ git push origin work/feature
 ### Feature Contribution Rule
 
 1. Separate commits for different parts of the project.
-   E.g. if you contributed actor11SDF, you should separate the commits for e.g. the parser and the code generation.
+   E.g. if you contributed actor11SDF, you should separate the commits for e.g. the ForSyDeIR and the code generation.
 
 2. Do the feature work in your own fork. You should also include at least one new test,
     see [Testing Documenation](testing.md) for more information.
@@ -115,7 +115,7 @@ incoming responses other than from latest request.
 nix-shell
 ```
 
-3. You now have all required dependencies (including OCaml and dune) available in your environment.
+3. You now have all required dependencies available in your environment.
 
 ## Continuous Integration
 
@@ -133,7 +133,7 @@ If you use the nix environment, this is done automatically, but otherwise:
 cp -r ./.githooks/. ./.git/hooks
 ```
 
-At this point, they are used to ensure a consistent formatting of OCaml source code.
+At this point, they are used to ensure a consistent formatting of Haskell source code.
 
 ### Github Actions
 
