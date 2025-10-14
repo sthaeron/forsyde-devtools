@@ -23,6 +23,7 @@ executable forsyde-devtools-exe
     other-modules:
         Arguments
         ForSyDeIR
+        CoreIR
     build-depends:
         base >=4.6 && <6,
         ghc == 9.8.4,
