@@ -1,7 +1,7 @@
 module ForSyDeIR where
 
 import GHC.Core
-import GHC.Core.Ppr (pprCoreExpr)
+import GHC.Core.Ppr (pprCoreBindingWithSize)
 import GHC.Utils.Outputable
 
 -- ForSyDe IR data types
@@ -26,12 +26,12 @@ data ActorType
   deriving (Show)
 
 data IRConstructor
-  = IRDelay String
+  = IRDelay String [Int]
   | IRActor String ActorType String
 
 data IRSignal = IRSignal String (String, Int) (String, Int)
 
-data IRFunction = IRFunction String (Maybe CoreExpr)
+data IRFunction = IRFunction String (Maybe CoreBind)
 
 data IRSystem = IRSystem [IRConstructor] [IRSignal] [IRFunction]
 
@@ -57,10 +57,13 @@ prettyIRSignal (IRSignal signalId (inputId, inputRate) (outputId, outputRate)) =
       )
 
 prettyIRConstructor :: IRConstructor -> SDoc
-prettyIRConstructor (IRDelay delayId) =
+prettyIRConstructor (IRDelay delayId tokenList) =
   text "IRDelay"
     <+> parens
-      (text delayId)
+      ( text delayId
+          <+> comma
+          <+> text (show tokenList)
+      )
 prettyIRConstructor (IRActor actorId actorType functionId) =
   text "IRActor"
     <+> parens
@@ -77,7 +80,7 @@ prettyIRFunction (IRFunction functionId function) =
     <+> parens
       ( text functionId
           <+> comma
-          <+> maybe empty pprCoreExpr function
+          <+> maybe empty pprCoreBindingWithSize function
       )
 
 prettyIRSystem :: IRSystem -> SDoc
@@ -90,13 +93,15 @@ prettyIRSystem (IRSystem constructors signals functions) =
                 2
                 ( vcat (punctuate comma (map prettyIRConstructor constructors))
                 )
-              $$ text "}",
+              $$ text "}"
+              <+> comma,
             text "{"
               $$ nest
                 2
                 ( vcat (punctuate comma (map prettyIRSignal signals))
                 )
-              $$ text "}",
+              $$ text "}"
+              <+> comma,
             text "{"
               $$ nest
                 2
@@ -112,7 +117,7 @@ exampleSystem :: IRSystem
 exampleSystem =
   IRSystem
     [ IRActor "actor_1" Actor22 "add",
-      IRDelay "delay_1"
+      IRDelay "delay_1" [0]
     ]
     [ IRSignal "s_in" ("input", 1) ("actor_1", 1),
       IRSignal "s_1" ("actor_1", 1) ("delay_1", 1),
