@@ -23,9 +23,11 @@ executable forsyde-devtools-exe
     other-modules:
         Arguments
         ForSyDeIR
+        CoreIR
     build-depends:
         base >=4.6 && <6,
         ghc == 9.8.4,
         ghc-paths == 0.1.0.12,
         forsyde-shallow == 3.5.0.0,
         optparse-applicative >= 0.18.1.0,
+        filepath == 1.4.301.0,

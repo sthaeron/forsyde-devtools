@@ -1,13 +1,7 @@
 module Main where
 
 import Arguments
-import GHC
-import GHC.Data.EnumSet (fromList)
-import GHC.Driver.Monad
-import GHC.Driver.Ppr
-import GHC.Driver.Session (defaultFatalMessager, defaultFlushOut)
-import GHC.Paths
-import GHC.Utils.Outputable hiding ((<>))
+import CoreIR (compileToCore, prettyCoreBindList)
 import Options.Applicative
 
 {-
@@ -40,35 +34,6 @@ import Options.Applicative
 
 -}
 
-toCore :: FilePath -> IO CoreModule
-toCore input_file =
-  defaultErrorHandler defaultFatalMessager defaultFlushOut $ do
-    runGhc (Just libdir) $ do
-      dflags <- getSessionDynFlags
-      setSessionDynFlags
-        dflags
-          { ghcLink = LinkInMemory,
-            ghcMode = CompManager,
-            generalFlags =
-              fromList
-                [ Opt_SuppressTicks,
-                  Opt_SuppressCoercions,
-                  Opt_SuppressCoercionTypes,
-                  Opt_SuppressVarKinds,
-                  Opt_SuppressModulePrefixes,
-                  Opt_SuppressTypeApplications,
-                  Opt_SuppressIdInfo,
-                  Opt_SuppressUnfoldings,
-                  Opt_SuppressTypeSignatures,
-                  Opt_SuppressUniques,
-                  Opt_SuppressStgExts,
-                  Opt_SuppressStgReps,
-                  Opt_SuppressTimestamps,
-                  Opt_SuppressCoreSizes
-                ]
-          }
-      compileToCoreModule input_file
-
 write_output :: Output -> OutputFormat -> [Char] -> IO ()
 write_output StdOut _ s =
   putStrLn s
@@ -99,10 +64,9 @@ run (Arguments (InputFile input_file) output_file OutputIRForSyDe) =
 run (Arguments (InputFile input_file) output_file OutputIRProcedural) =
   putStrLn "To Procedural IR"
 -- What we have so far, take input file and write out core
-run (Arguments (InputFile input_file) outputFile OutputCore) = do
-  core_output <- toCore input_file
-  dflags <- runGhc (Just libdir) $ getSessionDynFlags
-  write_output outputFile OutputCore (showSDoc dflags $ ppr core_output)
+run (Arguments (InputFile input_file) output_file OutputCore) = do
+  core <- compileToCore input_file
+  write_output output_file OutputCore (prettyCoreBindList core)
 
 main :: IO ()
 main = run =<< execParser opts
