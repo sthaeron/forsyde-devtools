@@ -19,6 +19,7 @@ import GHC.Utils.Monad
 import GHC.Utils.Outputable
 import GHC.Utils.Outputable (showSDocUnsafe)
 import GHC.Utils.Ppr (Mode (PageMode))
+import System.FilePath (takeBaseName)
 import System.IO (stdout)
 import Text.Printf (printf)
 
@@ -67,20 +68,20 @@ prettyCoreAltCon altCons = case altCons of
 prettyCoreAltList :: [CoreAlt] -> String
 prettyCoreAltList alts = concatMap (\x -> printf "(%s), " (prettyCoreAlt x)) alts
 
-compileToDesugar :: String -> IO CoreProgram
-compileToDesugar modName = runGhc (Just libdir) $ do
+compileToDesugar :: FilePath -> IO CoreProgram
+compileToDesugar filePath = runGhc (Just libdir) $ do
   setSessionDynFlags =<< getSessionDynFlags
-  target <- guessTarget ("examples/model/" ++ modName ++ ".hs") Nothing Nothing
+  target <- guessTarget filePath Nothing Nothing
   setTargets [target]
   load LoadAllTargets
-  ds <- desugarModule <=< typecheckModule <=< parseModule <=< getModSummary $ mkModuleName modName
+  ds <- desugarModule <=< typecheckModule <=< parseModule <=< getModSummary $ mkModuleName (takeBaseName filePath)
   return $ mg_binds . dm_core_module $ ds
 
-compileToCore :: String -> IO CoreProgram
-compileToCore modName = runGhc (Just libdir) $ do
+compileToCore :: FilePath -> IO CoreProgram
+compileToCore filePath = runGhc (Just libdir) $ do
   setSessionDynFlags =<< getSessionDynFlags
-  target <- guessTarget ("examples/model/" ++ modName ++ ".hs") Nothing Nothing
+  target <- guessTarget filePath Nothing Nothing
   setTargets [target]
   load LoadAllTargets
-  ds <- desugarModule <=< typecheckModule <=< parseModule <=< getModSummary $ mkModuleName modName
+  ds <- desugarModule <=< typecheckModule <=< parseModule <=< getModSummary $ mkModuleName (takeBaseName filePath)
   return $ mg_binds . coreModule $ ds
