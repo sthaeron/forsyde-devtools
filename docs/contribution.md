@@ -43,11 +43,16 @@ git push origin work/feature
 1. Separate commits for different parts of the project.
    E.g. if you contributed actor11SDF, you should separate the commits for e.g. the parser and the code generation.
 
-2. Do the feature work in your own fork.
+2. Do the feature work in your own fork. You should also include at least one new test,
+    see [Testing Documenation](testing.md) for more information.
 
-3. Create a pull request from the branch on the dev repo or via the link which appears when you push the new branch.
+3. Check that tests for other modules still complete successfully.
+    If there are failing tests which are *expected* to fail as a result of your work,
+    update the tests with the new expected behavior.
 
-4. Wait for someone else to review, and address any resulting comments.
+4. Create a pull request from the branch on the dev repo or via the link which appears when you push the new branch.
+
+5. Wait for someone else to review, and address any resulting comments.
 
 If there is no consensus on how to go forward it should be brought up
 in the next team meeting.
