@@ -33,7 +33,7 @@ data IRSignal = IRSignal String (String, Int) (String, Int)
 
 data IRFunction = IRFunction String (Maybe CoreBind)
 
-data IRSystem = IRSystem [IRConstructor] [IRSignal] [IRFunction]
+data IRSystem = IRSystem ([String], [String]) [IRConstructor] [IRSignal] [IRFunction]
 
 -- Pretty printing functions for ForSyDe IR
 
@@ -84,11 +84,21 @@ prettyIRFunction (IRFunction functionId function) =
       )
 
 prettyIRSystem :: IRSystem -> SDoc
-prettyIRSystem (IRSystem constructors signals functions) =
+prettyIRSystem (IRSystem (inputs, outputs) constructors signals functions) =
   text "IRSystem"
     <+> parens
       ( vcat
-          [ text "{"
+          [ parens
+              ( text "{"
+                  <+> vcat (punctuate comma (map text inputs))
+                  <+> text "}"
+                  <+> comma
+                  <+> text "{"
+                  <+> vcat (punctuate comma (map text outputs))
+                  <+> text "}"
+              )
+              <+> comma,
+            text "{"
               $$ nest
                 2
                 ( vcat (punctuate comma (map prettyIRConstructor constructors))
@@ -116,6 +126,7 @@ prettyIRSystem (IRSystem constructors signals functions) =
 exampleSystem :: IRSystem
 exampleSystem =
   IRSystem
+    (["input"], ["output"])
     [ IRActor "actor_1" Actor22 "add",
       IRDelay "delay_1" [0]
     ]

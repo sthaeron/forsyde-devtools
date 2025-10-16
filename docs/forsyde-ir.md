@@ -11,7 +11,7 @@ data IRConstructor
   | IRActor String ActorType String
 data IRSignal = IRSignal String (String, Int) (String, Int)
 data IRFunction = IRFunction String (Maybe CoreBind)
-data IRSystem = IRSystem [IRConstructor] [IRSignal] [IRFunction]
+data IRSystem = IRSystem ([String], [String]) [IRConstructor] [IRSignal] [IRFunction]
 ```
 
 ## Pretty Printing
@@ -19,7 +19,7 @@ The pretty printing for the ForSyDe IR is also defined under `src/ForSyDeIR.hs`.
 - `constructor`: `IRDelay(delayId, { tokens })`, `IRActor(actorID, actorType, functionId)`
 - `signal`: `IRSignal(signalId, (sourceId, sourceRate), (targetId, targetRate))`
 - `function`: `IRFunction(functionId, [ function ])`
-- `system`: `IRSystem({ constructors }, { signals }, { functions } )`
+- `system`: `IRSystem(({ inputIds }, { outputIds }), { constructors }, { signals }, { functions } )`
 
 ## Naming Convention
 The naming convention of the ForSyDe IR data types is to just use the umbrella term provided by the ForSyDe Shallow documentation and prefix `IR`. Make sure to use upper camel case.
