@@ -9,13 +9,11 @@ license-file:       LICENSE
 -- maintainer:
 -- copyright:
 build-type:         Simple
-extra-doc-files:    CHANGELOG.md
+extra-doc-files:    README.md
 
-common shared
+common common-options
     ghc-options:      -Wall -threaded
     default-language: Haskell2010
-    other-modules:
-        Paths_forsyde_devtools
     build-depends:
         base >=4.6 && <6,
         ghc == 9.8.4,
@@ -25,7 +23,7 @@ common shared
         filepath == 1.4.301.0,
 
 library
-    import:           shared
+    import:           common-options
     hs-source-dirs:   src
     exposed-modules:
         Arguments
@@ -33,20 +31,21 @@ library
         ForSyDeIR
 
 executable forsyde-devtools-exe
-    import:           shared
+    import:           common-options
     hs-source-dirs:   src
     main-is:          Main.hs
     ghc-options:      -rtsopts -with-rtsopts=-N
-    build-depends:
-        forsyde-devtools,
+    build-depends:    forsyde-devtools
 
-test-suite spec
-    import:           shared
+
+test-suite forsyde-devtools-test
+    import:           common-options
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
     main-is:          Spec.hs
+    ghc-options:      -threaded -rtsopts -with-rtsopts=-N
+    other-modules:
+        ForSyDeIRSpec
     build-depends:
-        hspec == 2.11.*,
         forsyde-devtools,
-    build-tool-depends:
-        hspec-discover:hspec-discover == 2.11.*
+        hspec,
