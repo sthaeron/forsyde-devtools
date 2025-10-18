@@ -54,7 +54,7 @@ The algorithm works in three phases:
     - Calculate nullspace of the matrix and approximate to minimum integer
     - Verify the approximated repetition vector
 
-2. **Schedule Generation and Initial Token Calculation**
+2. **Schedule Generation**
     - Choose the first fireable actor to fire
     - When no actor is fireable, deadlock happens and becomes error
     - Record the execution order
@@ -84,5 +84,3 @@ main = do
 
 ## Limitation and Future Work
 Currently, this scheduler will generate a valid schedule, but not with a minimal buffer size. This could be optimized with new strategy of choosing fireable actors.
-
-Besides, the identify actors that connects to an input, currently it simply finds an IRSignal that source is named "input". If there are multiple inputs, the name might be different and this would not work. There should be a new way to represent inputs in ForSyDeIR.
