@@ -1,4 +1,15 @@
-module ForSyDeIR where
+module ForSyDeIR
+  ( ActorType (..),
+    IRConstructor (..),
+    IRSignal (..),
+    IRFunction (..),
+    IRSystem (..),
+    prettyIRSignal,
+    prettyIRConstructor,
+    prettyIRFunction,
+    prettyIRSystem,
+  )
+where
 
 import GHC.Core
 import GHC.Core.Ppr (pprCoreBindingWithSize)
@@ -120,24 +131,3 @@ prettyIRSystem (IRSystem (inputs, outputs) constructors signals functions) =
               $$ text "}"
           ]
       )
-
--- Simple example to test ForSyDe IR
-
-exampleSystem :: IRSystem
-exampleSystem =
-  IRSystem
-    (["input"], ["output"])
-    [ IRActor "actor_1" Actor22 "add",
-      IRDelay "delay_1" [0]
-    ]
-    [ IRSignal "s_in" ("input", 1) ("actor_1", 1),
-      IRSignal "s_1" ("actor_1", 1) ("delay_1", 1),
-      IRSignal "s_2" ("delay_1", 1) ("actor_1", 1),
-      IRSignal "s_out" ("actor_1", 1) ("output", 1)
-    ]
-    [ IRFunction "add" Nothing
-    ]
-
-testForSyDeIR :: IO ()
-testForSyDeIR = do
-  putStrLn $ showSDocUnsafe $ prettyIRSystem exampleSystem
