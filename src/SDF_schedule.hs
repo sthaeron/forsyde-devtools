@@ -7,11 +7,12 @@ import Data.Maybe (catMaybes)
 import Data.Ratio (approxRational, denominator, numerator)
 import ForSyDeIR
 import GHC.Generics (Generic)
+import GHC.Utils.Outputable
 import Numeric.LinearAlgebra hiding (find)
 
 -- | Convert ForSyDe IR to SDF data structures
 convertIRSystem :: IRSystem -> ([Actor], [Edge])
-convertIRSystem (IRSystem constructors signals _) =
+convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
   let -- 1. Delay node names (IRDelay has two parameters)
       delayNames = [n | IRDelay n _ <- constructors]
 
@@ -25,12 +26,12 @@ convertIRSystem (IRSystem constructors signals _) =
       inputActorNames =
         [ dstId
           | IRSignal _ (srcId, _) (dstId, _) <- signals,
-            srcId == "input"
+            srcId `elem` inputNames
         ]
 
       -- 4. Build actor list
       baseActors =
-        [ Actor n (n `elem` inputActorNames)
+        [ Actor n (n `elem` inputActorNames || n `elem` inputNames)
           | n <- nub allActorNames
         ]
 
@@ -50,8 +51,8 @@ convertIRSystem (IRSystem constructors signals _) =
             False
             0
           | IRSignal _ (srcId, prodRate) (dstId, consRate) <- signals,
-            srcId /= "input",
-            dstId /= "output",
+            srcId `notElem` inputNames,
+            dstId `notElem` outputNames,
             srcId `notElem` delayNames,
             dstId `notElem` delayNames
         ]
@@ -60,21 +61,41 @@ convertIRSystem (IRSystem constructors signals _) =
       delayEdges = concatMap makeDelayEdge delayNames
 
       makeDelayEdge delayName =
-        case ( Data.List.find (\(IRSignal _ (_, _) (d, _)) -> d == delayName) signals,
-               Data.List.find (\(IRSignal _ (s, _) _) -> s == delayName) signals
-             ) of
-          ( Just (IRSignal _ (srcIn, prodIn) _),
-            Just (IRSignal _ _ (dstOut, consOut))
-            ) ->
-              [ Edge
-                  (findActorByName srcIn)
-                  (findActorByName dstOut)
-                  prodIn
-                  consOut
-                  True
-                  1
+        let delayConstructor =
+              case find
+                ( \c -> case c of
+                    IRDelay name _ -> name == delayName
+                    _ -> False
+                )
+                constructors of
+                Just (IRDelay _ initTokens) -> initTokens
+                Nothing -> error $ "Delay node " ++ delayName ++ " not found in constructors"
+            incoming =
+              [ (srcId, prod)
+                | IRSignal _ (srcId, prod) (dstId, _) <- signals,
+                  dstId == delayName
               ]
-          _ -> [] -- skip malformed delay
+            outgoing =
+              [ (dstId, cons)
+                | IRSignal _ (srcId, _) (dstId, cons) <- signals,
+                  srcId == delayName
+              ]
+         in case (incoming, outgoing) of
+              ([(srcIn, prodIn)], [(dstOut, consOut)]) ->
+                [ Edge
+                    (findActorByName srcIn)
+                    (findActorByName dstOut)
+                    prodIn
+                    consOut
+                    True
+                    (length delayConstructor)
+                ]
+              ([], _) ->
+                error $ "Delay node " ++ delayName ++ " has no input signal."
+              (_, []) ->
+                error $ "Delay node " ++ delayName ++ " has no output signal."
+              _ ->
+                error $ "Delay node " ++ delayName ++ " must have exactly one input and one output."
 
       -- 8. Normalize self-loops: ensure prod == cons, otherwise error
       normalizeSelfLoop e@(Edge src dst prod cons isDelay initTok)
@@ -141,39 +162,36 @@ computeNullSpace = nullspace
 -- | Normalize the real null space vector to a minimal integer repetition vector
 --
 -- Steps:
---  1. Choose a sign so the first non-zero component is positive.
---  2. Approximate each Double as a Rational within `epsilon`.
---  3. Scale by LCM of denominators to get integers.
---  4. Divide by GCD of non-zero entries to make the vector minimal.
+--  1. Ignore near-zero components (|x| < 1e-12) when finding the smallest non-zero magnitude.
+--  2. Divide all components by that smallest positive magnitude to obtain a proportional vector.
+--  3. Multiply by a scaling factor (here 10000) and round to nearest integers for stability.
+--  4. If all components are negative, flip the sign so the first non-zero becomes positive.
+--  5. Divide by the GCD of all non-zero entries to produce the minimal integer vector.
 --
 -- Returns a list of Integers of same length as the input vector.
 -- Edge cases:
 --  - All-zero input -> returns all zeros.
 --  - Components very close to 0 are treated as 0 by `epsilon` tolerance.
-normalizeToInteger :: Vector R -> [Integer]
+normalizeToInteger :: Vector Double -> [Integer]
 normalizeToInteger v =
-  let epsilon :: Double
-      epsilon = 1e-9 -- tolerance for approxRational
-      components = toList v
+  let components = toList v
+      -- Find the smallest non-zero
+      absComponents = map abs components
+      nonZero = filter (\x -> x > 1e-12) absComponents
+      minNonZero = if null nonZero then 1 else minimum (map abs nonZero)
 
-      -- make the first non-zero entry positive (or leave zeros if all zero)
-      signedComponents =
-        case dropWhile (\x -> abs x < epsilon) components of
-          [] -> components
-          (x : _) -> if x < 0 then map negate components else components
+      -- Round to integer
+      scaled = map (\x -> round (x / minNonZero * 10000)) components
 
-      -- approximate each component as a Rational within epsilon
-      rationals = map (`approxRational` epsilon) signedComponents
+      -- Ensure positive
+      finalScaled =
+        if all (< 0) scaled
+          then map abs scaled
+          else scaled
 
-      -- scale up by lcm of denominators to get integer vector
-      denominators = map denominator rationals
-      lcmDenominator = if null denominators then 1 else foldl1 lcm denominators
-      ints = [numerator r * (lcmDenominator `div` denominator r) | r <- rationals]
-
-      -- divide by gcd of non-zero entries to make the vector minimal
-      nonZeroInts = filter (/= 0) ints
-      gcdAll = if null nonZeroInts then 1 else foldl1 gcd (map abs nonZeroInts)
-   in map (`div` gcdAll) ints
+      -- Normalize by GCD
+      gcdAll = foldl1 gcd (map abs finalScaled)
+   in if gcdAll == 0 then finalScaled else map (`div` gcdAll) finalScaled
 
 -- | Print the matrix with edges as rows and actors as columns
 printMatrixEdgesRows :: [Edge] -> [Actor] -> Matrix R -> IO ()
@@ -201,7 +219,7 @@ printMatrixEdgesRows edges actors matrix = do
   mapM_ (printRow edgeLabelWidth totalColWidths) (zip edges (toLists matrix))
   where
     pad width str = take width (str ++ repeat ' ')
-    edgeLabel (Edge src dst _ _ _ _) = name src ++ "→" ++ name dst
+    edgeLabel (Edge src dst _ _ _ _) = name src ++ " → " ++ name dst
 
     printRow labelWidth colWidths (edge, rowValues) =
       putStrLn $
@@ -304,7 +322,8 @@ greedySchedule actors edges repetitionCounts =
             let isFireable i =
                   (remainingReps !! i) > 0
                     && let incomingEdges -- has remaining fire repetitions
-                             = incomingEdgeIndices actors edges i
+                             =
+                             incomingEdgeIndices actors edges i
                            actor = actors !! i
                            canFire = case incomingEdges of
                              [] ->
@@ -396,19 +415,39 @@ verifySchedule actors edges initialTokens schedule _repetitionCounts =
 computeScheduleAndBuffers :: IRSystem -> ([String], [Int])
 computeScheduleAndBuffers irSystem =
   let (actors, edges) = convertIRSystem irSystem
-      mat = buildTopologyMatrixEdgesRows actors edges
-      rankMat = rank mat
-   in if rankMat == length actors - 1
+   in if null edges
         then
-          let ns = computeNullSpace mat
-              repVec = flatten (takeColumns 1 ns)
-              repInt = normalizeToInteger repVec
-              repCounts = map fromIntegral repInt :: [Int]
-              schedIdxs = greedySchedule actors edges repCounts
-              schedNames = map (name . (actors !!)) schedIdxs -- convert index to name
-              bufSizes = simulateBufferUsage actors edges (map initTokens edges) schedIdxs
+          -- If there are no internal edges, fire all actor once, no buffer required
+          let schedNames = map name actors
+              bufSizes = replicate (length edges) 0
            in (schedNames, bufSizes)
-        else error "Matrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
+        else
+          let mat = buildTopologyMatrixEdgesRows actors edges
+              rankMat = rank mat
+           in if rankMat == length actors - 1
+                then
+                  let ns = computeNullSpace mat
+                      repVec = flatten (takeColumns 1 ns)
+                      repInt = normalizeToInteger repVec
+
+                      -- Verification
+                      repVector = fromIntegral <$> repInt :: [R]
+                      verificationResult = mat #> vector repVector
+                      isZeroVector = all (\x -> abs x < 1e-9) (toList verificationResult)
+
+                      -- 在这里计算最终结果，这样repInt在作用域内
+                      finalResult =
+                        if not isZeroVector
+                          then error "Verification failed: repetition vector is not in null space"
+                          else
+                            let repCounts = map fromIntegral repInt :: [Int]
+                                schedIdxs = greedySchedule actors edges repCounts
+                                schedNames = map (name . (actors !!)) schedIdxs
+                                bufSizes = simulateBufferUsage actors edges (map initTokens edges) schedIdxs
+                             in (schedNames, bufSizes)
+                   in finalResult
+                else
+                  error "Matrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
 
 ----------------------------------------------------------
 -- Pretty-print version
@@ -418,76 +457,210 @@ computeScheduleAndBuffers irSystem =
 computeScheduleAndBuffersPrint :: IRSystem -> IO ()
 computeScheduleAndBuffersPrint irSystem = do
   let (actors, edges) = convertIRSystem irSystem
-      mat = buildTopologyMatrixEdgesRows actors edges
-  printMatrixEdgesRows edges actors mat
 
-  let rankMat = rank mat
-  putStrLn $ "\nMatrix Rank: " ++ show rankMat
-  putStrLn $ "Number of actors: " ++ show (length actors)
-  putStrLn $ "Number of edges: " ++ show (length edges)
-
-  if rankMat == length actors - 1
+  if null edges
     then do
-      let ns = computeNullSpace mat
-      putStrLn "\nNull Space (fractional repetition vector for ACTORS):"
-      disp 4 ns
-
-      let repVec = flatten (takeColumns 1 ns)
-          repInt = normalizeToInteger repVec
-
-      -- Verification: multiply the integer repetition vector back to the topology matrix
-      let repVector = fromIntegral <$> repInt :: [R]
-          verificationResult = mat #> vector repVector
-          isZeroVector = all (\x -> abs x < 1e-9) (toList verificationResult)
-
-      putStrLn "\nVerification of null space vector:"
-      putStrLn $ "Repetition vector × Topology Matrix ≈ Zero Vector? " ++ show isZeroVector
-      if not isZeroVector
-        then do
-          putStrLn "Warning: Product is not zero!"
-          putStrLn "Product vector:"
-          print verificationResult
-        else return () -- verification passed
-      putStrLn "\nNormalized repetition vector for ACTORS (integers):"
-      let actorLabels = [name a | a <- actors]
-      putStrLn $ intercalate " : " [label ++ "=" ++ show r | (label, r) <- zip actorLabels repInt]
-
-      let repCounts = map fromIntegral repInt :: [Int]
-          schedIdxs = greedySchedule actors edges repCounts
-          schedNames = map (name . (actors !!)) schedIdxs
-
-      putStrLn "\nGenerated schedule (actor firing order):"
+      -- If there are no internal edges, fire all actor once, no buffer required
+      let schedNames = map name actors
+          bufSizes = replicate (length edges) 0
+      putStrLn "No internal edges found.\n"
+      putStrLn "Schedule (all actors fire once):"
       putStrLn $ intercalate ", " schedNames
+      putStrLn "\nBuffer sizes: no buffer needed."
+    else do
+      let mat = buildTopologyMatrixEdgesRows actors edges
+      printMatrixEdgesRows edges actors mat
 
-      putStrLn "\nInitial tokens (provided by IR):"
-      let edgeLabels = [name (src e) ++ "→" ++ name (dst e) | e <- edges]
-      mapM_ (\(lbl, e) -> putStrLn $ " " ++ lbl ++ ": " ++ show (initTokens e)) (zip edgeLabels edges)
+      let rankMat = rank mat
+      putStrLn $ "\nMatrix Rank: " ++ show rankMat
+      putStrLn $ "Number of actors: " ++ show (length actors)
+      putStrLn $ "Number of edges: " ++ show (length edges)
 
-      let ok = verifySchedule actors edges (map initTokens edges) schedIdxs repCounts
-      putStrLn $ "\nVerification of schedule with computed initial tokens: " ++ (if ok then "OK" else "FAILED")
+      if rankMat == length actors - 1
+        then do
+          let ns = computeNullSpace mat
+          putStrLn "\nNull Space (fractional repetition vector for actors):"
+          disp 4 ns
 
-      ------------------------------------------------------
-      -- Simulate buffer usage for one period
-      ------------------------------------------------------
-      let bufSizes = simulateBufferUsage actors edges (map initTokens edges) schedIdxs
-      putStrLn "\nSimulated buffer sizes (maximum tokens observed per edge):"
-      mapM_ (\(lbl, sz) -> putStrLn $ "  " ++ lbl ++ ": " ++ show sz) (zip edgeLabels bufSizes)
-    else
-      putStrLn "\nMatrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
+          let repVec = flatten (takeColumns 1 ns)
+              repInt = normalizeToInteger repVec
+
+          -- Verification: multiply the integer repetition vector back to the topology matrix
+          let repVector = fromIntegral <$> repInt :: [R]
+              verificationResult = mat #> vector repVector
+              isZeroVector = all (\x -> abs x < 1e-9) (toList verificationResult)
+
+          putStrLn "\nVerification of null space vector:"
+          putStrLn $ "Topology Matrix × Repetition Vector ≈ Zero Vector? " ++ show isZeroVector
+          if not isZeroVector
+            then do
+              putStrLn "Warning: Product is not zero!"
+              putStrLn "Product vector:"
+              print verificationResult
+            else return () -- verification passed
+          putStrLn "\nNormalized repetition vector for ACTORS (integers):"
+          let actorLabels = [name a | a <- actors]
+          putStrLn $ intercalate "\n" [label ++ "=" ++ show r | (label, r) <- zip actorLabels repInt]
+
+          let repCounts = map fromIntegral repInt :: [Int]
+              schedIdxs = greedySchedule actors edges repCounts
+              schedNames = map (name . (actors !!)) schedIdxs
+
+          putStrLn "\nGenerated schedule (actor firing order):"
+          putStrLn $ intercalate ", " schedNames
+
+          putStrLn "\nInitial tokens (provided by IR):"
+          let edgeLabels = [name (src e) ++ " → " ++ name (dst e) | e <- edges]
+          mapM_ (\(lbl, e) -> putStrLn $ " " ++ lbl ++ ": " ++ show (initTokens e)) (zip edgeLabels edges)
+
+          let ok = verifySchedule actors edges (map initTokens edges) schedIdxs repCounts
+          putStrLn $ "\nVerification of schedule with computed initial tokens: " ++ (if ok then "OK" else "FAILED")
+
+          ------------------------------------------------------
+          -- Simulate buffer usage for one period
+          ------------------------------------------------------
+          let bufSizes = simulateBufferUsage actors edges (map initTokens edges) schedIdxs
+          putStrLn "\nSimulated buffer sizes (maximum tokens observed per edge):"
+          mapM_ (\(lbl, sz) -> putStrLn $ "  " ++ lbl ++ ": " ++ show sz) (zip edgeLabels bufSizes)
+        else
+          putStrLn "\nMatrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
+
+----------------------------------------------------------
+-- Example Systems to test the algorithm
+----------------------------------------------------------
+-- System with single actor and self loop
+exampleSystem1 :: IRSystem
+exampleSystem1 =
+  IRSystem
+    (["input"], ["output"])
+    [ IRActor "actor_1" Actor22 "add",
+      IRDelay "delay_1" [0]
+    ]
+    [ IRSignal "s_in" ("input", 1) ("actor_1", 1),
+      IRSignal "s_1" ("actor_1", 1) ("delay_1", 1),
+      IRSignal "s_2" ("delay_1", 1) ("actor_1", 1),
+      IRSignal "s_out" ("actor_1", 1) ("output", 1)
+    ]
+    [ IRFunction "add" Nothing
+    ]
+
+-- System with single actor and nothing else
+exampleSystem2 :: IRSystem
+exampleSystem2 =
+  IRSystem
+    (["in"], ["out"])
+    [ IRActor "actor" Actor11 "add"
+    ]
+    [ IRSignal "s_in" ("in", 1) ("actor", 1),
+      IRSignal "s_out" ("actor", 1) ("out", 1)
+    ]
+    [ IRFunction "add" Nothing
+    ]
+
+-- System with two actors, one self loop
+exampleSystem3 :: IRSystem
+exampleSystem3 =
+  IRSystem
+    (["input"], ["output"])
+    [ IRActor "actor_1" Actor22 "add",
+      IRDelay "delay_1" [0],
+      IRActor "actor_2" Actor11 "add"
+    ]
+    [ IRSignal "s_in" ("input", 1) ("actor_1", 1),
+      IRSignal "s_1" ("actor_1", 1) ("delay_1", 1),
+      IRSignal "s_2" ("delay_1", 1) ("actor_1", 1),
+      IRSignal "s_3" ("actor_1", 1) ("actor_2", 1),
+      IRSignal "s_out" ("actor_2", 1) ("output", 1)
+    ]
+    [ IRFunction "add" Nothing
+    ]
+
+-- System with multiple inputs
+exampleSystem4 :: IRSystem
+exampleSystem4 =
+  IRSystem
+    (["s_ina", "s_inb"], ["s_out"])
+    [ IRActor "actor_a" Actor11 "add",
+      IRActor "actor_b" Actor11 "add",
+      IRActor "actor_c" Actor21 "add",
+      IRActor "actor_d" Actor22 "add",
+      IRDelay "delay" [0]
+    ]
+    [ IRSignal "s_ina" ("s_ina", 1) ("actor_a", 2),
+      IRSignal "s_inb" ("s_inb", 1) ("actor_b", 1),
+      IRSignal "s_1" ("actor_a", 1) ("actor_c", 2),
+      IRSignal "s_2" ("actor_b", 2) ("actor_d", 2),
+      IRSignal "s_3" ("actor_c", 1) ("actor_d", 1),
+      IRSignal "s_4_delay" ("actor_d", 1) ("delay", 1),
+      IRSignal "s_4" ("delay", 1) ("actor_c", 1),
+      IRSignal "s_out" ("actor_d", 2) ("s_out", 1)
+    ]
+    [ IRFunction "add" Nothing
+    ]
+
+exampleSystem5 :: IRSystem
+exampleSystem5 =
+  IRSystem
+    (["s_in"], ["s_out"])
+    [ IRActor "a" Actor21 "add",
+      IRActor "b" Actor11 "add",
+      IRActor "c" Actor12 "add",
+      IRDelay "delay" [0, 0, 0, 0, 0, 0]
+    ]
+    [ IRSignal "s_in" ("s_in", 1) ("a", 2),
+      IRSignal "s1" ("a", 1) ("b", 2),
+      IRSignal "s2" ("b", 3) ("c", 1),
+      IRSignal "s3_delay" ("c", 2) ("delay", 2),
+      IRSignal "s3" ("delay", 3) ("a", 3),
+      IRSignal "s_out" ("c", 1) ("s_out", 1)
+    ]
+    [ IRFunction "add" Nothing
+    ]
+
+exampleSystem6 :: IRSystem
+exampleSystem6 =
+  IRSystem
+    (["s_in"], ["s_out"])
+    [ IRActor "a" Actor12 "add",
+      IRActor "b" Actor11 "add",
+      IRActor "c" Actor11 "add",
+      IRActor "d" Actor12 "add",
+      IRDelay "delay" [0, 0]
+    ]
+    [ IRSignal "s_in" ("s_in", 1) ("a", 2),
+      IRSignal "s1" ("a", 1) ("b", 4),
+      IRSignal "s2_delay" ("b", 1) ("delay", 1),
+      IRSignal "s2" ("delay", 2) ("d", 2),
+      IRSignal "s3" ("d", 4) ("c", 1),
+      IRSignal "s4" ("c", 4) ("a", 2),
+      IRSignal "s_out" ("d", 1) ("s_out", 1)
+    ]
+    [ IRFunction "add" Nothing
+    ]
 
 ----------------------------------------------------------
 -- Main
--- Run the whole process and print each step
+-- Run all the example Systems
 ----------------------------------------------------------
-
 main :: IO ()
 main = do
-  let exampleSchedAndBufs = computeScheduleAndBuffers exampleSystem
-      (schedIdxs, bufSizes) = exampleSchedAndBufs
+  let examples =
+        [ ("Example System 1 (single actor with self-loop)", exampleSystem1),
+          ("Example System 2 (single actor only)", exampleSystem2),
+          ("Example System 3 (two actors, one self loop)", exampleSystem3),
+          ("Example System 4 (System with multiple inputs)", exampleSystem4),
+          ("Example System 5", exampleSystem5),
+          ("Example System 6", exampleSystem6)
+        ]
 
-  putStrLn "Schedule and buffer sizes (from library function):"
-  putStrLn $ "Schedule indices: " ++ show schedIdxs
-  putStrLn $ "Buffer sizes:     " ++ show bufSizes
+  mapM_ runExample examples
+  where
+    runExample (name, system) = do
+      putStrLn $ "========================================================="
+      putStrLn $ "Running: " ++ name
+      putStrLn $ "========================================================="
+      putStrLn $ showSDocUnsafe $ prettyIRSystem system
 
-  putStrLn "\n--- Pretty-print version ---\n"
-  computeScheduleAndBuffersPrint exampleSystem
+      putStrLn "\n--- Detailed analysis ---\n"
+      computeScheduleAndBuffersPrint system
+      putStrLn "\n"
