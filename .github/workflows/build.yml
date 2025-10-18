@@ -28,8 +28,7 @@ jobs:
           nix_path: nixpkgs=channel:25.05
 
         # Runs a set of commands using the runners shell
-      - name: Build the compiler
+      - name: Build and test the compiler
         run: |
-          nix develop --command bash -c "cabal update"
           nix develop --command bash -c "cabal build"
-          nix develop --command bash -c "cabal new-test"
+          nix develop --command bash -c "cabal test"
