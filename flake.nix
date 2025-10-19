@@ -7,6 +7,7 @@
   outputs =
     { flake-utils, ... }@inputs:
     let
+      ghcVersion = "ghc9102";
       overlay = final: prev: {
         haskell = prev.haskell // {
           packageOverrides =
@@ -16,7 +17,7 @@
               forsyde-devtools = hfinal.callCabal2nix "forsyde-devtools" ./. { };
             };
         };
-        forsyde-devtools = final.haskellPackages.forsyde-devtools;
+        forsyde-devtools = final.haskell.packages.${ghcVersion}.forsyde-devtools;
       };
     in
     {
@@ -28,8 +29,11 @@
         pkgs = import inputs.nixpkgs {
           inherit system;
           overlays = [ overlay ];
+          config = {
+            haskell.compiler = pkgs.haskell.compilers.${ghcVersion};
+          };
         };
-        hspkgs = pkgs.haskellPackages;
+        hspkgs = pkgs.haskell.packages.${ghcVersion};
         pypkgs = pkgs.python313Packages;
       in
       {
@@ -41,7 +45,6 @@
             # Haskell specific dev tools
             hspkgs.cabal-install
             hspkgs.haskell-language-server
-            hspkgs.hlint
             hspkgs.ormolu
             # For making mkkdocs site
             pypkgs.mkdocs-material
@@ -49,6 +52,7 @@
             # General dev tools
             pkgs.gnumake
           ];
+          nativeBuildInputs = [ hspkgs.ghc ];
           shellHook = ''
             cp .githooks/* .git/hooks/
             chmod +x .git/hooks/*
