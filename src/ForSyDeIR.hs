@@ -1,3 +1,5 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+
 module ForSyDeIR
   ( ActorType (..),
     IRConstructor (..),
@@ -12,7 +14,8 @@ module ForSyDeIR
 where
 
 import GHC.Core
-import GHC.Core.Ppr (pprCoreBindingWithSize)
+import GHC.Core.Ppr
+import GHC.Prelude
 import GHC.Utils.Outputable
 
 -- ForSyDe IR data types
@@ -51,18 +54,18 @@ data IRSystem = IRSystem ([String], [String]) [IRConstructor] [IRSignal] [IRFunc
 prettyIRSignal :: IRSignal -> SDoc
 prettyIRSignal (IRSignal signalId (inputId, inputRate) (outputId, outputRate)) =
   text "IRSignal"
-    <+> parens
+    <> parens
       ( text signalId
-          <+> comma
+          <> comma
           <+> parens
             ( text inputId
-                <+> comma
+                <> comma
                 <+> int inputRate
             )
-          <+> comma
+          <> comma
           <+> parens
             ( text outputId
-                <+> comma
+                <> comma
                 <+> int outputRate
             )
       )
@@ -70,59 +73,59 @@ prettyIRSignal (IRSignal signalId (inputId, inputRate) (outputId, outputRate)) =
 prettyIRConstructor :: IRConstructor -> SDoc
 prettyIRConstructor (IRDelay delayId tokenList) =
   text "IRDelay"
-    <+> parens
+    <> parens
       ( text delayId
-          <+> comma
+          <> comma
           <+> text (show tokenList)
       )
 prettyIRConstructor (IRActor actorId actorType functionId) =
   text "IRActor"
-    <+> parens
+    <> parens
       ( text actorId
-          <+> comma
+          <> comma
           <+> text (show actorType)
-          <+> comma
+          <> comma
           <+> text functionId
       )
 
 prettyIRFunction :: IRFunction -> SDoc
 prettyIRFunction (IRFunction functionId function) =
   text "IRFunction"
-    <+> parens
+    <> parens
       ( text functionId
-          <+> comma
+          <> comma
           <+> maybe empty pprCoreBindingWithSize function
       )
 
 prettyIRSystem :: IRSystem -> SDoc
 prettyIRSystem (IRSystem (inputs, outputs) constructors signals functions) =
   text "IRSystem"
-    <+> parens
+    <> parens
       ( vcat
           [ parens
               ( text "{"
                   <+> vcat (punctuate comma (map text inputs))
                   <+> text "}"
-                  <+> comma
+                  <> comma
                   <+> text "{"
                   <+> vcat (punctuate comma (map text outputs))
                   <+> text "}"
               )
-              <+> comma,
+              <> comma,
             text "{"
               $$ nest
                 2
                 ( vcat (punctuate comma (map prettyIRConstructor constructors))
                 )
               $$ text "}"
-              <+> comma,
+              <> comma,
             text "{"
               $$ nest
                 2
                 ( vcat (punctuate comma (map prettyIRSignal signals))
                 )
               $$ text "}"
-              <+> comma,
+              <> comma,
             text "{"
               $$ nest
                 2
