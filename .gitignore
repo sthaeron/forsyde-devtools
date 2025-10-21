@@ -22,7 +22,9 @@ cabal.project.local
 cabal.project.local~
 .HTF/
 .ghc.environment.*
-
+*.hcr
+*.irf
+*.fir
 # Ignore build outputs from performing a nix-build or `nix build` command
 result
 result-*
