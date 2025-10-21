@@ -58,7 +58,7 @@
             chmod +x .git/hooks/*
           '';
         };
-        defaultPackage = pkgs.forsyde-devtools;
+        packages.default = pkgs.forsyde-devtools;
       }
     );
 }
