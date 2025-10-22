@@ -1,5 +1,3 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-
 module ForSyDeIR
   ( ActorType (..),
     IRConstructor (..),
@@ -13,10 +11,11 @@ module ForSyDeIR
   )
 where
 
+import CoreIR (prettyCoreExpr)
+import Data.List (intercalate)
+import GHC (DynFlags)
 import GHC.Core
-import GHC.Core.Ppr
-import GHC.Prelude
-import GHC.Utils.Outputable
+import Text.Printf (printf)
 
 -- ForSyDe IR data types
 
@@ -45,92 +44,33 @@ data IRConstructor
 
 data IRSignal = IRSignal String (String, Int) (String, Int)
 
-data IRFunction = IRFunction String (Maybe CoreBind)
+data IRFunction = IRFunction String (Maybe CoreExpr)
 
 data IRSystem = IRSystem ([String], [String]) [IRConstructor] [IRSignal] [IRFunction]
 
--- Pretty printing functions for ForSyDe IR
+indent :: String -> String
+indent = unlines . map ("    " ++) . lines
 
-prettyIRSignal :: IRSignal -> SDoc
+prettyIRSignal :: IRSignal -> String
 prettyIRSignal (IRSignal signalId (inputId, inputRate) (outputId, outputRate)) =
-  text "IRSignal"
-    <> parens
-      ( text signalId
-          <> comma
-          <+> parens
-            ( text inputId
-                <> comma
-                <+> int inputRate
-            )
-          <> comma
-          <+> parens
-            ( text outputId
-                <> comma
-                <+> int outputRate
-            )
-      )
+  printf "IRSignal(\"%s\", (\"%s\", %d), (\"%s\", %d))" signalId inputId inputRate outputId outputRate
 
-prettyIRConstructor :: IRConstructor -> SDoc
+prettyIRConstructor :: IRConstructor -> String
 prettyIRConstructor (IRDelay delayId tokenList) =
-  text "IRDelay"
-    <> parens
-      ( text delayId
-          <> comma
-          <+> text (show tokenList)
-      )
+  printf "IRDelay(\"%s\", {%s})" delayId (intercalate ", " (map show tokenList))
 prettyIRConstructor (IRActor actorId actorType functionId) =
-  text "IRActor"
-    <> parens
-      ( text actorId
-          <> comma
-          <+> text (show actorType)
-          <> comma
-          <+> text functionId
-      )
+  printf "IRActor(\"%s\", %s, \"%s\")" actorId (show actorType) functionId
 
-prettyIRFunction :: IRFunction -> SDoc
-prettyIRFunction (IRFunction functionId function) =
-  text "IRFunction"
-    <> parens
-      ( text functionId
-          <> comma
-          <+> maybe empty pprCoreBindingWithSize function
-      )
+prettyIRFunction :: DynFlags -> IRFunction -> String
+prettyIRFunction dflags (IRFunction functionId function) =
+  printf "IRFunction(\"%s\", %s)" functionId (maybe "" (prettyCoreExpr dflags) function)
 
-prettyIRSystem :: IRSystem -> SDoc
-prettyIRSystem (IRSystem (inputs, outputs) constructors signals functions) =
-  text "IRSystem"
-    <> parens
-      ( vcat
-          [ parens
-              ( text "{"
-                  <+> vcat (punctuate comma (map text inputs))
-                  <+> text "}"
-                  <> comma
-                  <+> text "{"
-                  <+> vcat (punctuate comma (map text outputs))
-                  <+> text "}"
-              )
-              <> comma,
-            text "{"
-              $$ nest
-                2
-                ( vcat (punctuate comma (map prettyIRConstructor constructors))
-                )
-              $$ text "}"
-              <> comma,
-            text "{"
-              $$ nest
-                2
-                ( vcat (punctuate comma (map prettyIRSignal signals))
-                )
-              $$ text "}"
-              <> comma,
-            text "{"
-              $$ nest
-                2
-                ( vcat (punctuate comma (map prettyIRFunction functions))
-                )
-              $$ text "}"
-          ]
-      )
+prettyIRSystem :: DynFlags -> IRSystem -> String
+prettyIRSystem dflags (IRSystem (inputs, outputs) constructors signals functions) =
+  printf
+    "IRSystem(\n  {%s}, {%s},\n  {\n%s  },\n  {\n%s  },\n  {\n%s  }\n)"
+    (intercalate ", " (map show inputs))
+    (intercalate ", " (map show outputs))
+    (indent (intercalate ",\n" (map prettyIRConstructor constructors)))
+    (indent (intercalate ",\n" (map prettyIRSignal signals)))
+    (indent (intercalate ",\n" (map (prettyIRFunction dflags) functions)))
