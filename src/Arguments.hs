@@ -1,7 +1,6 @@
 module Arguments where
 
 import Options.Applicative
-import System.IO
 
 -- Which file to use for input
 data Input
@@ -21,14 +20,14 @@ data HasExtension
 data InputFormat
   = InputForSyDe
   | InputCore
-  | InputIRForSyDe
-  | InputIRProcedural
+  | InputForSyDeIR
+  | InputProceduralIR
 
 data OutputFormat
   = OutputC
   | OutputCore
-  | OutputIRForSyDe
-  | OutputIRProcedural
+  | OutputForSyDeIR
+  | OutputProceduralIR
 
 data Arguments = Arguments
   { -- Files
@@ -99,16 +98,16 @@ inputFormatCore =
 inputFormatForSyDeIR :: Parser InputFormat
 inputFormatForSyDeIR =
   flag'
-    InputIRForSyDe
-    ( long "input-ir-forsyde"
+    InputForSyDeIR
+    ( long "input-forsyde-ir"
         <> help "Input file in ForSyDe-IR"
     )
 
 inputFormatProceduralIR :: Parser InputFormat
 inputFormatProceduralIR =
   flag'
-    InputIRProcedural
-    ( long "input-ir-procedural"
+    InputProceduralIR
+    ( long "input-procedural-ir"
         <> help "Input file in Procedural-IR"
     )
 
@@ -149,16 +148,16 @@ outputFormatCore =
 outputFormatForSyDeIR :: Parser OutputFormat
 outputFormatForSyDeIR =
   flag'
-    OutputIRForSyDe
-    ( long "output-ir-forsyde"
+    OutputForSyDeIR
+    ( long "output-forsyde-ir"
         <> help "Output file in ForSyDe-IR"
     )
 
 outputFormatProceduralIR :: Parser OutputFormat
 outputFormatProceduralIR =
   flag'
-    OutputIRProcedural
-    ( long "output-ir-procedural"
+    OutputProceduralIR
+    ( long "output-procedural-ir"
         <> help "Output file in Procedural-IR"
     )
 
