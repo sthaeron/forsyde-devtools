@@ -13,46 +13,46 @@ import Text.Printf (printf)
 indent :: String -> String
 indent = unlines . map ("  " ++) . lines
 
-prettyCoreBind :: CoreBind -> String
-prettyCoreBind bind = case bind of
-  NonRec b e -> printf "NonRec(%s = \n%s)" (showPprUnsafe b) (indent (prettyCoreExpr e))
-  Rec binds -> printf "Rec({\n%s\n})" ((intercalate ", " . map prettyBind) binds)
+prettyCoreBind :: DynFlags -> CoreBind -> String
+prettyCoreBind dflags bind = case bind of
+  NonRec b e -> printf "NonRec(%s = \n%s)" (showPpr dflags b) (indent (prettyCoreExpr dflags e))
+  Rec binds -> printf "Rec({\n%s})" (indent (intercalate ",\n" (map (prettyBind dflags) binds)))
 
-prettyBind :: (Var, CoreExpr) -> String
-prettyBind (b, e) = indent (printf "(%s = %s)" (showPprUnsafe b) (prettyCoreExpr e))
+prettyBind :: DynFlags -> (Var, CoreExpr) -> String
+prettyBind dflags (b, e) = printf "(%s = %s)" (showPpr dflags b) (prettyCoreExpr dflags e)
 
-prettyCoreBindList :: [CoreBind] -> String
-prettyCoreBindList = intercalate "\n\n" . map prettyCoreBind
+prettyCoreProgram :: DynFlags -> CoreProgram -> String
+prettyCoreProgram dflags = intercalate "\n\n" . map (prettyCoreBind dflags)
 
-prettyCoreExpr :: CoreExpr -> String
-prettyCoreExpr expr = case expr of
-  Var i -> printf "Var(%s)" (showPprUnsafe i)
-  Lit l -> printf "Lit(%s)" (showPprUnsafe l)
-  App e a -> printf "App(%s * \n%s)" (prettyCoreExpr e) (prettyCoreExpr a)
-  Lam b e -> printf "Lam(%s -> \n%s)" (showPprUnsafe b) (prettyCoreExpr e)
-  Type t -> printf "Type(%s)" (showPprUnsafe t)
-  Let bind e -> printf "Let(%s in\n%s)" (prettyCoreBind bind) (prettyCoreExpr e)
-  Case e b _ alts -> printf "Case(%s of %s {\n%s})" (prettyCoreExpr e) (showPprUnsafe b) (prettyCoreAltList alts)
-  Cast e co -> printf "Cast(%s by %s)" (prettyCoreExpr e) (showPprUnsafe co)
-  Tick t e -> printf "Tick(%s: \n%s)" (showPprUnsafe t) (prettyCoreExpr e)
-  Coercion co -> printf "Coercion(%s)" (showPprUnsafe co)
+prettyCoreExpr :: DynFlags -> CoreExpr -> String
+prettyCoreExpr dflags expr = case expr of
+  Var i -> printf "Var(%s)" (showPpr dflags i)
+  Lit l -> printf "Lit(%s)" (showPpr dflags l)
+  App e a -> printf "App(%s * \n%s)" (prettyCoreExpr dflags e) (prettyCoreExpr dflags a)
+  Lam b e -> printf "Lam(%s -> \n%s)" (showPpr dflags b) (prettyCoreExpr dflags e)
+  Type t -> printf "Type(%s)" (showPpr dflags t)
+  Let bind e -> printf "Let(\n%s in\n%s)" (indent (prettyCoreBind dflags bind)) (indent (prettyCoreExpr dflags e))
+  Case e b _ alts -> printf "Case(%s of %s {\n%s})" (prettyCoreExpr dflags e) (showPpr dflags b) (indent (prettyCoreAltList dflags alts))
+  Cast e co -> printf "Cast(%s by %s)" (prettyCoreExpr dflags e) (showPpr dflags co)
+  Tick t e -> printf "Tick(%s: \n%s)" (showPpr dflags t) (prettyCoreExpr dflags e)
+  Coercion co -> printf "Coercion(%s)" (showPpr dflags co)
 
-prettyCoreAlt :: CoreAlt -> String
-prettyCoreAlt (Alt con bl e) = indent (printf "Alt(%s: {\n%s}%s)" (prettyCoreAltCon con) (indent (prettyCoreBndrList bl)) (prettyCoreExpr e))
+prettyCoreAlt :: DynFlags -> CoreAlt -> String
+prettyCoreAlt dflags (Alt con bl e) = printf "Alt(%s: {%s} =\n%s)" (prettyCoreAltCon dflags con) (prettyCoreBndrList dflags bl) (indent (prettyCoreExpr dflags e))
 
-prettyCoreBndrList :: [Var] -> String
-prettyCoreBndrList = intercalate ", " . map showPprUnsafe
+prettyCoreAltList :: DynFlags -> [CoreAlt] -> String
+prettyCoreAltList dflags = intercalate ",\n" . map (prettyCoreAlt dflags)
 
-prettyCoreAltCon :: AltCon -> String
-prettyCoreAltCon altCons = case altCons of
-  DataAlt d -> printf "DataAlt(%s)" (showPprUnsafe d)
-  LitAlt l -> printf "LitAlt(%s)" (showPprUnsafe l)
+prettyCoreBndrList :: DynFlags -> [Var] -> String
+prettyCoreBndrList dflags = intercalate ", " . map (showPpr dflags)
+
+prettyCoreAltCon :: DynFlags -> AltCon -> String
+prettyCoreAltCon dflags altCons = case altCons of
+  DataAlt d -> printf "DataAlt(%s)" (showPpr dflags d)
+  LitAlt l -> printf "LitAlt(%s)" (showPpr dflags l)
   DEFAULT -> "DEFAULT"
 
-prettyCoreAltList :: [CoreAlt] -> String
-prettyCoreAltList = intercalate ", " . map prettyCoreAlt
-
-compileToCore :: FilePath -> IO CoreProgram
+compileToCore :: FilePath -> IO (CoreProgram, DynFlags)
 compileToCore filePath = runGhc (Just libdir) $ do
   dflags <- getSessionDynFlags
   setSessionDynFlags $
@@ -80,6 +80,7 @@ compileToCore filePath = runGhc (Just libdir) $ do
                 Opt_SuppressCoreSizes
               ]
         }
+  newDflags <- getSessionDynFlags
   target <- guessTarget filePath Nothing Nothing
   setTargets [target]
   _ <- load LoadAllTargets
@@ -87,4 +88,4 @@ compileToCore filePath = runGhc (Just libdir) $ do
   parse <- parseModule modSummary
   typecheck <- typecheckModule parse
   desugar <- desugarModule typecheck
-  return $ mg_binds . dm_core_module $ desugar
+  return $ (mg_binds . dm_core_module $ desugar, newDflags)
