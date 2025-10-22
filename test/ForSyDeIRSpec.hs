@@ -1,13 +1,15 @@
 module ForSyDeIRSpec (spec) where
 
+import Data.List (dropWhileEnd)
 import ForSyDeIR
-import GHC.Core
-import GHC.Core.Ppr (pprCoreExpr)
-import GHC.Utils.Outputable
+import GHC
+import GHC.Data.EnumSet as EnumSet
+import GHC.Paths (libdir)
+import GHC.Plugins
 import Test.Hspec
 
-exampleSystem :: IRSystem
-exampleSystem =
+simpleIRSystem :: IRSystem
+simpleIRSystem =
   IRSystem
     (["input"], ["output"])
     [ IRActor "actor_1" Actor22 "add",
@@ -21,30 +23,43 @@ exampleSystem =
     [ IRFunction "add" Nothing
     ]
 
--- This is in my opinion horrible, but it seems that multiline strings only
--- got added in GHC 9.12...
-exampleSystemPretty :: String
-exampleSystemPretty =
-  "IRSystem(({ input }, { output }),\n\
-  \         { IRActor(actor_1, Actor22, add),\n\
-  \           IRDelay(delay_1, [0])\n\
-  \         },\n\
-  \         { IRSignal(s_in, (input, 1), (actor_1, 1)),\n\
-  \           IRSignal(s_1, (actor_1, 1), (delay_1, 1)),\n\
-  \           IRSignal(s_2, (delay_1, 1), (actor_1, 1)),\n\
-  \           IRSignal(s_out, (actor_1, 1), (output, 1))\n\
-  \         },\n\
-  \         { IRFunction(add,)\n\
-  \         })"
-
-testForSyDeIR :: IO ()
-testForSyDeIR = do
-  putStrLn $ showSDocUnsafe $ prettyIRSystem exampleSystem
+customDflags :: IO DynFlags
+customDflags = runGhc (Just libdir) $ do
+  dflags <- getSessionDynFlags
+  return $
+    updOptLevel 2 $
+      dflags
+        { ghcLink = NoLink,
+          ghcMode = CompManager,
+          verbosity = 0,
+          debugLevel = 0,
+          generalFlags =
+            EnumSet.fromList
+              [ Opt_SuppressTicks,
+                Opt_SuppressCoercions,
+                Opt_SuppressCoercionTypes,
+                Opt_SuppressVarKinds,
+                Opt_SuppressModulePrefixes,
+                Opt_SuppressTypeApplications,
+                Opt_SuppressIdInfo,
+                Opt_SuppressUnfoldings,
+                Opt_SuppressTypeSignatures,
+                Opt_SuppressUniques,
+                Opt_SuppressStgExts,
+                Opt_SuppressStgReps,
+                Opt_SuppressTimestamps,
+                Opt_SuppressCoreSizes
+              ]
+        }
 
 spec :: SpecWith ()
 spec = do
   describe "IR pretty-printing" $ do
     it "Test hand-crafted IRSystem" $ do
-      showSDocUnsafe (prettyIRSystem exampleSystem) `shouldBe` exampleSystemPretty
+      dflags <- customDflags
+      simpleIRSystemString <- readFile "examples/test/simple.fir"
+      prettyIRSystem dflags simpleIRSystem
+        `shouldBe` dropWhileEnd (`elem` "\n") (simpleIRSystemString)
     it "Empty IR-system should not be an empty string" $ do
-      showSDocUnsafe (prettyIRSystem $ IRSystem ([], []) [] [] []) `shouldNotBe` ""
+      dflags <- customDflags
+      prettyIRSystem dflags (IRSystem ([], []) [] [] []) `shouldNotBe` ""
