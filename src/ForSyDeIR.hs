@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module ForSyDeIR
   ( ActorType (..),
     IRConstructor (..),
@@ -12,7 +14,10 @@ module ForSyDeIR
 where
 
 import CoreIR (prettyCoreExpr)
+import Data.Aeson
 import Data.List (intercalate)
+import qualified Data.Sequence as Seq
+import qualified Data.Text as Text
 import GHC (DynFlags)
 import GHC.Core
 import Text.Printf (printf)
@@ -75,3 +80,55 @@ prettyIRSystem dflags (IRSystem (inputs, outputs) constructors signals functions
     (indent (intercalate ",\n" (map prettyIRSignal signals)))
     (indent (intercalate ",\n" (map (prettyIRFunction dflags) functions)))
 
+instance ToJSON ActorType where
+  toJSON a = String $ Text.pack $ show a
+
+instance ToJSON IRConstructor where
+  toJSON (IRDelay name tokens) =
+    object
+      [ "type" .= Text.pack "Delay",
+        "name" .= Text.pack name,
+        "tokens" .= Seq.fromList tokens
+      ]
+  toJSON (IRActor name ty func) =
+    object
+      [ "type" .= Text.pack (show ty),
+        "name" .= Text.pack name,
+        "function" .= Text.pack func
+      ]
+
+instance ToJSON IRSignal where
+  toJSON (IRSignal name (source, sourceRate) (target, targetRate)) =
+    object
+      [ "name" .= Text.pack name,
+        "source"
+          .= object
+            [ "name" .= Text.pack source,
+              "rate" .= sourceRate
+            ],
+        "target"
+          .= object
+            [ "name" .= Text.pack target,
+              "rate" .= targetRate
+            ]
+      ]
+
+instance ToJSON IRFunction where
+  toJSON (IRFunction name _) =
+    object
+      [ "name" .= Text.pack name
+      -- "coreexpr" .= ...
+      ]
+
+instance ToJSON IRSystem where
+  toJSON (IRSystem (inputs, outputs) processes signals functions) =
+    object
+      [ "system"
+          .= object
+            [ "inputs" .= Seq.fromList inputs,
+              "outputs" .= Seq.fromList outputs,
+              "processes" .= Seq.fromList processes,
+              "signals" .= Seq.fromList signals,
+              "functions" .= Seq.fromList functions
+            ]
+      ]
