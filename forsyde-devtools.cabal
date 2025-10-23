@@ -21,6 +21,9 @@ common common-options
         forsyde-shallow == 3.5.0.0,
         optparse-applicative >= 0.18.1.0,
         filepath == 1.5.4.0,
+        aeson == 2.2.3.0,
+        text == 2.1.2,
+        containers == 0.7,
 
 library
     import:           common-options
