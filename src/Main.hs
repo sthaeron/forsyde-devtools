@@ -5,6 +5,8 @@ import CoreIR (compileToCore, prettyCoreProgram)
 import CoreToForSyDeIR
 import ForSyDeIR (prettyIRSystem)
 import Options.Applicative
+import Data.Aeson
+import qualified Data.ByteString.Lazy.Char8 as BSC
 
 {-
 
@@ -49,6 +51,7 @@ generateDefaultFileName :: FilePath -> OutputFormat -> FilePath
 generateDefaultFileName f OutputC = f ++ ".c"
 generateDefaultFileName f OutputCore = f ++ ".hcr"
 generateDefaultFileName f OutputForSyDeIR = f ++ ".fir"
+generateDefaultFileName f OutputForSyDeIRJSON = f ++ ".json"
 generateDefaultFileName f OutputProceduralIR = f ++ ".pir"
 
 -- Main function for running after arguments have been returned from main.
@@ -65,6 +68,11 @@ run (Arguments (InputFile input_file) output_file OutputForSyDeIR) = do
   (core, dflags) <- compileToCore input_file
   let ir = translateCoreProgram dflags core
   write_output output_file OutputForSyDeIR (prettyIRSystem dflags ir)
+run (Arguments (InputFile input_file) output_file OutputForSyDeIRJSON) = do
+  (core, dflags) <- compileToCore input_file
+  let ir = translateCoreProgram dflags core
+  let ir_json = (BSC.unpack (encode ir))::String
+  write_output output_file OutputForSyDeIRJSON ir_json
 run (Arguments (InputFile _) _ OutputProceduralIR) =
   putStrLn "To Procedural IR"
 -- What we have so far, take input file and write out core
