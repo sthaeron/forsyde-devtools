@@ -24,6 +24,7 @@ common common-options
         aeson == 2.2.3.0,
         text == 2.1.2,
         containers == 0.7,
+        bytestring == 0.12.2.0,
 
 library
     import:           common-options
