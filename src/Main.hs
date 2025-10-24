@@ -1,7 +1,7 @@
 module Main where
 
 import Arguments
-import CoreIR (compileToCore, prettyCoreBindList)
+import CoreIR (compileToCore, prettyCoreProgram)
 import Options.Applicative
 
 {-
@@ -25,8 +25,8 @@ import Options.Applicative
         - This should be the format of the output file, if not otherwise
           specified, this should be C code
         - if --output-core, output should be in core format
-        - if --output-ir-forsyde, output should be in ForSyDe-IR format
-        - if --output-ir-procedural, output should be in procedural IR format
+        - if --output-forsyde-ir, output should be in ForSyDe-IR format
+        - if --output-procedural-ir, output should be in procedural IR format
 
     - Output file argument:
         - Use "-o" flag, outputs to desired file
@@ -46,8 +46,8 @@ write_output (OutputFile (output_file, NoFileExtension)) extension s =
 generateDefaultFileName :: FilePath -> OutputFormat -> FilePath
 generateDefaultFileName f OutputC = f ++ ".c"
 generateDefaultFileName f OutputCore = f ++ ".hcr"
-generateDefaultFileName f OutputIRForSyDe = f ++ ".irf"
-generateDefaultFileName f OutputIRProcedural = f ++ ".irp"
+generateDefaultFileName f OutputForSyDeIR = f ++ ".fir"
+generateDefaultFileName f OutputProceduralIR = f ++ ".pir"
 
 -- Main function for running after arguments have been returned from main.
 -- Need to pattern match based on the arguments used. They are matched on
@@ -57,16 +57,16 @@ generateDefaultFileName f OutputIRProcedural = f ++ ".irp"
 
 run :: Arguments -> IO ()
 -- "Normal run"
-run (Arguments (InputFile input_file) output_file OutputC) =
+run (Arguments (InputFile _) _ OutputC) =
   putStrLn "To C"
-run (Arguments (InputFile input_file) output_file OutputIRForSyDe) =
+run (Arguments (InputFile _) _ OutputForSyDeIR) = do
   putStrLn "To ForSyDe IR"
-run (Arguments (InputFile input_file) output_file OutputIRProcedural) =
+run (Arguments (InputFile _) _ OutputProceduralIR) =
   putStrLn "To Procedural IR"
 -- What we have so far, take input file and write out core
 run (Arguments (InputFile input_file) output_file OutputCore) = do
-  core <- compileToCore input_file
-  write_output output_file OutputCore (prettyCoreBindList core)
+  (core, dflags) <- compileToCore input_file
+  write_output output_file OutputCore (prettyCoreProgram dflags core)
 
 main :: IO ()
 main = run =<< execParser opts
