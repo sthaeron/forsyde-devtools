@@ -40,9 +40,9 @@ data ActorType
 
 data IRConstructor
   = IRDelay String [Int]
-  | IRActor String ActorType String
+  | IRActor String ActorType String -- ([String], [String])
 
-data IRSignal = IRSignal String (String, Int) (String, Int)
+data IRSignal = IRSignal String (String, Int) (String, Int) -- IRSignal(signalName (input, sourceRate) (targetId, targetRate))
 
 data IRFunction = IRFunction String (Maybe CoreExpr)
 
@@ -74,3 +74,4 @@ prettyIRSystem dflags (IRSystem (inputs, outputs) constructors signals functions
     (indent (intercalate ",\n" (map prettyIRConstructor constructors)))
     (indent (intercalate ",\n" (map prettyIRSignal signals)))
     (indent (intercalate ",\n" (map (prettyIRFunction dflags) functions)))
+
