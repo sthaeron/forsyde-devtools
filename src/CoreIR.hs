@@ -1,87 +1,91 @@
 module CoreIR where
 
-import Control.Monad ((<=<))
+import Data.List (intercalate)
 import GHC
 import GHC.Core
-import GHC.Core.Ppr
 import GHC.Data.EnumSet as EnumSet
-import GHC.Driver.DynFlags (initDefaultSDocContext)
-import GHC.Driver.Monad
 import GHC.Driver.Ppr
-import GHC.Driver.Session (defaultFatalMessager, defaultFlushOut)
-import GHC.Paths
 import GHC.Paths (libdir)
 import GHC.Plugins
-import GHC.Types.Var
-import GHC.Unit.Module.Graph
-import GHC.Unit.Module.ModGuts
-import GHC.Utils.Monad
-import GHC.Utils.Outputable
-import GHC.Utils.Outputable (showSDocUnsafe)
-import GHC.Utils.Ppr (Mode (PageMode))
 import System.FilePath (takeBaseName)
-import System.IO (stdout)
 import Text.Printf (printf)
 
-prettyCoreBind :: CoreBind -> String
-prettyCoreBind bind = case bind of
-  NonRec b e -> printf "NonRec(%s: \n\t%s)" (prettyVar b) (prettyCoreExpr e)
-  Rec bindExprList -> printf "Rec({%s})" (prettyBindExprList bindExprList)
+indent :: String -> String
+indent = unlines . map ("  " ++) . lines
 
-prettyCoreBindList :: [CoreBind] -> String
-prettyCoreBindList binds = concatMap (\b -> prettyCoreBind b ++ "\n\n") binds
+prettyCoreBind :: DynFlags -> CoreBind -> String
+prettyCoreBind dflags bind = case bind of
+  NonRec b e -> printf "NonRec(%s = \n%s)" (showPpr dflags b) (indent (prettyCoreExpr dflags e))
+  Rec binds -> printf "Rec({\n%s})" (indent (intercalate ",\n" (map (prettyBind dflags) binds)))
 
-prettyBindExpr :: (Var, CoreExpr) -> String
-prettyBindExpr (b, e) = printf "(%s, %s), " (prettyVar b) (prettyCoreExpr e)
+prettyBind :: DynFlags -> (Var, CoreExpr) -> String
+prettyBind dflags (b, e) = printf "(%s = %s)" (showPpr dflags b) (prettyCoreExpr dflags e)
 
-prettyBindExprList :: [(Var, CoreExpr)] -> String
-prettyBindExprList bexprs = concatMap prettyBindExpr bexprs
+prettyCoreProgram :: DynFlags -> CoreProgram -> String
+prettyCoreProgram dflags = intercalate "\n\n" . map (prettyCoreBind dflags)
 
-prettyCoreExpr :: CoreExpr -> String
-prettyCoreExpr expr = case expr of
-  Var i -> printf "Var(%s)" (showSDocUnsafe (ppr i))
-  Lit l -> printf "Lit(%s)" (showSDocUnsafe (ppr l))
-  App e a -> printf "App(%s * \n\t%s)" (prettyCoreExpr e) (prettyCoreExpr a)
-  Lam b e -> printf "Lam(%s -> \n\t%s)" (prettyVar b) (prettyCoreExpr e)
-  Type t -> printf "Type(%s)" (showSDocUnsafe (ppr t))
-  Let bind e -> printf "Let(%s =\n\t %s)" (prettyCoreBind bind) (prettyCoreExpr e)
-  Case e b t alts -> printf "Case(%s: (%s, %s) \n\t{%s})" (prettyCoreExpr e) (prettyVar b) (showSDocUnsafe (ppr t)) (prettyCoreAltList alts)
-  Cast e co -> printf "Cast(%s: \n\tCoercion(%s))" (prettyCoreExpr e) (showSDocUnsafe (ppr co))
-  Tick t e -> printf "Tick(%s: \n\t%s)" (showSDocUnsafe (ppr t)) (prettyCoreExpr e)
-  Coercion co -> printf "Coercion(%s)" (showSDocUnsafe (ppr co))
+prettyCoreExpr :: DynFlags -> CoreExpr -> String
+prettyCoreExpr dflags expr = case expr of
+  Var i -> printf "Var(%s)" (showPpr dflags i)
+  Lit l -> printf "Lit(%s)" (showPpr dflags l)
+  App e a -> printf "App(%s * \n%s)" (prettyCoreExpr dflags e) (prettyCoreExpr dflags a)
+  Lam b e -> printf "Lam(%s -> \n%s)" (showPpr dflags b) (prettyCoreExpr dflags e)
+  Type t -> printf "Type(%s)" (showPpr dflags t)
+  Let bind e -> printf "Let(\n%s in\n%s)" (indent (prettyCoreBind dflags bind)) (indent (prettyCoreExpr dflags e))
+  Case e b _ alts -> printf "Case(%s of %s {\n%s})" (prettyCoreExpr dflags e) (showPpr dflags b) (indent (prettyCoreAltList dflags alts))
+  Cast e co -> printf "Cast(%s by %s)" (prettyCoreExpr dflags e) (showPpr dflags co)
+  Tick t e -> printf "Tick(%s: \n%s)" (showPpr dflags t) (prettyCoreExpr dflags e)
+  Coercion co -> printf "Coercion(%s)" (showPpr dflags co)
 
-prettyCoreAlt :: CoreAlt -> String
-prettyCoreAlt (Alt con bl e) = printf "Alt(%s: \n\t{%s}%s)" (prettyCoreAltCon con) (prettyCoreBndrList bl) (prettyCoreExpr e)
+prettyCoreAlt :: DynFlags -> CoreAlt -> String
+prettyCoreAlt dflags (Alt con bl e) = printf "Alt(%s: {%s} =\n%s)" (prettyCoreAltCon dflags con) (prettyCoreBndrList dflags bl) (indent (prettyCoreExpr dflags e))
 
-prettyVar :: Var -> String
-prettyVar v = showSDocUnsafe (ppr v)
+prettyCoreAltList :: DynFlags -> [CoreAlt] -> String
+prettyCoreAltList dflags = intercalate ",\n" . map (prettyCoreAlt dflags)
 
-prettyCoreBndrList :: [Var] -> String
-prettyCoreBndrList bndrs = concatMap (\x -> printf "%s, " (prettyVar x)) bndrs
+prettyCoreBndrList :: DynFlags -> [Var] -> String
+prettyCoreBndrList dflags = intercalate ", " . map (showPpr dflags)
 
-prettyCoreAltCon :: AltCon -> String
-prettyCoreAltCon altCons = case altCons of
-  DataAlt d -> printf "DataAlt(%s)" (showSDocUnsafe (ppr d))
-  LitAlt l -> printf "LitAlt(%s)" (showSDocUnsafe (ppr l))
+prettyCoreAltCon :: DynFlags -> AltCon -> String
+prettyCoreAltCon dflags altCons = case altCons of
+  DataAlt d -> printf "DataAlt(%s)" (showPpr dflags d)
+  LitAlt l -> printf "LitAlt(%s)" (showPpr dflags l)
   DEFAULT -> "DEFAULT"
 
-prettyCoreAltList :: [CoreAlt] -> String
-prettyCoreAltList alts = concatMap (\x -> printf "%s, " (prettyCoreAlt x)) alts
-
-compileToDesugar :: FilePath -> IO CoreProgram
-compileToDesugar filePath = runGhc (Just libdir) $ do
-  setSessionDynFlags =<< getSessionDynFlags
-  target <- guessTarget filePath Nothing Nothing
-  setTargets [target]
-  load LoadAllTargets
-  ds <- desugarModule <=< typecheckModule <=< parseModule <=< getModSummary $ mkModuleName (takeBaseName filePath)
-  return $ mg_binds . dm_core_module $ ds
-
-compileToCore :: FilePath -> IO CoreProgram
+compileToCore :: FilePath -> IO (CoreProgram, DynFlags)
 compileToCore filePath = runGhc (Just libdir) $ do
-  setSessionDynFlags =<< getSessionDynFlags
+  dflags <- getSessionDynFlags
+  setSessionDynFlags $
+    updOptLevel 2 $
+      dflags
+        { ghcLink = NoLink,
+          ghcMode = CompManager,
+          verbosity = 0,
+          debugLevel = 0,
+          generalFlags =
+            EnumSet.fromList
+              [ Opt_SuppressTicks,
+                Opt_SuppressCoercions,
+                Opt_SuppressCoercionTypes,
+                Opt_SuppressVarKinds,
+                Opt_SuppressModulePrefixes,
+                Opt_SuppressTypeApplications,
+                Opt_SuppressIdInfo,
+                Opt_SuppressUnfoldings,
+                Opt_SuppressTypeSignatures,
+                Opt_SuppressUniques,
+                Opt_SuppressStgExts,
+                Opt_SuppressStgReps,
+                Opt_SuppressTimestamps,
+                Opt_SuppressCoreSizes
+              ]
+        }
+  newDflags <- getSessionDynFlags
   target <- guessTarget filePath Nothing Nothing
   setTargets [target]
-  load LoadAllTargets
-  ds <- desugarModule <=< typecheckModule <=< parseModule <=< getModSummary $ mkModuleName (takeBaseName filePath)
-  return $ mg_binds . coreModule $ ds
+  _ <- load LoadAllTargets
+  modSummary <- getModSummary $ mkModuleName (takeBaseName filePath)
+  parse <- parseModule modSummary
+  typecheck <- typecheckModule parse
+  desugar <- desugarModule typecheck
+  return $ (mg_binds . dm_core_module $ desugar, newDflags)
