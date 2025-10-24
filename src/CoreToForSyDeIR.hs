@@ -1,18 +1,15 @@
 module CoreToForSyDeIR where
 
 import CoreIR
-import Data.List (find)
-import Debug.Trace (trace)
 import ForSyDeIR
 import GHC
 import GHC.Core
-import GHC.Core.Ppr
+import GHC.Driver.Ppr
 import GHC.Types.Literal
-import GHC.Utils.Outputable
-import Text.Printf (printf)
 
 data TranslationContext = TranslationContext
-  { constructors :: [IRConstructor],
+  { flags :: DynFlags,
+    constructors :: [IRConstructor],
     signals :: [IRSignal],
     functions :: [IRFunction],
     systemInputs :: [String],
@@ -23,10 +20,11 @@ data TranslationContext = TranslationContext
     io :: [(String, ([String], [String]))] -- [(constructorId, (inputSignals, outputSignals))]
   }
 
-initialTranslationContext :: TranslationContext
-initialTranslationContext =
+initialTranslationContext :: DynFlags -> TranslationContext
+initialTranslationContext dflags =
   TranslationContext
-    { constructors = [],
+    { flags = dflags,
+      constructors = [],
       signals = [],
       functions = [],
       systemInputs = [],
@@ -37,9 +35,9 @@ initialTranslationContext =
       io = [] -- (constructorIds, (inputSignals, outputSignals))
     }
 
-translateCoreProgram :: [CoreBind] -> IRSystem
-translateCoreProgram binds =
-  let finalState = foldl translateCoreBind initialTranslationContext binds
+translateCoreProgram :: DynFlags -> [CoreBind] -> IRSystem
+translateCoreProgram dflags binds =
+  let finalState = foldl translateCoreBind (initialTranslationContext dflags) binds
    in IRSystem
         (systemInputs finalState, systemOutputs finalState)
         (constructors finalState)
@@ -47,7 +45,7 @@ translateCoreProgram binds =
         (functions finalState)
 
 translateCoreBind :: TranslationContext -> CoreBind -> TranslationContext
-translateCoreBind context (NonRec b e) = case (showSDocUnsafe (ppr b)) of
+translateCoreBind context (NonRec b e) = case (showPpr (flags context) b) of
   "$trModule" -> context
   "system" -> translateSystem context e
   _ -> translateCoreExpr context b e
@@ -63,7 +61,7 @@ translateSystem context e = case e of
 translateInputs :: TranslationContext -> CoreExpr -> TranslationContext
 translateInputs context e = case e of
   Lam b e ->
-    let newInput = showSDocUnsafe (ppr b)
+    let newInput = showPpr (flags context) b
         newContext = context {systemInputs = newInput : (systemInputs context)}
      in translateInputs newContext e
   Let (Rec binds) out ->
@@ -71,10 +69,10 @@ translateInputs context e = case e of
      in newContext
   Let (NonRec b e) out ->
     let newContext = translateOutputs context out
-        bind = showSDocUnsafe (ppr b)
+        bind = showPpr (flags context) b
         (_, newNewContext) = translateBodyExpr newContext [] e
      in newNewContext
-  _ -> error ("TranslateInputs: unsupported expression\n" ++ prettyCoreExpr e)
+  _ -> error ("TranslateInputs: unsupported expression\n" ++ prettyCoreExpr (flags context) e)
 
 translateOutputs :: TranslationContext -> CoreExpr -> TranslationContext
 translateOutputs context e = case e of
@@ -82,18 +80,18 @@ translateOutputs context e = case e of
   Var _ -> context
   Type _ -> context
   Case ne _ _ alts ->
-    let bind = showSDocUnsafe (ppr ne)
+    let bind = showPpr (flags context) ne
      in translateAlts context alts
-  _ -> error ("translateOutputs: unsupported expression\n" ++ prettyCoreExpr e)
+  _ -> error ("translateOutputs: unsupported expression\n" ++ prettyCoreExpr (flags context) e)
 
 translateAlts :: TranslationContext -> [Alt CoreBndr] -> TranslationContext
 translateAlts context alts = case alts of
   [] -> context
   (Alt _ _ (Var (i))) : tailAlts ->
-    let newOutput = showSDocUnsafe (ppr i)
+    let newOutput = showPpr (flags context) i
         newContext = context {systemOutputs = newOutput : (systemOutputs context)}
      in translateAlts newContext tailAlts
-  _ -> error ("translateAlts: AltCon is not supported\n" ++ prettyCoreAltList alts)
+  _ -> error ("translateAlts: AltCon is not supported\n" ++ prettyCoreAltList (flags context) alts)
 
 -- App(App(App(App(Var((,)) * Type(Signal c_a1d4)) * Type(Signal c_a1d4)) *
 --   Case(Var(ds_d1dV): (wild_00, Signal c_a1d4)
@@ -110,20 +108,20 @@ translateBindsAux :: TranslationContext -> [(CoreBndr, CoreExpr)] -> [(String, S
 translateBindsAux context binds acc = case binds of
   [] -> (acc, context)
   (b, e) : tailBinds ->
-    let outputId = showSDocUnsafe (ppr b)
+    let outputId = showPpr (flags context) b
         (prId, newContext) = translateBodyExpr context [] e
      in translateBindsAux newContext tailBinds ((outputId, prId) : acc)
 
 translateBodyExpr :: TranslationContext -> [String] -> CoreExpr -> (String, TranslationContext)
 translateBodyExpr context arguments e = case e of
   App (App (Var i) _) _ ->
-    let prId = showSDocUnsafe (ppr i)
+    let prId = showPpr (flags context) i
         newContext = createSignals context prId arguments
      in (prId, newContext)
   App ne a ->
     let (newArguments, newContext) = translateArgument context arguments a
      in translateBodyExpr newContext newArguments ne
-  _ -> error ("translateBodyExpr: unsupported expression\n" ++ prettyCoreExpr e)
+  _ -> error ("translateBodyExpr: unsupported expression\n" ++ prettyCoreExpr (flags context) e)
 
 -- App(App(
 -- 	App(App(Var(a_1) * Type(d_a1aj)) *  Var($dNum_a1aw))
@@ -137,12 +135,12 @@ translateBodyExpr context arguments e = case e of
 -- Returns a list of arguments
 translateArgument :: TranslationContext -> [String] -> CoreExpr -> ([String], TranslationContext)
 translateArgument context arguments e = case e of
-  Var i -> let sId = showSDocUnsafe (ppr i) in (sId : arguments, context)
+  Var i -> let sId = showPpr (flags context) i in (sId : arguments, context)
   App ne a ->
     let (newArguments, newContext) = translateArgument context [] a
         (prId, newNewContext) = translateBodyExpr newContext newArguments ne
      in (prId : arguments, newNewContext)
-  -- Case (Var i) _ _ _ -> let sId = showSDocUnsafe (ppr i) in (sId : arguments, context)
+  -- Case (Var i) _ _ _ -> let sId = showPpr (flags context) i in (sId : arguments, context)
   _ -> (arguments, context)
 
 -- _ -> error ("translateArgument: unsupported expression\n" ++ prettyCoreExpr e)
@@ -209,7 +207,7 @@ getRateFromConstructors id list = case list of
 --  {Alt(DataAlt((,)):
 --  {s_out_a1a1, s_1_X1, }Var(s_1_X1)), })))), })
 --   let
---     newVar = showSDocUnsafe (ppr b)
+--     newVar = showPpr (flags context) b
 --     newContext = context { variables = newVar : (variables context) }
 --   in
 
@@ -224,7 +222,7 @@ getRateFromConstructors id list = case list of
 
 --     newSignal IRSignal "s_out" ("a_1", 1) ("output", 1)
 
---     a_1 contect to output with s_out
+--     a_1 context to output with s_out
 
 -- -- Case(Var(ds_d1bd): (wild_00, Signal d_a1aj) {
 -- --     Alt(DataAlt((,)):
@@ -233,13 +231,13 @@ getRateFromConstructors id list = case list of
 
 translateCoreExpr :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 translateCoreExpr context b e = case e of
-  Lam _ (Lam _ (Lam _ (App (App (App (Var (i)) _) _) _))) -> case (showSDocUnsafe (ppr i)) of
+  Lam _ (Lam _ (Lam _ (App (App (App (Var (i)) _) _) _))) -> case (showPpr (flags context) i) of
     "delaySDF" -> createDelaySDF context b e
     _ -> error "expecting delaySDF got something else"
-  Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _)))) -> case (showSDocUnsafe (ppr i)) of
+  Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _)))) -> case (showPpr (flags context) i) of
     "actor22SDF" -> createActorSDF context Actor22 b e
     _ -> error "expecting actor22SDF got something else"
-  Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _))) -> case (showSDocUnsafe (ppr i)) of
+  Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _))) -> case (showPpr (flags context) i) of
     "actor12SDF" -> createActorSDF context Actor12 b e
     _ -> error "expecting actor12SDF got something else"
   _ -> createFunction context b e
@@ -248,7 +246,7 @@ translateCoreExpr context b e = case e of
 createDelaySDF :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 createDelaySDF context b e =
   let tokens = (getLits e [])
-      delayId = showSDocUnsafe (ppr b)
+      delayId = showPpr (flags context) b
       newDelay = IRDelay delayId tokens
    in context {constructors = newDelay : (constructors context)}
 
@@ -267,14 +265,14 @@ createActorSDF context ac b e =
         Nothing -> error "No function found for actor"
         Just functionName ->
           let (inRates, outRates) = splitAt (getActorSplit ac) lits
-              actorId = showSDocUnsafe (ppr b)
+              actorId = showPpr (flags context) b
               newActor = IRActor actorId ac functionName
               newActorsList = (actorId, (inRates, outRates)) : (actors context)
            in context {actors = newActorsList, constructors = newActor : (constructors context)}
 
 createFunction :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 createFunction context b e =
-  let functionName = showSDocUnsafe (ppr b)
+  let functionName = showPpr (flags context) b
       newFunction = IRFunction functionName (Just e)
    in context {functions = newFunction : (functions context)}
 
@@ -288,7 +286,7 @@ getFunctionName context e = case e of
   Lam _ e -> getFunctionName context e
   Let _ e -> getFunctionName context e
   Var v ->
-    let name = showSDocUnsafe (ppr v)
+    let name = showPpr (flags context) v
      in if any (\x -> case x of IRFunction functionName _ -> functionName == name) (functions context)
           then
             Just name

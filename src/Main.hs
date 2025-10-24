@@ -61,17 +61,11 @@ run :: Arguments -> IO ()
 -- "Normal run"
 run (Arguments (InputFile _) _ OutputC) =
   putStrLn "To C"
-<<<<<<< HEAD
-run (Arguments (InputFile _) _ OutputForSyDeIR) = do
-  putStrLn "To ForSyDe IR"
+run (Arguments (InputFile input_file) output_file OutputForSyDeIR) = do
+  (core, dflags) <- compileToCore input_file
+  let ir = translateCoreProgram dflags core
+  write_output output_file OutputForSyDeIR (prettyIRSystem dflags ir)
 run (Arguments (InputFile _) _ OutputProceduralIR) =
-=======
-run (Arguments (InputFile input_file) output_file OutputIRForSyDe) = do
-  core <- compileToCore input_file
-  let ir = translateCoreProgram core
-  write_output output_file OutputIRForSyDe (showSDocUnsafe (prettyIRSystem ir))
-run (Arguments (InputFile input_file) output_file OutputIRProcedural) =
->>>>>>> 9cb8f18 (wip: core to ForSyDe translations)
   putStrLn "To Procedural IR"
 -- What we have so far, take input file and write out core
 run (Arguments (InputFile input_file) output_file OutputCore) = do
