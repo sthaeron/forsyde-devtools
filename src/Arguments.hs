@@ -21,12 +21,14 @@ data InputFormat
   = InputForSyDe
   | InputCore
   | InputForSyDeIR
+  | InputForSyDeIRJSON
   | InputProceduralIR
 
 data OutputFormat
   = OutputC
   | OutputCore
   | OutputForSyDeIR
+  | OutputForSyDeIRJSON
   | OutputProceduralIR
 
 data Arguments = Arguments
@@ -119,6 +121,7 @@ outputFormatTop :: Parser OutputFormat
 outputFormatTop =
   outputFormatC
     <|> outputFormatForSyDeIR
+    <|> outputFormatForSyDeIRJSON
     <|> outputFormatProceduralIR
 
 -- Temporary implementation. Sets output to core as default functionality,
@@ -151,6 +154,14 @@ outputFormatForSyDeIR =
     OutputForSyDeIR
     ( long "output-forsyde-ir"
         <> help "Output file in ForSyDe-IR"
+    )
+
+outputFormatForSyDeIRJSON :: Parser OutputFormat
+outputFormatForSyDeIRJSON =
+  flag'
+    OutputForSyDeIRJSON
+    ( long "output-forsyde-ir-json"
+        <> help "Output file in ForSyDe-IR-JSON"
     )
 
 outputFormatProceduralIR :: Parser OutputFormat
