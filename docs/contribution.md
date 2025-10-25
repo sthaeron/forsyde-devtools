@@ -117,6 +117,9 @@ nix-shell
 
 3. You now have all required dependencies available in your environment.
 
+### Adding Dependencies
+Dependencies for the compiler that take the form of a Haskell package should be added using cabal under the `build-depends:` of `common-options` in the [forsyde-devtools.cabal](../forsyde-devtools.cabal) file. The Nix flake reads this cabal file and the dependency will be downloaded when you next enter the development environment using `nix develop`. Any development and non-Haskell build dependencies should be added directly to the Nix flake under `buildInputs` in the [flake.nix](../flake.nix) file. Search for dependencies package name in `nixpkgs` using [search.nixos.org](https://search.nixos.org/packages).
+
 ## Continuous Integration
 
 There are two relevant features we are using for this project:
