@@ -4,37 +4,43 @@ import GHC.Utils.Outputable
 import Prelude hiding ((<>))
 
 data Uop
-  = OPNegate
-  | OPLogicalNot
-  | OPIncrement
-  | OPDecrement
+  = OPNegate -- -rhs
+  | OPLogicalNot -- !rhs
+  | OPIncrement -- ++rhs
+  | OPDecrement -- --rhs
 
 data Bop
-  = OPPlus
-  | OPMinus
-  | OPMultiply
-  | OPDivide
-  | OPEqual
-  | OPNotEqual
-  | OPLogicalAnd
-  | OPLogicalOr
-  | OPLess
-  | OPLessEqual
-  | OPGreater
-  | OPGreaterEqual
+  = OPPlus -- lhs + rhs
+  | OPMinus -- lhs - rhs
+  | OPMultiply -- lhs * rhs
+  | OPDivide -- lhs / rhs
+  | OPModulo -- lhs % rhs
+  | OPPlusAssign -- lhs += rhs
+  | OPMinusAssign -- lhs -= rhs
+  | OPMultiplyAssign -- lhs *= rhs
+  | OPDivideAssign -- lhs /= rhs
+  | OPModuloAssign -- lhs %= rhs
+  | OPEqual -- lhs == rhs
+  | OPNotEqual -- lhs != rhs
+  | OPLogicalAnd -- lhs && rhs
+  | OPLogicalOr -- lhs || rhs
+  | OPLess -- lhs < rhs
+  | OPLessEqual -- lhs <= rhs
+  | OPGreater -- lhs > rhs
+  | OPGreaterEqual -- lhs >= rhs
 
--- T ::= TVoid | TInt | TChar | TIdent(r) | TPoint(T)
+-- Types
 data Type
   = TVoid
   | TInt
+  | TFloat
   | TChar
   | TIdent String
-  | TPoint Type
+  | TPoint Type -- int * var
+  | TReference Type -- int & var
+  | TFuncPoint Type [Type] -- void (*func)([type])
 
 -- Expressions
--- e ::= EVar(r) | EInt(i) | EChar(c) | EString(r)
---     | EBinOp(bop, e, e) | EUnOp(uop, e) | ECall(r, e)
---     | ENew(T, e) | EArrayAccess(r, e, rˆ)
 data Expression
   = EVar String
   | EInt Int
@@ -42,19 +48,24 @@ data Expression
   | EString String
   | EBinOp Bop Expression Expression
   | EUnOp Uop Expression
-  | ECall String [Expression]
-  | ENew Type Expression
-  | EArrayAccess String Expression (Maybe String)
+  | ECall String [Expression] -- string(), simple function call
+  | ECallExpr Expression [Expression] -- abc.foo(), enable more complex function call
+  | EArrayAccess Expression Expression -- expr[expr], modified from cigrid for better expressiveness
+  | EReference Expression -- &expr
+  | EDereference Expression
+  | -- \*expr
+    EMemberAccess Expression String -- expr.string
+  | EPointerAccess Expression String -- expr->string
+  | EParen Expression -- (expr)
 
 -- Statements
--- s ::= SExpr(e) | SVarDef(T, r, e) | SVarAssign(r, e)
---     | SArrayAssign(r, e, r, eˆ) | SScope(s) | SIf(e, s, sˆ)
---     | SWhile(e, s) | SBreak | SReturn(ˆe) | SDelete(r)
 data Statement
   = SExpr Expression
-  | SVarDecl Type String -- Added for: Token input; int i;
+  | SVarDecl Type String -- Token input; int i;
   | SVarDef Type String Expression
+  | SAssign Expression Expression -- expr = expr;
   | SVarAssign String Expression
+  | SArrayDecl Type String [Expression] -- int output[2];
   | SArrayAssign String Expression (Maybe String) Expression
   | SScope [Statement]
   | SIf Expression Statement (Maybe Statement)
@@ -62,19 +73,12 @@ data Statement
   | SFor Statement Expression Statement Statement
   | SBreak
   | SReturn (Maybe Expression)
-  | SDelete String
+  | SGoto String
+  | SLabel String
 
 -- Globals
--- g ::= GFuncDef(T, r, (T, r), s) | GFuncDecl(T, r, (T, r))
---     | GVarDef(T, r, e) | GVarDecl(T, r) | GStruct(r, (T, r))
 data Global
-  = GFuncDef Type String [(Type, String)] Statement
-
--- The following might not be needed
--- \| GFuncDecl Type String [(Type, String)]
--- \| GVarDef Type String Expression
--- \| GVarDecl Type String
--- \| GStruct String [(Type, String)]
+  = GFuncDef [String] Type String [(Type, String)] Statement
 
 data Program = Prog [Global]
 
@@ -90,6 +94,12 @@ prettyBop OPPlus = text "+"
 prettyBop OPMinus = text "-"
 prettyBop OPMultiply = text "*"
 prettyBop OPDivide = text "/"
+prettyBop OPModulo = text "%"
+prettyBop OPPlusAssign = text "+="
+prettyBop OPMinusAssign = text "-="
+prettyBop OPMultiplyAssign = text "*="
+prettyBop OPDivideAssign = text "/="
+prettyBop OPModuloAssign = text "%="
 prettyBop OPEqual = text "=="
 prettyBop OPNotEqual = text "!="
 prettyBop OPLogicalAnd = text "&&"
@@ -102,9 +112,20 @@ prettyBop OPGreaterEqual = text ">="
 prettyType :: Type -> SDoc
 prettyType TVoid = text "TVoid"
 prettyType TInt = text "TInt"
+prettyType TFloat = text "TFloat"
 prettyType TChar = text "TChar"
 prettyType (TIdent s) = text "TIdent" <> parens (doubleQuotes (text s))
 prettyType (TPoint t) = text "TPoint" <> parens (prettyType t)
+prettyType (TReference t) = text "TReference" <> parens (prettyType t)
+prettyType (TFuncPoint returnType paramTypes) =
+  text "TFuncPoint"
+    <> parens
+      ( prettyType returnType
+          <> comma
+          <+> if null paramTypes
+            then text "(TVoid)"
+            else parens (vcat (punctuate comma (map prettyType paramTypes)))
+      )
 
 prettyExpression :: Expression -> SDoc
 prettyExpression (EVar x) = text "EVar" <> parens (doubleQuotes (text x))
@@ -127,33 +148,52 @@ prettyExpression (EUnOp uop expression) =
           <> comma
           <+> prettyExpression expression
       )
-prettyExpression (ECall name expressions) =
+prettyExpression (ECall name arguments) =
   text "ECall"
     <> parens
       ( doubleQuotes (text name)
           <> comma
           <+> parens
-            (hcat (punctuate (comma <+> text "") (map prettyExpression expressions)))
+            (hcat (punctuate (comma <+> text "") (map prettyExpression arguments)))
       )
-prettyExpression (ENew varType expression) =
-  text "ENew"
+prettyExpression (ECallExpr calleeExpression arguments) =
+  text "ECallExpr"
     <> parens
-      ( prettyType varType
+      ( prettyExpression calleeExpression
           <> comma
-          <+> prettyExpression expression
+          <+> parens
+            (hcat (punctuate (comma <+> text "") (map prettyExpression arguments)))
       )
 -- EArrayAccess String Expression (Maybe String)
-prettyExpression (EArrayAccess name expression maybeLabel) =
+prettyExpression (EArrayAccess arrayExpression indexExpression) =
   text "EArrayAccess"
     <> parens
-      ( doubleQuotes (text name)
+      ( prettyExpression arrayExpression
           <> comma
-          <+> prettyExpression expression
-          <> comma
-          <+> case maybeLabel of
-            Nothing -> text ""
-            Just label -> doubleQuotes (text label)
+          <+> prettyExpression indexExpression
       )
+prettyExpression (EReference expression) =
+  text "EReference"
+    <> parens (prettyExpression expression)
+prettyExpression (EDereference expression) =
+  text "EDereference"
+    <> parens (prettyExpression expression)
+prettyExpression (EMemberAccess expression field) =
+  text "EMemberAccess"
+    <> parens
+      ( prettyExpression expression
+          <> comma
+          <+> doubleQuotes (text field)
+      )
+prettyExpression (EPointerAccess expression field) =
+  text "EPointerAccess"
+    <> parens
+      ( prettyExpression expression
+          <> comma
+          <+> doubleQuotes (text field)
+      )
+prettyExpression (EParen expression) =
+  text "EParen" <> parens (prettyExpression expression)
 prettyExpression _ = text "<expression> not implemented yet"
 
 prettyStatement :: Statement -> SDoc
@@ -178,12 +218,29 @@ prettyStatement (SVarDef varType name expression) =
           <> comma
           <+> prettyExpression expression
       )
+prettyStatement (SAssign lhsExpression rhsExpression) =
+  text "SAssign"
+    <> parens
+      ( prettyExpression lhsExpression
+          <> comma
+          <+> prettyExpression rhsExpression
+      )
 prettyStatement (SVarAssign name expression) =
   text "SVarAssign"
     <> parens
       ( doubleQuotes (text name)
           <> comma
           <+> prettyExpression expression
+      )
+prettyStatement (SArrayDecl arrayType name expressions) =
+  text "SArrayDecl"
+    <> parens
+      ( prettyType arrayType
+          <> comma
+          <+> doubleQuotes (text name)
+          <> comma
+          <+> parens
+            (hcat (punctuate (comma <+> text "") (map prettyExpression expressions)))
       )
 prettyStatement (SArrayAssign name index maybeLabel expression) =
   text "SArrayAssign"
@@ -242,9 +299,12 @@ prettyStatement (SReturn maybeExpression) =
     <> case maybeExpression of
       Nothing -> text ""
       Just expression -> parens (prettyExpression expression)
-prettyStatement (SDelete name) =
-  text "SDelete"
-    <> parens (doubleQuotes (text name))
+prettyStatement (SGoto label) =
+  text "SGoto"
+    <> parens (doubleQuotes (text label))
+prettyStatement (SLabel label) =
+  text "SLabel"
+    <> parens (doubleQuotes (text label))
 prettyStatement _ = text "<statement> no implemented yet"
 
 prettyParam :: (Type, String) -> SDoc
@@ -253,14 +313,22 @@ prettyParam (paramType, paramName) =
 
 prettyGlobal :: Global -> SDoc
 prettyGlobal global = case global of
-  GFuncDef returnType name params body ->
+  GFuncDef modifiers returnType name params body ->
     text "GFuncDef"
       <> parens
-        ( prettyType returnType
+        ( hcat
+            ( punctuate
+                (comma <+> text "")
+                (map (doubleQuotes . text) modifiers)
+            )
+            <> comma
+            <+> prettyType returnType
             <> comma
             <+> doubleQuotes (text name)
             <> comma
-            <+> parens (hcat (punctuate comma (map prettyParam params)))
+            <+> if null params
+              then text "()"
+              else parens (vcat (punctuate comma (map prettyParam params)))
         )
       <+> text "{"
       $$ nest 2 (prettyStatement body)
@@ -274,6 +342,7 @@ exampleAST :: Program
 exampleAST =
   Prog
     [ GFuncDef
+        []
         TInt
         "main"
         []
@@ -337,11 +406,6 @@ exampleAST =
                         )
                     ]
                 ),
-              SFor
-                (SVarDef TInt "i" (EInt 0))
-                (EBinOp OPLess (EVar "i") (EVar "n"))
-                (SExpr (EUnOp OPIncrement (EVar "i")))
-                (SScope [SExpr (ECall "printf" [EString "%d\n", EVar "i"])]),
               SArrayAssign "x" (EInt 0) Nothing (EInt 3),
               SArrayAssign "x" (EInt 1) (Just "foo") (EInt 2),
               SIf
@@ -353,8 +417,83 @@ exampleAST =
                 (SReturn (Just (EInt 1)))
                 (Just (SReturn (Just (EInt 0)))),
               SReturn (Just (EInt 0)),
-              SReturn (Nothing)
+              SReturn (Nothing),
+              -- The following are some grammar that can't be achieved by cigrid AST
+              -- But now can be used
+
+              -- for (int i=0; i<n; ++i){
+              -- printf("%d\n", i);
+              -- }
+              SFor
+                (SVarDef TInt "i" (EInt 0))
+                (EBinOp OPLess (EVar "i") (EVar "n"))
+                (SExpr (EUnOp OPIncrement (EVar "i")))
+                (SScope [SExpr (ECall "printf" [EString "%d\n", EVar "i"])]),
+              -- struct fifo & fifo = f;
+              SVarDef
+                (TReference (TIdent "fifo"))
+                "fifo"
+                (EVar "f"),
+              -- printf("Hi"); // has new way to call
+              SExpr (ECallExpr (EVar "printf") [EString "Hi"]),
+              -- a->funca()
+              SExpr (ECallExpr (EPointerAccess (EVar "a") "funca") []),
+              -- a.getB().printB();
+              SExpr
+                ( ECallExpr
+                    ( EMemberAccess
+                        (ECallExpr (EMemberAccess (EVar "a") "getB") [])
+                        "printB"
+                    )
+                    []
+                ),
+              -- p[i]->value;
+              SExpr
+                ( EPointerAccess
+                    (EArrayAccess (EVar "p") (EVar "i"))
+                    "value"
+                ),
+              -- pthread_mutex_lock(&fifo->lock);
+              SExpr
+                ( ECall
+                    "pthread_mutex_lock"
+                    [ EReference
+                        (EPointerAccess (EVar "fifo") "lock")
+                    ]
+                ),
+              -- int value = *p;
+              -- \*p = 10;
+              SVarDef
+                TInt
+                "value"
+                (EDereference (EVar "p")),
+              SAssign
+                (EDereference (EVar "p"))
+                (EInt 10),
+              -- int input[2];
+              SArrayDecl
+                TInt
+                "input"
+                [EInt 2]
             ]
+        ),
+      GFuncDef
+        ["static"]
+        TVoid
+        "actor11SDF"
+        [ (TInt, "consum"),
+          (TInt, "prod"),
+          (TPoint (TIdent "channel"), "ch_in"),
+          (TPoint (TIdent "channel"), "ch_out"),
+          ( TFuncPoint
+              TVoid
+              [ (TPoint (TIdent "token")),
+                (TPoint (TIdent "token"))
+              ],
+            "f"
+          )
+        ]
+        ( SScope []
         )
     ]
 
