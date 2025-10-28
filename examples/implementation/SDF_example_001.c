@@ -65,8 +65,8 @@ static void fifo_put_element(struct fifo *fifo, element element)
 	fifo->head = (fifo->head + 1) % fifo->size;
 	++fifo->used;
 
-	pthread_mutex_unlock(&fifo->lock);
 	pthread_cond_broadcast(&fifo->notempty);
+	pthread_mutex_unlock(&fifo->lock);
 }
 
 static void fifo_put_multiple(struct fifo *fifo, size_t count, element elements[count])
@@ -91,8 +91,8 @@ static void fifo_put_multiple(struct fifo *fifo, size_t count, element elements[
 	fifo->head = (fifo->head + count) % fifo->size;
 	fifo->used += count;
 
-	pthread_mutex_unlock(&fifo->lock);
 	pthread_cond_broadcast(&fifo->notempty);
+	pthread_mutex_unlock(&fifo->lock);
 }
 
 static void fifo_get_element(struct fifo *fifo, element *element)
@@ -108,8 +108,8 @@ static void fifo_get_element(struct fifo *fifo, element *element)
 	fifo->tail = (fifo->tail + 1) % fifo->size;
 	--fifo->used;
 
-	pthread_mutex_unlock(&fifo->lock);
 	pthread_cond_broadcast(&fifo->notfull);
+	pthread_mutex_unlock(&fifo->lock);
 }
 
 static void fifo_get_multiple(struct fifo *fifo, size_t count, element elements[count])
@@ -134,8 +134,8 @@ static void fifo_get_multiple(struct fifo *fifo, size_t count, element elements[
 	fifo->tail = (fifo->tail + count) % fifo->size;
 	fifo->used -= count;
 
-	pthread_mutex_unlock(&fifo->lock);
 	pthread_cond_broadcast(&fifo->notfull);
+	pthread_mutex_unlock(&fifo->lock);
 }
 
 enum process {
