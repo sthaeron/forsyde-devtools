@@ -56,10 +56,8 @@ static void fifo_put_element(struct fifo *fifo, element element)
 {
 	pthread_mutex_lock(&fifo->lock);
 
-	while (fifo->used >= fifo->size) {
-		// fprintf(stderr, "Waiting for space...\n");
+	while (fifo->used >= fifo->size)
 		pthread_cond_wait(&fifo->notfull, &fifo->lock);
-	}
 
 	fifo->elements[fifo->head] = element;
 	fifo->head = (fifo->head + 1) % fifo->size;
@@ -75,10 +73,8 @@ static void fifo_put_multiple(struct fifo *fifo, size_t count, element elements[
 
 	pthread_mutex_lock(&fifo->lock);
 
-	while (fifo->used + count > fifo->size) {
-		// fprintf(stderr, "Waiting for space...\n");
+	while (fifo->used + count > fifo->size)
 		pthread_cond_wait(&fifo->notfull, &fifo->lock);
-	}
 
 	count_a = fifo->head + count <= fifo->size ? count : fifo->size - fifo->head;
 	memcpy(&fifo->elements[fifo->head], &elements[0], sizeof(element)*count);
@@ -99,10 +95,8 @@ static void fifo_get_element(struct fifo *fifo, element *element)
 {
 	pthread_mutex_lock(&fifo->lock);
 
-	while (fifo->used == 0) {
-		// fprintf(stderr, "Waiting for element...\n");
+	while (fifo->used == 0)
 		pthread_cond_wait(&fifo->notempty, &fifo->lock);
-	}
 
 	*element = fifo->elements[fifo->tail];
 	fifo->tail = (fifo->tail + 1) % fifo->size;
@@ -118,10 +112,8 @@ static void fifo_get_multiple(struct fifo *fifo, size_t count, element elements[
 
 	pthread_mutex_lock(&fifo->lock);
 
-	while (fifo->used < count) {
-		// fprintf(stderr, "Waiting for space...\n");
+	while (fifo->used < count)
 		pthread_cond_wait(&fifo->notempty, &fifo->lock);
-	}
 
 	count_a = fifo->tail + count <= fifo->size ? count : fifo->size - fifo->tail;
 	memcpy(&elements[0], &fifo->elements[fifo->tail], sizeof(element)*count);
