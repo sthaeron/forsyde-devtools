@@ -182,15 +182,15 @@ getSourceRate context id =
 getRateFromConstructors :: String -> [IRConstructor] -> Int
 getRateFromConstructors id list = case list of
   [] -> error ("No constructor found for id: " ++ id)
-  head : tail -> case head of
-    IRDelay prId _ ->
+  prHead : prTail -> case prHead of
+    IRDelay prId _ (_, _) ->
       if prId == id
         then 1
-        else getRateFromConstructors id tail
-    IRActor prId _ _ ->
+        else getRateFromConstructors id prTail
+    IRActor prId _ _ (_, _) ->
       if prId == id
         then error ("TODO: implement getRateFromConstructors for actors " ++ prId)
-        else getRateFromConstructors id tail
+        else getRateFromConstructors id prTail
 
 -- if prId == id then
 --   let
@@ -247,7 +247,7 @@ createDelaySDF :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationConte
 createDelaySDF context b e =
   let tokens = (getLits e [])
       delayId = showPpr (flags context) b
-      newDelay = IRDelay delayId tokens
+      newDelay = IRDelay delayId tokens ("", "")
    in context {constructors = newDelay : (constructors context)}
 
 getActorSplit :: ActorType -> Int
@@ -266,7 +266,7 @@ createActorSDF context ac b e =
         Just functionName ->
           let (inRates, outRates) = splitAt (getActorSplit ac) lits
               actorId = showPpr (flags context) b
-              newActor = IRActor actorId ac functionName
+              newActor = IRActor actorId ac functionName ([""], [""])
               newActorsList = (actorId, (inRates, outRates)) : (actors context)
            in context {actors = newActorsList, constructors = newActor : (constructors context)}
 
