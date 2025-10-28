@@ -6,6 +6,7 @@ import GHC
 import GHC.Core
 import GHC.Driver.Ppr
 import GHC.Types.Literal
+import Prelude hiding (id)
 
 data TranslationContext = TranslationContext
   { flags :: DynFlags,
@@ -76,21 +77,21 @@ translateInputs context e = case e of
 
 translateOutputs :: TranslationContext -> CoreExpr -> TranslationContext
 translateOutputs context e = case e of
-  App ne a -> translateOutputs (translateOutputs context a) ne
+  App e a -> translateOutputs (translateOutputs context a) e
   Var _ -> context
   Type _ -> context
-  Case ne _ _ alts ->
-    let bind = showPpr (flags context) ne
+  Case e _ _ alts ->
+    let bind = showPpr (flags context) e
      in translateAlts context alts
   _ -> error ("translateOutputs: unsupported expression\n" ++ prettyCoreExpr (flags context) e)
 
 translateAlts :: TranslationContext -> [Alt CoreBndr] -> TranslationContext
 translateAlts context alts = case alts of
   [] -> context
-  (Alt _ _ (Var (i))) : tailAlts ->
+  (Alt _ _ (Var (i))) : altTail ->
     let newOutput = showPpr (flags context) i
         newContext = context {systemOutputs = newOutput : (systemOutputs context)}
-     in translateAlts newContext tailAlts
+     in translateAlts newContext altTail
   _ -> error ("translateAlts: AltCon is not supported\n" ++ prettyCoreAltList (flags context) alts)
 
 -- App(App(App(App(Var((,)) * Type(Signal c_a1d4)) * Type(Signal c_a1d4)) *
@@ -107,10 +108,10 @@ translateBinds context binds = translateBindsAux context binds []
 translateBindsAux :: TranslationContext -> [(CoreBndr, CoreExpr)] -> [(String, String)] -> ([(String, String)], TranslationContext)
 translateBindsAux context binds acc = case binds of
   [] -> (acc, context)
-  (b, e) : tailBinds ->
+  (b, e) : bindTail ->
     let outputId = showPpr (flags context) b
         (prId, newContext) = translateBodyExpr context [] e
-     in translateBindsAux newContext tailBinds ((outputId, prId) : acc)
+     in translateBindsAux newContext bindTail ((outputId, prId) : acc)
 
 translateBodyExpr :: TranslationContext -> [String] -> CoreExpr -> (String, TranslationContext)
 translateBodyExpr context arguments e = case e of
@@ -118,9 +119,9 @@ translateBodyExpr context arguments e = case e of
     let prId = showPpr (flags context) i
         newContext = createSignals context prId arguments
      in (prId, newContext)
-  App ne a ->
+  App e a ->
     let (newArguments, newContext) = translateArgument context arguments a
-     in translateBodyExpr newContext newArguments ne
+     in translateBodyExpr newContext newArguments e
   _ -> error ("translateBodyExpr: unsupported expression\n" ++ prettyCoreExpr (flags context) e)
 
 -- App(App(
@@ -136,9 +137,9 @@ translateBodyExpr context arguments e = case e of
 translateArgument :: TranslationContext -> [String] -> CoreExpr -> ([String], TranslationContext)
 translateArgument context arguments e = case e of
   Var i -> let sId = showPpr (flags context) i in (sId : arguments, context)
-  App ne a ->
+  App e a ->
     let (newArguments, newContext) = translateArgument context [] a
-        (prId, newNewContext) = translateBodyExpr newContext newArguments ne
+        (prId, newNewContext) = translateBodyExpr newContext newArguments e
      in (prId : arguments, newNewContext)
   -- Case (Var i) _ _ _ -> let sId = showPpr (flags context) i in (sId : arguments, context)
   _ -> (arguments, context)
@@ -157,14 +158,14 @@ createSignals context pr inputs =
    in createSignalsAux context pr inputs inputRates
 
 createSignalsAux :: TranslationContext -> String -> [String] -> [Int] -> TranslationContext
-createSignalsAux context pr inputs rates = case inputs of
-  [] -> context
-  headInput : tailInputs ->
+createSignalsAux context pr inputs rates = case (inputs, rates) of
+  ([], _) -> context
+  (_, []) -> context
+  (inputHead : inputTail, rateHead : rateTail) ->
     let (newName, newContext) = (genSignalName context)
-        (headRate : tailRates) = rates
-        newSignal = IRSignal newName (headInput, getSourceRate newContext headInput) (pr, headRate)
+        newSignal = IRSignal newName (inputHead, getSourceRate newContext inputHead) (pr, rateHead)
         newNewContext = newContext {signals = newSignal : (signals newContext)}
-     in createSignalsAux newNewContext pr tailInputs tailRates
+     in createSignalsAux newNewContext pr inputTail rateTail
 
 genSignalName :: TranslationContext -> (String, TranslationContext)
 genSignalName context =
