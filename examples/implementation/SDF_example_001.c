@@ -135,7 +135,7 @@ static void fifo_get_multiple(struct fifo *fifo, size_t count, element elements[
 	fifo->used -= count;
 
 	pthread_mutex_unlock(&fifo->lock);
-	pthread_cond_broadcast(&fifo->notempty);
+	pthread_cond_broadcast(&fifo->notfull);
 }
 
 enum process {
