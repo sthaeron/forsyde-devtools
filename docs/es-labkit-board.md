@@ -165,6 +165,22 @@ The non-blocking variants could add some sanity checking for core-internal buffe
 i.e. we get an error on a bad schedule instead of just hanging.
 For cross-core communication, it makes more sense to use the blocking variants.
 
+#### Synchronization
+
+[`pico_sync`](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_pico_sync)
+
+Consists of
+- [`pico/critical_section.h`](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_critical_section):
+    IRQ and multi-core safe mutual exclusion.
+    These use spinlocks and are therefore only suitable for short critical sections.
+- [`pico/lock_core.h`](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_lock_core):
+    Basic primitives.
+- [`pico/mutex.h`](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_mutex):
+    Mutual exclusion for multi-core. Not IRQ-safe (can sleep).
+- [`pico/sem.h`](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_sem):
+    General semaphores (capped to a given number of permits).
+    These can be used from IRQ if avoiding the unconditional blocking calls (as those can sleep).
+
 #### Multi-core control
 [`pico/multicore.h`](https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_pico_multicore)
 
