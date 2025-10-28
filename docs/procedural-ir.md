@@ -7,7 +7,7 @@ Procedural IR is a set of data structures representing C code abstract syntax, u
 ## Design principles
 The original Cigrid AST was designed to represent C programs with a focus on precise, unambiguous translation into low-level or assembly-like representations. In contrast, Procedural IR focuses on reconstructing the syntatic structure of C code in a structured form suitable for C code generation. To achieve this goal, several modification and simplification are introduced from the original Cigrid AST to improve expressiveness. While a pure token stream is also enough for generating C code, an AST structure has better readability and extendability for complex code structures.
 
-It is important to note that this IR contains some syntax that are redundant from a formal C syntax perspective. For example, the distinction between `ECall` (from Cigrid) and `ECallExpr` (added), or the various assignment forms like `SVarAssign` `SArrayAssign`(from Cigrid), and `SAssign`(added), represent semantically equivalent concepts in C syntax. This AST is not suitable for a conventional C compiler because these redundancies would create serious ambiguity issues. However, since this representation serves as a tool for building C code generation in a simpler manner, such duplications do not pose problems and instead provide flexibility in code construction.
+It is important to note that this IR contains some syntax that are redundant from a formal C syntax perspective. For example, the distinction between `ECall` (from Cigrid) and `ECallExpr` (added), or the various assignment forms like `SVarAssign` `SArrayAssign`(from Cigrid), and `SAssign`(added), represent semantically equivalent concepts in C syntax. This AST is not suitable for a conventional C compiler because these redundancies would create serious ambiguity issues. However, since this representation serves as a tool for C code generation in a simpler manner, such duplications do not pose problems and instead provide flexibility in code construction.
 
 Additionally, the procedural IR serves as an intermediate representation when converting from ForSyDeIR, which primarily captures ForSyDe model structure and the functions executed by actors. Consequently:
 
@@ -133,8 +133,8 @@ data Statement
 Statements are the main building blocks of procedural program with assignments, control flow. Extended features include:
 
 * `SVarDecl Type String` - In Cigird, it is not allowed to declare uninitialize local variables. This is extended to have local declaration (`int i;`).
-* `SAssign Expression Expression` - In Cigrid, it distinguish `SVarAssign` and `SArrayAssign` since they have different behavior in low-level codes. `SAssign` is a simpler way to assign expression to another expression, or can be simple considered as having a `=` between these two expressions.
-* `SArrayDecl Type String [Expression]` - In Cigrid, arrays can only be declared in a C++ way: `Tree* t = new Tree[1];`. In C, arrays can be clared locally as `int output[2];`. Since there can be multi-dimentional arrays `int matrix[2][2]`, the expression taken by `SArrayDecl` is a list.
+* `SAssign Expression Expression` - In Cigrid, it distinguishes `SVarAssign` and `SArrayAssign` since they have different behavior in low-level codes. `SAssign` is a simpler way to represent code of assigning expression to another expression, which can be simple considered as having a `=` between these two expressions.
+* `SArrayDecl Type String [Expression]` - In Cigrid, arrays can only be declared in a C++ way: `Tree* t = new Tree[1];`. In C, arrays can be declared locally as `int output[2];`. Since there can be multi-dimentional arrays `int matrix[2][2]`, the expression taken by `SArrayDecl` is a list.
 * `SFor Statement Expression Statement Statement` - In Cigrid, for loops are desugared into SWhile. `SFor` is now extended, and the fields are initStatement (`int i=0`), condExpression(`i<n`), updateStatement(`++i`), and loop body. 
 * `SGoto String` - Simple goto the target label.
 * `SLabel String` - A statement marking the label.
@@ -147,7 +147,7 @@ data Global
   = GFuncDef [String] Type String [(Type, String)] Statement
 ```
 
-A list of String is added at the front of GFuncDef for qualifiers like `static`, `const` and `inline`.
+Compared to Cigrid AST, a list of String is added at the front of GFuncDef for qualifiers like `static`, `const` and `inline`.
 
 #### Example of taking function pointer as parameter:
 ```c
@@ -193,36 +193,14 @@ A complete Procedural IR program is a list of Global (functions).
 
 **1. Arrays and Parameters**
 - If a function takes an array as parameter, it can only be represented by `int *x`, not `int x[]`, since currently function parameters are only represented as `Type Name`.
-- Due to the reason above, multi-dimensional arrays as parameters (e.g., `int x[][4]`) are not handled. Only dynamically allocated arrays could be used and pass them as `int**`. If this is a necessity, can be updated in future.
+- Due to the reason above, multi-dimensional arrays as parameters (e.g., `int x[][4]`) are not handled. Only dynamically allocated arrays could be used and pass them as `int**`. If this is a necessity, it can be updated in future.
 
-**2. Ternary operators**
+**2. Ternary operators**  
 The following code from `SDF_example_001.c` is not supported:
 ```
 count_a = fifo->head + count <= fifo->size ? count : fifo->size - fifo->head;
 ```
 
-**3. Very advanced struct definition**
-```c
-struct {
-	pthread_t thread;
-	void *(*func)(void *);
-} processes[] = {
-	[ProcessA] = {
-		.func = &process_a,
-	},
-	[ProcessB] = {
-		.func = &process_b,
-	},
-	[ProcessC] = {
-		.func = &process_c,
-	},
-	[ProcessD] = {
-		.func = &process_d,
-	},
-	[End] = {},
-};
-
-```
 
 
 
