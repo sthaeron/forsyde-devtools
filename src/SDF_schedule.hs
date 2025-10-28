@@ -6,33 +6,37 @@ import Data.List (dropWhile, find, intercalate, nub)
 import Data.Maybe (catMaybes)
 import Data.Ratio (approxRational, denominator, numerator)
 import ForSyDeIR
+import GHC
+import GHC.Data.EnumSet as EnumSet
 import GHC.Generics (Generic)
+import GHC.Paths (libdir)
+import GHC.Plugins
 import GHC.Utils.Outputable
-import Numeric.LinearAlgebra hiding (find)
+import Numeric.LinearAlgebra as LinearAlgebra hiding (find)
 
 -- | Convert ForSyDe IR to SDF data structures
 convertIRSystem :: IRSystem -> ([Actor], [Edge])
 convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
   let -- 1. Delay node names (IRDelay has two parameters)
-      delayNames = [n | IRDelay n _ <- constructors]
+      delayNames = [n | IRDelay n _ (_, _) <- constructors]
 
       -- 2. All actor names (excluding delays)
       allActorNames =
         [ n
-          | IRActor n _ _ <- constructors
+        | IRActor n _ _ (_, _) <- constructors
         ]
 
       -- 3. Actors that receive from "input"
       inputActorNames =
         [ dstId
-          | IRSignal _ (srcId, _) (dstId, _) <- signals,
-            srcId `elem` inputNames
+        | IRSignal _ (srcId, _) (dstId, _) <- signals,
+          srcId `elem` inputNames
         ]
 
       -- 4. Build actor list
       baseActors =
         [ Actor n (n `elem` inputActorNames || n `elem` inputNames)
-          | n <- nub allActorNames
+        | n <- nub allActorNames
         ]
 
       -- 5. Find helper
@@ -50,11 +54,11 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
             consRate
             False
             0
-          | IRSignal _ (srcId, prodRate) (dstId, consRate) <- signals,
-            srcId `notElem` inputNames,
-            dstId `notElem` outputNames,
-            srcId `notElem` delayNames,
-            dstId `notElem` delayNames
+        | IRSignal _ (srcId, prodRate) (dstId, consRate) <- signals,
+          srcId `notElem` inputNames,
+          dstId `notElem` outputNames,
+          srcId `notElem` delayNames,
+          dstId `notElem` delayNames
         ]
 
       -- 7. Folded delay edges (A -> delay -> B → becomes one edge)
@@ -64,21 +68,21 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
         let delayConstructor =
               case find
                 ( \c -> case c of
-                    IRDelay name _ -> name == delayName
+                    IRDelay name _ (_, _) -> name == delayName
                     _ -> False
                 )
                 constructors of
-                Just (IRDelay _ initTokens) -> initTokens
+                Just (IRDelay _ initTokens (_, _)) -> initTokens
                 Nothing -> error $ "Delay node " ++ delayName ++ " not found in constructors"
             incoming =
               [ (srcId, prod)
-                | IRSignal _ (srcId, prod) (dstId, _) <- signals,
-                  dstId == delayName
+              | IRSignal _ (srcId, prod) (dstId, _) <- signals,
+                dstId == delayName
               ]
             outgoing =
               [ (dstId, cons)
-                | IRSignal _ (srcId, _) (dstId, cons) <- signals,
-                  srcId == delayName
+              | IRSignal _ (srcId, _) (dstId, cons) <- signals,
+                srcId == delayName
               ]
          in case (incoming, outgoing) of
               ([(srcIn, prodIn)], [(dstOut, consOut)]) ->
@@ -174,7 +178,7 @@ computeNullSpace = nullspace
 --  - Components very close to 0 are treated as 0 by `epsilon` tolerance.
 normalizeToInteger :: Vector Double -> [Integer]
 normalizeToInteger v =
-  let components = toList v
+  let components = LinearAlgebra.toList v
       -- Find the smallest non-zero
       absComponents = map abs components
       nonZero = filter (\x -> x > 1e-12) absComponents
@@ -433,7 +437,7 @@ computeScheduleAndBuffers irSystem =
                       -- Verification
                       repVector = fromIntegral <$> repInt :: [R]
                       verificationResult = mat #> vector repVector
-                      isZeroVector = all (\x -> abs x < 1e-9) (toList verificationResult)
+                      isZeroVector = all (\x -> abs x < 1e-9) (LinearAlgebra.toList verificationResult)
 
                       -- 在这里计算最终结果，这样repInt在作用域内
                       finalResult =
@@ -488,7 +492,7 @@ computeScheduleAndBuffersPrint irSystem = do
           -- Verification: multiply the integer repetition vector back to the topology matrix
           let repVector = fromIntegral <$> repInt :: [R]
               verificationResult = mat #> vector repVector
-              isZeroVector = all (\x -> abs x < 1e-9) (toList verificationResult)
+              isZeroVector = all (\x -> abs x < 1e-9) (LinearAlgebra.toList verificationResult)
 
           putStrLn "\nVerification of null space vector:"
           putStrLn $ "Topology Matrix × Repetition Vector ≈ Zero Vector? " ++ show isZeroVector
@@ -533,8 +537,8 @@ exampleSystem1 :: IRSystem
 exampleSystem1 =
   IRSystem
     (["input"], ["output"])
-    [ IRActor "actor_1" Actor22 "add",
-      IRDelay "delay_1" [0]
+    [ IRActor "actor_1" Actor22 "add" (["s_in", "s_2"], ["s_out", "s_1"]),
+      IRDelay "delay_1" [0] ("s_1", "s_2")
     ]
     [ IRSignal "s_in" ("input", 1) ("actor_1", 1),
       IRSignal "s_1" ("actor_1", 1) ("delay_1", 1),
@@ -549,7 +553,7 @@ exampleSystem2 :: IRSystem
 exampleSystem2 =
   IRSystem
     (["in"], ["out"])
-    [ IRActor "actor" Actor11 "add"
+    [ IRActor "actor" Actor11 "add" (["s_in"], ["s_out"])
     ]
     [ IRSignal "s_in" ("in", 1) ("actor", 1),
       IRSignal "s_out" ("actor", 1) ("out", 1)
@@ -562,9 +566,9 @@ exampleSystem3 :: IRSystem
 exampleSystem3 =
   IRSystem
     (["input"], ["output"])
-    [ IRActor "actor_1" Actor22 "add",
-      IRDelay "delay_1" [0],
-      IRActor "actor_2" Actor11 "add"
+    [ IRActor "actor_1" Actor22 "add" (["s_in", "s_2"], ["s_1", "s_3"]),
+      IRDelay "delay_1" [0] ("s_1", "s_2"),
+      IRActor "actor_2" Actor11 "add" (["s_3"], ["s_out"])
     ]
     [ IRSignal "s_in" ("input", 1) ("actor_1", 1),
       IRSignal "s_1" ("actor_1", 1) ("delay_1", 1),
@@ -580,11 +584,11 @@ exampleSystem4 :: IRSystem
 exampleSystem4 =
   IRSystem
     (["s_ina", "s_inb"], ["s_out"])
-    [ IRActor "actor_a" Actor11 "add",
-      IRActor "actor_b" Actor11 "add",
-      IRActor "actor_c" Actor21 "add",
-      IRActor "actor_d" Actor22 "add",
-      IRDelay "delay" [0]
+    [ IRActor "actor_a" Actor11 "add" (["s_ina"], ["s_1"]),
+      IRActor "actor_b" Actor11 "add" (["s_inb"], ["s_2"]),
+      IRActor "actor_c" Actor21 "add" (["s_1", "s_4"], ["s_3"]),
+      IRActor "actor_d" Actor22 "add" (["s_2", "s_3"], ["s_4_delay", "s_out"]),
+      IRDelay "delay" [0] ("s_4_delay", "s_4")
     ]
     [ IRSignal "s_ina" ("s_ina", 1) ("actor_a", 2),
       IRSignal "s_inb" ("s_inb", 1) ("actor_b", 1),
@@ -602,10 +606,10 @@ exampleSystem5 :: IRSystem
 exampleSystem5 =
   IRSystem
     (["s_in"], ["s_out"])
-    [ IRActor "a" Actor21 "add",
-      IRActor "b" Actor11 "add",
-      IRActor "c" Actor12 "add",
-      IRDelay "delay" [0, 0, 0, 0, 0, 0]
+    [ IRActor "a" Actor21 "add" (["s_in", "s3"], ["s1"]),
+      IRActor "b" Actor11 "add" (["s1"], ["s2"]),
+      IRActor "c" Actor12 "add" (["s2"], ["s3_delay", "s_out"]),
+      IRDelay "delay" [0, 0, 0, 0, 0, 0] ("s3_delay", "s3")
     ]
     [ IRSignal "s_in" ("s_in", 1) ("a", 2),
       IRSignal "s1" ("a", 1) ("b", 2),
@@ -621,11 +625,11 @@ exampleSystem6 :: IRSystem
 exampleSystem6 =
   IRSystem
     (["s_in"], ["s_out"])
-    [ IRActor "a" Actor12 "add",
-      IRActor "b" Actor11 "add",
-      IRActor "c" Actor11 "add",
-      IRActor "d" Actor12 "add",
-      IRDelay "delay" [0, 0]
+    [ IRActor "a" Actor12 "add" (["s_in", "s4"], ["s1"]),
+      IRActor "b" Actor11 "add" (["s1"], ["s2_delay"]),
+      IRActor "c" Actor11 "add" (["s3"], ["s4"]),
+      IRActor "d" Actor12 "add" (["s2"], ["s3", "s_out"]),
+      IRDelay "delay" [0, 0] ("s2_delay", "s2")
     ]
     [ IRSignal "s_in" ("s_in", 1) ("a", 2),
       IRSignal "s1" ("a", 1) ("b", 4),
@@ -642,6 +646,35 @@ exampleSystem6 =
 -- Main
 -- Run all the example Systems
 ----------------------------------------------------------
+customDflags :: IO DynFlags
+customDflags = runGhc (Just libdir) $ do
+  dflags <- getSessionDynFlags
+  return $
+    updOptLevel 2 $
+      dflags
+        { ghcLink = NoLink,
+          ghcMode = CompManager,
+          verbosity = 0,
+          debugLevel = 0,
+          generalFlags =
+            EnumSet.fromList
+              [ Opt_SuppressTicks,
+                Opt_SuppressCoercions,
+                Opt_SuppressCoercionTypes,
+                Opt_SuppressVarKinds,
+                Opt_SuppressModulePrefixes,
+                Opt_SuppressTypeApplications,
+                Opt_SuppressIdInfo,
+                Opt_SuppressUnfoldings,
+                Opt_SuppressTypeSignatures,
+                Opt_SuppressUniques,
+                Opt_SuppressStgExts,
+                Opt_SuppressStgReps,
+                Opt_SuppressTimestamps,
+                Opt_SuppressCoreSizes
+              ]
+        }
+
 main :: IO ()
 main = do
   let examples =
@@ -656,10 +689,11 @@ main = do
   mapM_ runExample examples
   where
     runExample (name, system) = do
+      dflags <- customDflags
       putStrLn $ "========================================================="
       putStrLn $ "Running: " ++ name
       putStrLn $ "========================================================="
-      putStrLn $ showSDocUnsafe $ prettyIRSystem system
+      putStrLn $ prettyIRSystem dflags system
 
       putStrLn "\n--- Detailed analysis ---\n"
       computeScheduleAndBuffersPrint system
