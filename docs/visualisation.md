@@ -1,18 +1,48 @@
 # Visualisation Documentation
 
+## Overview
+
 The ForSyDe visualisation tool uses KIELER diagram technology to graphically visualise ForSyDe models written in Haskell. The specific approach taken is to implement a language server which uses the KIELER diagram server API to communicate with either the KIELER CLI or the KIELER VS Code extension.
 
-The process used is shown in the diagram below. It involves reusing the beginning parts of the compiler. The same lexer and parser are used to obtain an AST from the ForSyDe model. This AST is then transformed into a ForSyDe IR. For visualisation, the ForSyDe IR is then transformed into a JSON-based IR. This IR is based on a JSON schema provided by KIELER, which describes the expected messages for their diagram server API. This JSON-based IR is then converted into a JSON file. The JSON file at this point should describe how KIELER can visualise the net list originally described as a ForSyDe model. A language server written in Python then converts the JSON file into Python objects based on the same JSON schema mentioned earlier. The language server then sends messages using the diagram server API to interface with either the KIELER CLI or KIELER VS Code extension.
+The process used is shown in the diagram below. It involves reusing the beginning parts of the compiler. The frontend is used to obtain the ForSyDe IR. The LSP takes the ForSyDe IR which it uses to construct a graph according to the KLighD JSON schema, which KIELER can visualise. This can be communicated to either KLighD VSCode or KLighD CLI, but at this time only the latter is tested.
 
 ```mermaid
 flowchart TD
  A("ForSyDe model code")
- A --> B("ForSyDe IR")
- B --> C("JSON based IR")
- C --> D("JSON code")
- D --> E("LSP")
- E --> F("klighd-vscode")
- E --> G("klighd-cli")
+ A --> B("GHC Core")
+ B --> C("ForSyDe IR")
+ C --> D("LSP")
+ D --> E("klighd-vscode")
+ D --> F("klighd-cli")
 ```
 
-Converting the JSON schema provided by KIELER into OCaml types is done through the tool `yojson`. While converting the JSON schema into Python types is done using `datamodel-code-generator`.
+## LSP
+
+The LSP server is a separate executable, `forsyde-lsp-exe`. One can either let the LSP
+get the file from the LSP client or specify a separate one which will be used for input
+regardless of what the LSP client sends.
+
+To run the visualizer:
+```sh
+cabal run forsyde-lsp-exe
+# In a separate shell
+./klighd-linux --ls_port 5007 <path/to/model.hs>
+```
+This will open up a new tab in the browser with the visualizer.
+
+### SKGraphSchema
+
+Currently, the [SKGraphSchema](https://github.com/kieler/klighd-vscode/blob/main/schema/klighd/SKGraphSchema.json)
+is implemented by manually defining Haskell data types and defining a JSON serialization
+with the package Aeson in `src/SKGraphSchema.hs`.
+This approach allows us to leave out properties of the schema which we don't need in the project.
+
+The relevant source for the schema is in [skgraph-model.ts](https://github.com/kieler/klighd-vscode/blob/main/packages/klighd-core/src/skgraph-models.ts) in the KLighD-VSCode repository
+and can be used for reference with types not yet added to the schema.
+
+#### Properties
+
+The properties supported by ELK can be found [here](https://eclipse.dev/elk/reference.html).
+The values of the properties usually take the form of a list.
+We currently haven't added the enum names for the property options, but they are usually numbered
+with the first starting at zero.
