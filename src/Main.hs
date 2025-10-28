@@ -3,10 +3,10 @@ module Main where
 import Arguments
 import CoreIR (compileToCore, prettyCoreProgram)
 import CoreToForSyDeIR
-import ForSyDeIR (prettyIRSystem)
-import Options.Applicative
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BSC
+import ForSyDeIR (prettyIRSystem)
+import Options.Applicative
 
 {-
 
@@ -26,15 +26,18 @@ import qualified Data.ByteString.Lazy.Char8 as BSC
           specified, this should be a ForSyDe model (.hs) file
 
     - Output mode:
-        - This should be the format of the output file, if not otherwise
-          specified, this should be C code
-        - if --output-core, output should be in core format
-        - if --output-forsyde-ir, output should be in ForSyDe-IR format
-        - if --output-procedural-ir, output should be in procedural IR format
+        - If --output-c, output file should be in C
+        - If --output-core, output should be in core format
+        - If --output-forsyde-ir, output should be in ForSyDe-IR format
+        - If --output-forsyde-ir-json, output should be in ForSyDe-IR-JSON
+          format
+        - If --output-procedural-ir, output should be in procedural IR format
 
     - Output file argument:
         - Use "-o" flag, outputs to desired file
-        - Dump to stdout if unspecified
+        - Dump to a file "main.xxx" where file format depends on output format
+          flag if unspecified.
+        - If "--stdout", dump to stdout.
 
 -}
 
@@ -71,7 +74,7 @@ run (Arguments (InputFile input_file) output_file OutputForSyDeIR) = do
 run (Arguments (InputFile input_file) output_file OutputForSyDeIRJSON) = do
   (core, dflags) <- compileToCore input_file
   let ir = translateCoreProgram dflags core
-  let ir_json = (BSC.unpack (encode ir))::String
+  let ir_json = (BSC.unpack (encode ir)) :: String
   write_output output_file OutputForSyDeIRJSON ir_json
 run (Arguments (InputFile _) _ OutputProceduralIR) =
   putStrLn "To Procedural IR"
