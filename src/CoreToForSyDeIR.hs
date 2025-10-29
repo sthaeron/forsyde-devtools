@@ -10,15 +10,13 @@ import Prelude hiding (id)
 
 data TranslationContext = TranslationContext
   { flags :: DynFlags,
-    constructors :: [IRConstructor],
-    signals :: [IRSignal],
-    functions :: [IRFunction],
+    constructors :: [(String, IRConstructor)],
+    signals :: [(String, IRSignal)],
+    functions :: [(String, IRFunction)],
     systemInputs :: [String],
     systemOutputs :: [String],
-    variables :: [String],
     nameCounter :: Int,
-    actors :: [(String, ([Int], [Int]))], -- [(actorId, (inputRates, outputRates))]
-    io :: [(String, ([String], [String]))] -- [(constructorId, (inputSignals, outputSignals))]
+    actors :: [(String, ([Int], [Int]))] -- [(actorId, (inputRates, outputRates))]
   }
 
 initialTranslationContext :: DynFlags -> TranslationContext
@@ -30,10 +28,8 @@ initialTranslationContext dflags =
       functions = [],
       systemInputs = [],
       systemOutputs = [],
-      variables = [],
       nameCounter = 0,
-      actors = [], -- (actorIds, (inputRates, outputRates))
-      io = [] -- (constructorIds, (inputSignals, outputSignals))
+      actors = [] -- (actorIds, (inputRates, outputRates))
     }
 
 translateCoreProgram :: DynFlags -> [CoreBind] -> IRSystem
@@ -41,9 +37,9 @@ translateCoreProgram dflags binds =
   let finalState = foldl translateCoreBind (initialTranslationContext dflags) binds
    in IRSystem
         (systemInputs finalState, systemOutputs finalState)
-        (constructors finalState)
-        (signals finalState)
-        (functions finalState)
+        (map snd (constructors finalState))
+        (map snd (signals finalState))
+        (map snd (functions finalState))
 
 translateCoreBind :: TranslationContext -> CoreBind -> TranslationContext
 translateCoreBind context (NonRec b e) = case (showPpr (flags context) b) of
@@ -153,7 +149,7 @@ createSignalsAux context pr inputs rates = case (inputs, rates) of
   (inputHead : inputTail, rateHead : rateTail) ->
     let (newName, newContext) = (genSignalName context)
         newSignal = IRSignal newName (inputHead, getSourceRate newContext inputHead) (pr, rateHead)
-        newNewContext = newContext {signals = newSignal : (signals newContext)}
+        newNewContext = newContext {signals = (newName, newSignal) : (signals newContext)}
      in createSignalsAux newNewContext pr inputTail rateTail
 
 genSignalName :: TranslationContext -> (String, TranslationContext)
@@ -167,7 +163,7 @@ getSourceRate :: TranslationContext -> String -> Int
 getSourceRate context id =
   if elem id (systemInputs context)
     then 1
-    else getRateFromConstructors id (constructors context)
+    else getRateFromConstructors id (map snd (constructors context))
 
 getRateFromConstructors :: String -> [IRConstructor] -> Int
 getRateFromConstructors id list = case list of
@@ -219,7 +215,7 @@ createDelaySDF context binder expr =
   let tokens = (getLits expr [])
       delayId = showPpr (flags context) binder
       newDelay = IRDelay delayId tokens ("", "")
-   in context {constructors = newDelay : (constructors context)}
+   in context {constructors = (delayId, newDelay) : (constructors context)}
 
 getActorSplit :: ActorType -> Int
 getActorSplit actorType = case actorType of
@@ -239,13 +235,13 @@ createActorSDF context actorType binder expr =
               actorId = showPpr (flags context) binder
               newActor = IRActor actorId actorType functionName ([""], [""])
               newActorsList = (actorId, (inRates, outRates)) : (actors context)
-           in context {actors = newActorsList, constructors = newActor : (constructors context)}
+           in context {actors = newActorsList, constructors = (actorId, newActor) : (constructors context)}
 
 createFunction :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 createFunction context binder expr =
-  let functionName = showPpr (flags context) binder
-      newFunction = IRFunction functionName (Just expr)
-   in context {functions = newFunction : (functions context)}
+  let functionId = showPpr (flags context) binder
+      newFunction = IRFunction functionId (Just expr)
+   in context {functions = (functionId, newFunction) : (functions context)}
 
 getFunctionName :: TranslationContext -> CoreExpr -> Maybe String
 getFunctionName context expr = case expr of
@@ -258,7 +254,7 @@ getFunctionName context expr = case expr of
   Let _ e -> getFunctionName context e
   Var v ->
     let name = showPpr (flags context) v
-     in if any (\x -> case x of IRFunction functionName _ -> functionName == name) (functions context)
+     in if any (\x -> case x of IRFunction functionName _ -> functionName == name) (map snd (functions context))
           then
             Just name
           else Nothing
