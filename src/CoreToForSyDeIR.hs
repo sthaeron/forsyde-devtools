@@ -63,20 +63,22 @@ translateInputs context expr = case expr of
     let (_, newContext) = translateBinds context binds
      in newContext
   Let (NonRec b e) out ->
-    let newContext = translateOutputs context out
-        bind = showPpr (flags context) b
+    let (bind1, newContext) = translateOutputs context out
+        bind2 = showPpr (flags context) b
         (_, newNewContext) = translateBodyExpr newContext [] e
      in newNewContext
   _ -> error ("TranslateInputs: unsupported expression\n" ++ prettyCoreExpr (flags context) expr)
 
-translateOutputs :: TranslationContext -> CoreExpr -> TranslationContext
+translateOutputs :: TranslationContext -> CoreExpr -> (Maybe String, TranslationContext)
 translateOutputs context expr = case expr of
-  App e a -> translateOutputs (translateOutputs context a) e
-  Var _ -> context
-  Type _ -> context
+  App e a ->
+    let (_, newContext) = translateOutputs context a
+     in translateOutputs newContext e
+  Var _ -> (Nothing, context)
+  Type _ -> (Nothing, context)
   Case e _ _ alts ->
     let bind = showPpr (flags context) e
-     in translateAlts context alts
+     in (Just bind, translateAlts context alts)
   _ -> error ("translateOutputs: unsupported expression\n" ++ prettyCoreExpr (flags context) expr)
 
 translateAlts :: TranslationContext -> [Alt CoreBndr] -> TranslationContext
