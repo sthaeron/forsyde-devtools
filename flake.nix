@@ -5,17 +5,34 @@
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
   outputs =
-    { flake-utils, ... }@inputs:
+    { self, flake-utils, ... }@inputs:
     let
       ghcVersion = "ghc9102";
       overlay = final: prev: {
         haskell = prev.haskell // {
-          packageOverrides =
-            hfinal: hprev:
-            prev.haskell.packageOverrides hfinal hprev
-            // {
-              forsyde-devtools = hfinal.callCabal2nix "forsyde-devtools" ./. { };
-            };
+          packages = prev.haskell.packages // {
+            "${ghcVersion}" = prev.haskell.packages.${ghcVersion}.extend (
+              hfinal: hprev: {
+                forsyde-devtools =
+                  let
+                    unmodified = hprev.callCabal2nix "forsyde-devtools" ./. { };
+                  in
+                  prev.haskell.lib.enableSharedExecutables (
+                    unmodified.overrideAttrs (old: {
+                      buildInputs = (old.buildInputs or [ ]) ++ [
+                        prev.makeWrapper
+                      ];
+
+                      postInstall = (old.postInstall or "") + ''
+                        wrapProgram $out/bin/forsyde-devtools-exe \
+                          --prefix PATH : ${dirOf "${old.passthru.env.NIX_GHC}"} \
+                          --set GHC_PACKAGE_PATH "${old.passthru.env.NIX_GHC_LIBDIR}/package.conf.d:"
+                      '';
+                    })
+                  );
+              }
+            );
+          };
         };
         forsyde-devtools = final.haskell.packages.${ghcVersion}.forsyde-devtools;
       };
@@ -59,6 +76,10 @@
           '';
         };
         packages.default = pkgs.forsyde-devtools;
+        apps.forsyde-devtools = {
+          type = "app";
+          program = "${self.packages.${system}.forsyde-devtools}/bin/forsyde-devtools-exe";
+        };
       }
     );
 }
