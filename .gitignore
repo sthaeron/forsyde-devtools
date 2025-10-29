@@ -22,9 +22,15 @@ cabal.project.local
 cabal.project.local~
 .HTF/
 .ghc.environment.*
+
+# ForSyDe DevTools Specific
 *.hcr
-*.irf
 *.fir
+*.pir
+!/examples/test/*.hcr
+!/examples/test/*.fir
+!/examples/test/*.pir
+
 # Ignore build outputs from performing a nix-build or `nix build` command
 result
 result-*

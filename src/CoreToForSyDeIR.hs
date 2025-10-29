@@ -6,6 +6,7 @@ import GHC
 import GHC.Core
 import GHC.Driver.Ppr
 import GHC.Types.Literal
+import Prelude hiding (id)
 
 data TranslationContext = TranslationContext
   { flags :: DynFlags,
@@ -51,15 +52,13 @@ translateCoreBind context (NonRec b e) = case (showPpr (flags context) b) of
   _ -> translateCoreExpr context b e
 translateCoreBind context (Rec _) = context
 
--- translateCoreBind context (Rec binds) =
-
 translateSystem :: TranslationContext -> CoreExpr -> TranslationContext
-translateSystem context e = case e of
+translateSystem context expr = case expr of
   Lam _ (Lam _ e) -> translateInputs context e
   _ -> context
 
 translateInputs :: TranslationContext -> CoreExpr -> TranslationContext
-translateInputs context e = case e of
+translateInputs context expr = case expr of
   Lam b e ->
     let newInput = showPpr (flags context) b
         newContext = context {systemInputs = newInput : (systemInputs context)}
@@ -72,25 +71,25 @@ translateInputs context e = case e of
         bind = showPpr (flags context) b
         (_, newNewContext) = translateBodyExpr newContext [] e
      in newNewContext
-  _ -> error ("TranslateInputs: unsupported expression\n" ++ prettyCoreExpr (flags context) e)
+  _ -> error ("TranslateInputs: unsupported expression\n" ++ prettyCoreExpr (flags context) expr)
 
 translateOutputs :: TranslationContext -> CoreExpr -> TranslationContext
-translateOutputs context e = case e of
-  App ne a -> translateOutputs (translateOutputs context a) ne
+translateOutputs context expr = case expr of
+  App e a -> translateOutputs (translateOutputs context a) e
   Var _ -> context
   Type _ -> context
-  Case ne _ _ alts ->
-    let bind = showPpr (flags context) ne
+  Case e _ _ alts ->
+    let bind = showPpr (flags context) e
      in translateAlts context alts
-  _ -> error ("translateOutputs: unsupported expression\n" ++ prettyCoreExpr (flags context) e)
+  _ -> error ("translateOutputs: unsupported expression\n" ++ prettyCoreExpr (flags context) expr)
 
 translateAlts :: TranslationContext -> [Alt CoreBndr] -> TranslationContext
 translateAlts context alts = case alts of
   [] -> context
-  (Alt _ _ (Var (i))) : tailAlts ->
+  (Alt _ _ (Var (i))) : altTail ->
     let newOutput = showPpr (flags context) i
         newContext = context {systemOutputs = newOutput : (systemOutputs context)}
-     in translateAlts newContext tailAlts
+     in translateAlts newContext altTail
   _ -> error ("translateAlts: AltCon is not supported\n" ++ prettyCoreAltList (flags context) alts)
 
 -- App(App(App(App(Var((,)) * Type(Signal c_a1d4)) * Type(Signal c_a1d4)) *
@@ -107,43 +106,34 @@ translateBinds context binds = translateBindsAux context binds []
 translateBindsAux :: TranslationContext -> [(CoreBndr, CoreExpr)] -> [(String, String)] -> ([(String, String)], TranslationContext)
 translateBindsAux context binds acc = case binds of
   [] -> (acc, context)
-  (b, e) : tailBinds ->
-    let outputId = showPpr (flags context) b
-        (prId, newContext) = translateBodyExpr context [] e
-     in translateBindsAux newContext tailBinds ((outputId, prId) : acc)
+  (binder, expr) : bindTail ->
+    let outputId = showPpr (flags context) binder
+        (prId, newContext) = translateBodyExpr context [] expr
+     in translateBindsAux newContext bindTail ((outputId, prId) : acc)
 
 translateBodyExpr :: TranslationContext -> [String] -> CoreExpr -> (String, TranslationContext)
-translateBodyExpr context arguments e = case e of
+translateBodyExpr context arguments expr = case expr of
   App (App (Var i) _) _ ->
     let prId = showPpr (flags context) i
         newContext = createSignals context prId arguments
      in (prId, newContext)
-  App ne a ->
+  App e a ->
     let (newArguments, newContext) = translateArgument context arguments a
-     in translateBodyExpr newContext newArguments ne
-  _ -> error ("translateBodyExpr: unsupported expression\n" ++ prettyCoreExpr (flags context) e)
-
--- App(App(
--- 	App(App(Var(a_1) * Type(d_a1aj)) *  Var($dNum_a1aw))
--- 		 * Var(s_in_a183)) * App(App(App(Var(d_1) * Type(d_a1aj)) * Var($dNum_a1aw)) * Case(Var(ds_d1bd): (wild_00, Signal d_a1aj)
-
--- Let(NonRec(ds_d1fv:
--- 	App(App(App(App(Var(a_1) * Type(d_a1et)) *
--- 	Var(s_in1_a1cK)) *
--- 	Var(s_in2_a1cL)))
+     in translateBodyExpr newContext newArguments e
+  _ -> error ("translateBodyExpr: unsupported expression\n" ++ prettyCoreExpr (flags context) expr)
 
 -- Returns a list of arguments
 translateArgument :: TranslationContext -> [String] -> CoreExpr -> ([String], TranslationContext)
-translateArgument context arguments e = case e of
-  Var i -> let sId = showPpr (flags context) i in (sId : arguments, context)
-  App ne a ->
+translateArgument context arguments expr = case expr of
+  Var i -> let id = showPpr (flags context) i in (id : arguments, context)
+  App e a ->
     let (newArguments, newContext) = translateArgument context [] a
-        (prId, newNewContext) = translateBodyExpr newContext newArguments ne
+        (prId, newNewContext) = translateBodyExpr newContext newArguments e
      in (prId : arguments, newNewContext)
-  -- Case (Var i) _ _ _ -> let sId = showPpr (flags context) i in (sId : arguments, context)
+  -- Case (Var i) _ _ _ -> let id = showPpr (flags context) i in (id : arguments, context)
   _ -> (arguments, context)
 
--- _ -> error ("translateArgument: unsupported expression\n" ++ prettyCoreExpr e)
+-- _ -> error ("translateArgument: unsupported expression\n" ++ prettyCoreExpr expr)
 
 findRates :: String -> [(String, ([Int], [Int]))] -> Maybe ([Int], [Int])
 findRates actorName list = lookup actorName list
@@ -157,14 +147,14 @@ createSignals context pr inputs =
    in createSignalsAux context pr inputs inputRates
 
 createSignalsAux :: TranslationContext -> String -> [String] -> [Int] -> TranslationContext
-createSignalsAux context pr inputs rates = case inputs of
-  [] -> context
-  headInput : tailInputs ->
+createSignalsAux context pr inputs rates = case (inputs, rates) of
+  ([], _) -> context
+  (_, []) -> context
+  (inputHead : inputTail, rateHead : rateTail) ->
     let (newName, newContext) = (genSignalName context)
-        (headRate : tailRates) = rates
-        newSignal = IRSignal newName (headInput, getSourceRate newContext headInput) (pr, headRate)
+        newSignal = IRSignal newName (inputHead, getSourceRate newContext inputHead) (pr, rateHead)
         newNewContext = newContext {signals = newSignal : (signals newContext)}
-     in createSignalsAux newNewContext pr tailInputs tailRates
+     in createSignalsAux newNewContext pr inputTail rateTail
 
 genSignalName :: TranslationContext -> (String, TranslationContext)
 genSignalName context =
@@ -182,34 +172,15 @@ getSourceRate context id =
 getRateFromConstructors :: String -> [IRConstructor] -> Int
 getRateFromConstructors id list = case list of
   [] -> error ("No constructor found for id: " ++ id)
-  head : tail -> case head of
-    IRDelay prId _ ->
+  prHead : prTail -> case prHead of
+    IRDelay prId _ (_, _) ->
       if prId == id
         then 1
-        else getRateFromConstructors id tail
-    IRActor prId _ _ ->
+        else getRateFromConstructors id prTail
+    IRActor prId _ _ (_, _) ->
       if prId == id
         then error ("TODO: implement getRateFromConstructors for actors " ++ prId)
-        else getRateFromConstructors id tail
-
--- if prId == id then
---   let
---     outputRates = case (findRates prId (actors context)) of
---       Just (_, rates) -> rates
---       Nothing -> error "No rates found for actor: " ++ prId
---   in
--- else getRateFromConstructors id tail
-
---   Case e b _ alts ->
--- Let(Rec({(ds_d1bd, App(App(App(App(Var(a_1) * Type(d_a1aj)) *  Var($dNum_a1aw)) * Var(s_in_a183)) * App(App(App(Var(d_1) * Type(d_a1aj)) * Var($dNum_a1aw)) *
-
--- Case(Var(ds_d1bd): (wild_00, Signal d_a1aj)
---  {Alt(DataAlt((,)):
---  {s_out_a1a1, s_1_X1, }Var(s_1_X1)), })))), })
---   let
---     newVar = showPpr (flags context) b
---     newContext = context { variables = newVar : (variables context) }
---   in
+        else getRateFromConstructors id prTail
 
 -- system s_in = s_out
 --   where
@@ -224,60 +195,60 @@ getRateFromConstructors id list = case list of
 
 --     a_1 context to output with s_out
 
--- -- Case(Var(ds_d1bd): (wild_00, Signal d_a1aj) {
--- --     Alt(DataAlt((,)):
--- -- 	    {s_out_a1a1, s_1_X1, } Var(s_out_a1a1)),
--- --     })
+-- Case(Var(ds_d1bd): (wild_00, Signal d_a1aj) {
+--     Alt(DataAlt((,)):
+-- 	    {s_out_a1a1, s_1_X1, } Var(s_out_a1a1)),
+--     })
 
 translateCoreExpr :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
-translateCoreExpr context b e = case e of
+translateCoreExpr context binder expr = case expr of
   Lam _ (Lam _ (Lam _ (App (App (App (Var (i)) _) _) _))) -> case (showPpr (flags context) i) of
-    "delaySDF" -> createDelaySDF context b e
+    "delaySDF" -> createDelaySDF context binder expr
     _ -> error "expecting delaySDF got something else"
   Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _)))) -> case (showPpr (flags context) i) of
-    "actor22SDF" -> createActorSDF context Actor22 b e
+    "actor22SDF" -> createActorSDF context Actor22 binder expr
     _ -> error "expecting actor22SDF got something else"
   Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _))) -> case (showPpr (flags context) i) of
-    "actor12SDF" -> createActorSDF context Actor12 b e
+    "actor12SDF" -> createActorSDF context Actor12 binder expr
     _ -> error "expecting actor12SDF got something else"
-  _ -> createFunction context b e
+  _ -> createFunction context binder expr
 
 -- delaySDF
 createDelaySDF :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
-createDelaySDF context b e =
-  let tokens = (getLits e [])
-      delayId = showPpr (flags context) b
-      newDelay = IRDelay delayId tokens
+createDelaySDF context binder expr =
+  let tokens = (getLits expr [])
+      delayId = showPpr (flags context) binder
+      newDelay = IRDelay delayId tokens ("", "")
    in context {constructors = newDelay : (constructors context)}
 
 getActorSplit :: ActorType -> Int
-getActorSplit ac = case ac of
+getActorSplit actorType = case actorType of
   Actor12 -> 1
   Actor22 -> 2
   _ -> error "getActorSplit: unsupported actor type"
 
 -- actorSDF
 createActorSDF :: TranslationContext -> ActorType -> CoreBndr -> CoreExpr -> TranslationContext
-createActorSDF context ac b e =
-  let lits = getLits e []
-      maybeFunctionName = getFunctionName context e
+createActorSDF context actorType binder expr =
+  let lits = getLits expr []
+      maybeFunctionName = getFunctionName context expr
    in case maybeFunctionName of
         Nothing -> error "No function found for actor"
         Just functionName ->
-          let (inRates, outRates) = splitAt (getActorSplit ac) lits
-              actorId = showPpr (flags context) b
-              newActor = IRActor actorId ac functionName
+          let (inRates, outRates) = splitAt (getActorSplit actorType) lits
+              actorId = showPpr (flags context) binder
+              newActor = IRActor actorId actorType functionName ([""], [""])
               newActorsList = (actorId, (inRates, outRates)) : (actors context)
            in context {actors = newActorsList, constructors = newActor : (constructors context)}
 
 createFunction :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
-createFunction context b e =
-  let functionName = showPpr (flags context) b
-      newFunction = IRFunction functionName (Just e)
+createFunction context binder expr =
+  let functionName = showPpr (flags context) binder
+      newFunction = IRFunction functionName (Just expr)
    in context {functions = newFunction : (functions context)}
 
 getFunctionName :: TranslationContext -> CoreExpr -> Maybe String
-getFunctionName context e = case e of
+getFunctionName context expr = case expr of
   App e a ->
     let getFirst = getFunctionName context a
      in case getFirst of
@@ -294,7 +265,7 @@ getFunctionName context e = case e of
   _ -> Nothing
 
 getLits :: CoreExpr -> [Int] -> [Int]
-getLits e acc = case e of
+getLits expr acc = case expr of
   Lit l -> (fromIntegral (litValue l)) : acc
   App e a -> getLits e (getLits a acc)
   Lam _ e -> getLits e acc

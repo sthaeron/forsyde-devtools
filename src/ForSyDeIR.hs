@@ -43,15 +43,22 @@ data ActorType
   | Actor44
   deriving (Show)
 
+-- IRDelay(delayId, tokens, (inputSignal, outputSignal))
+-- IRActor(actorId, actorType, (inputSignals, outputSignals))
 data IRConstructor
-  = IRDelay String [Int]
-  | IRActor String ActorType String -- ([String], [String])
+  = IRDelay String [Int] (String, String)
+  | IRActor String ActorType String ([String], [String])
 
-data IRSignal = IRSignal String (String, Int) (String, Int) -- IRSignal(signalName (input, sourceRate) (targetId, targetRate))
+-- IRSignal(signalId (sourceId, sourceRate) (targetId, targetRate))
+data IRSignal = IRSignal String (String, Int) (String, Int)
 
+-- IRFunction(functionId, maybe function)
 data IRFunction = IRFunction String (Maybe CoreExpr)
 
+-- IRSystem((globalInputs, globalOutputs), constructors, signals, functions)
 data IRSystem = IRSystem ([String], [String]) [IRConstructor] [IRSignal] [IRFunction]
+
+-- ForSyDe IR pretty printing functions
 
 indent :: String -> String
 indent = unlines . map ("    " ++) . lines
@@ -61,10 +68,21 @@ prettyIRSignal (IRSignal signalId (inputId, inputRate) (outputId, outputRate)) =
   printf "IRSignal(\"%s\", (\"%s\", %d), (\"%s\", %d))" signalId inputId inputRate outputId outputRate
 
 prettyIRConstructor :: IRConstructor -> String
-prettyIRConstructor (IRDelay delayId tokenList) =
-  printf "IRDelay(\"%s\", {%s})" delayId (intercalate ", " (map show tokenList))
-prettyIRConstructor (IRActor actorId actorType functionId) =
-  printf "IRActor(\"%s\", %s, \"%s\")" actorId (show actorType) functionId
+prettyIRConstructor (IRDelay delayId tokens (input, output)) =
+  printf
+    "IRDelay(\"%s\", {%s}, %s, %s)"
+    delayId
+    (intercalate ", " (map show tokens))
+    (show input)
+    (show output)
+prettyIRConstructor (IRActor actorId actorType functionId (inputs, outputs)) =
+  printf
+    "IRActor(\"%s\", %s, \"%s\", {%s}, {%s})"
+    actorId
+    (show actorType)
+    functionId
+    (intercalate ", " (map show inputs))
+    (intercalate ", " (map show outputs))
 
 prettyIRFunction :: DynFlags -> IRFunction -> String
 prettyIRFunction dflags (IRFunction functionId function) =
@@ -80,17 +98,19 @@ prettyIRSystem dflags (IRSystem (inputs, outputs) constructors signals functions
     (indent (intercalate ",\n" (map prettyIRSignal signals)))
     (indent (intercalate ",\n" (map (prettyIRFunction dflags) functions)))
 
+-- ForSyDe IR to JSON functions
+
 instance ToJSON ActorType where
   toJSON a = String $ Text.pack $ show a
 
 instance ToJSON IRConstructor where
-  toJSON (IRDelay name tokens) =
+  toJSON (IRDelay name tokens (_, _)) =
     object
       [ "type" .= Text.pack "Delay",
         "name" .= Text.pack name,
         "tokens" .= Seq.fromList tokens
       ]
-  toJSON (IRActor name ty func) =
+  toJSON (IRActor name ty func (_, _)) =
     object
       [ "type" .= Text.pack (show ty),
         "name" .= Text.pack name,
