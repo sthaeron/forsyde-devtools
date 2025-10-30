@@ -32,5 +32,8 @@ jobs:
         # Runs a set of commands using the runners shell
       - name: Build and test the compiler
         run: |
-          nix develop --command bash -c "cabal build"
-          nix develop --command bash -c "cabal test"
+          git fetch origin dev
+          if git diff --stat origin/dev | grep '\(^ src\|^ test\|^ forsyde-devtools.cabal\|^ cabal.project\)'; then
+            nix develop --command bash -c "cabal build"
+            nix develop --command bash -c "cabal test"
+          fi
