@@ -17,6 +17,7 @@ data TranslationContext = TranslationContext
     systemOutputs :: [String],
     nameCounter :: Int,
     actors :: [(String, ([Int], [Int]))] -- [(actorId, (inputRates, outputRates))]
+    -- binds [(binder, prId)] ???
   }
 
 initialTranslationContext :: DynFlags -> TranslationContext
@@ -60,35 +61,65 @@ translateInputs context expr = case expr of
         newContext = context {systemInputs = newInput : (systemInputs context)}
      in translateInputs newContext e
   Let (Rec binds) out ->
-    let (_, newContext) = translateBinds context binds
-     in newContext
-  Let (NonRec b e) out ->
-    let (bind1, newContext) = translateOutputs context out
-        bind2 = showPpr (flags context) b
-        (_, newNewContext) = translateBodyExpr newContext [] e
+    let (outputBinds, newContext) = translateOutputs context out
+        (prBinds, newNewContext) = translateBinds newContext binds
      in newNewContext
+  Let (NonRec b e) out ->
+    let (outputBinds, newContext) = translateOutputs context out -- (binder, output)
+        binder = showPpr (flags newContext) b
+        (prId, newNewNewContext) = translateBodyExpr newContext [] e
+     in newNewNewContext
   _ -> error ("TranslateInputs: unsupported expression\n" ++ prettyCoreExpr (flags context) expr)
 
-translateOutputs :: TranslationContext -> CoreExpr -> (Maybe String, TranslationContext)
-translateOutputs context expr = case expr of
-  App e a ->
-    let (_, newContext) = translateOutputs context a
-     in translateOutputs newContext e
-  Var _ -> (Nothing, context)
-  Type _ -> (Nothing, context)
-  Case e _ _ alts ->
-    let bind = showPpr (flags context) e
-     in (Just bind, translateAlts context alts)
-  _ -> error ("translateOutputs: unsupported expression\n" ++ prettyCoreExpr (flags context) expr)
+-- createSignalsFromBinds :: TranslationContext -> [String] -> [(String, String)] -> TranslationContext
+-- createSignalsFromBinds context bind1 bind2 = case bind2 of
+--   Nothing -> context
+--   Just outputBind -> error (bind1 ++ " ?=? " ++ outputBind)
 
-translateAlts :: TranslationContext -> [Alt CoreBndr] -> TranslationContext
-translateAlts context alts = case alts of
-  [] -> context
-  (Alt _ _ (Var (i))) : altTail ->
-    let newOutput = showPpr (flags context) i
-        newContext = context {systemOutputs = newOutput : (systemOutputs context)}
-     in translateAlts newContext altTail
-  _ -> error ("translateAlts: AltCon is not supported\n" ++ prettyCoreAltList (flags context) alts)
+-- if bind1 == outputBind
+--   then
+--     let (name, newContext) = (genSignalName context)
+--         newSignal = IRSignal name (bind1, getSourceRate newContext bind1) (outputBind, 1)
+--     in newContext {signals = (name, newSignal) : (signals newContext)}
+--   else context
+
+-- translateOutputs :: TranslationContext -> CoreExpr -> (Maybe String, TranslationContext)
+-- translateOutputs context expr = case expr of
+--   App e a ->
+--     let (_, newContext) = translateOutputs context a
+--      in translateOutputs newContext e
+--   Var _ -> (Nothing, context)
+--   Type _ -> (Nothing, context)
+--   Case e _ _ alts ->
+--     let bind = showPpr (flags context) e
+--      in (Just bind, translateAlts context alts)
+--   _ -> error ("translateOutputs: unsupported expression\n" ++ prettyCoreExpr (flags context) expr)
+
+-- Parses output expression adds outputs to context and returns a list of (binder, output)
+-- Basically which binder (process constructor) relates to which output
+translateOutputs :: TranslationContext -> CoreExpr -> ([(String, String)], TranslationContext)
+translateOutputs context expr = aux context expr []
+  where
+    aux :: TranslationContext -> CoreExpr -> [(String, String)] -> ([(String, String)], TranslationContext)
+    aux currentContext currentExpr acc = case currentExpr of
+      App e a ->
+        let (newAcc, newContext) = aux currentContext a acc
+         in aux newContext e newAcc
+      Var _ -> (acc, currentContext)
+      Type _ -> (acc, currentContext)
+      Case e _ _ alts ->
+        let bind = showPpr (flags currentContext) e
+            output = getVarFromAlts currentContext alts
+            newContext = context {systemOutputs = output : (systemOutputs currentContext)}
+         in (((bind, output) : acc), newContext)
+      _ -> error ("translateOutputs: unsupported expression\n" ++ prettyCoreExpr (flags currentContext) expr)
+
+-- Returns chosen variable from a AltCon as a string
+getVarFromAlts :: TranslationContext -> [Alt CoreBndr] -> String
+getVarFromAlts context alts = case alts of
+  [] -> error ("translateAlts: empty AltCon list")
+  (Alt _ _ (Var (i))) : [] -> showPpr (flags context) i
+  _ -> error ("translateAlts: more than one AltCon\n" ++ prettyCoreAltList (flags context) alts)
 
 -- App(App(App(App(Var((,)) * Type(Signal c_a1d4)) * Type(Signal c_a1d4)) *
 --   Case(Var(ds_d1dV): (wild_00, Signal c_a1d4)
@@ -99,15 +130,14 @@ translateAlts context alts = case alts of
 -- 	{s_out1_a1cZ, s_out2_a1d0, }Var(s_out2_a1d0)), })))))))
 
 translateBinds :: TranslationContext -> [(CoreBndr, CoreExpr)] -> ([(String, String)], TranslationContext)
-translateBinds context binds = translateBindsAux context binds []
-
-translateBindsAux :: TranslationContext -> [(CoreBndr, CoreExpr)] -> [(String, String)] -> ([(String, String)], TranslationContext)
-translateBindsAux context binds acc = case binds of
-  [] -> (acc, context)
-  (binder, expr) : bindTail ->
-    let outputId = showPpr (flags context) binder
-        (prId, newContext) = translateBodyExpr context [] expr
-     in translateBindsAux newContext bindTail ((outputId, prId) : acc)
+translateBinds context binds = aux context binds []
+  where
+    aux currentContext currentBinds acc = case currentBinds of
+      [] -> (acc, currentContext)
+      (binder, expr) : bindTail ->
+        let outputId = showPpr (flags currentContext) binder
+            (prId, newContext) = translateBodyExpr currentContext [] expr
+         in aux newContext bindTail ((outputId, prId) : acc)
 
 translateBodyExpr :: TranslationContext -> [String] -> CoreExpr -> (String, TranslationContext)
 translateBodyExpr context arguments expr = case expr of
@@ -136,23 +166,22 @@ translateArgument context arguments expr = case expr of
 findRates :: String -> [(String, ([Int], [Int]))] -> Maybe ([Int], [Int])
 findRates actorName list = lookup actorName list
 
--- Create signals based on process constr input names and their rates
+-- Create signals based on process constructor input names and their rates
 createSignals :: TranslationContext -> String -> [String] -> TranslationContext
 createSignals context pr inputs =
   let inputRates = case (findRates pr (actors context)) of
         Just (rates, _) -> rates
         Nothing -> error ("No rates found for actor: " ++ pr)
-   in createSignalsAux context pr inputs inputRates
-
-createSignalsAux :: TranslationContext -> String -> [String] -> [Int] -> TranslationContext
-createSignalsAux context pr inputs rates = case (inputs, rates) of
-  ([], _) -> context
-  (_, []) -> context
-  (inputHead : inputTail, rateHead : rateTail) ->
-    let (newName, newContext) = (genSignalName context)
-        newSignal = IRSignal newName (inputHead, getSourceRate newContext inputHead) (pr, rateHead)
-        newNewContext = newContext {signals = (newName, newSignal) : (signals newContext)}
-     in createSignalsAux newNewContext pr inputTail rateTail
+   in aux context pr inputs inputRates
+  where
+    aux currentContext currentPr currentInputs rates = case (currentInputs, rates) of
+      ([], _) -> currentContext
+      (_, []) -> currentContext
+      (inputHead : inputTail, rateHead : rateTail) ->
+        let (name, newContext) = (genSignalName currentContext)
+            newSignal = IRSignal name (inputHead, getSourceRate newContext inputHead) (currentPr, rateHead)
+            newNewContext = newContext {signals = (name, newSignal) : (signals newContext)}
+         in aux newNewContext currentPr inputTail rateTail
 
 genSignalName :: TranslationContext -> (String, TranslationContext)
 genSignalName context =
