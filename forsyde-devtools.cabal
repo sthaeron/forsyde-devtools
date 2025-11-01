@@ -25,6 +25,7 @@ common common-options
         text == 2.1.2,
         containers == 0.7,
         bytestring == 0.12.2.0,
+        process == 1.6.25.0,
 
 library
     import:           common-options
@@ -32,6 +33,8 @@ library
     exposed-modules:
         CoreIR
         ForSyDeIR
+        ProceduralIR
+        ProceduralIRToC
 
 executable forsyde-devtools-exe
     import:           common-options
@@ -43,6 +46,8 @@ executable forsyde-devtools-exe
         Arguments
         CoreIR
         ForSyDeIR
+        ProceduralIR
+        ProceduralIRToC
 
 test-suite forsyde-devtools-test
     import:           common-options
@@ -51,7 +56,9 @@ test-suite forsyde-devtools-test
     main-is:          Spec.hs
     ghc-options:      -rtsopts -with-rtsopts=-N
     other-modules:
-        ForSyDeIRSpec
+        ForSyDeIRSpec,
+        ProceduralIRSpec,
+        ProceduralIRToCSpec
     build-depends:
         forsyde-devtools,
         hspec,

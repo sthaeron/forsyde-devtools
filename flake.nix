@@ -52,6 +52,7 @@
             pypkgs.mkdocs-mermaid2-plugin
             # General dev tools
             pkgs.gnumake
+            pkgs.clang-tools # For clang-format generated C code
           ];
           nativeBuildInputs = [ hspkgs.ghc ];
           shellHook = ''
