@@ -1,7 +1,20 @@
-module ProceduralIR where
-
-import GHC.Utils.Outputable
-import Prelude hiding ((<>))
+module ProceduralIR
+  ( Uop (..),
+    Bop (..),
+    Type (..),
+    Expression (..),
+    Statement (..),
+    Global (..),
+    Program (..),
+    prettyUop,
+    prettyBop,
+    prettyType,
+    prettyExpression,
+    prettyStatement,
+    prettyGlobal,
+    prettyProgram,
+  )
+where
 
 data Uop
   = OPNegate -- -rhs
@@ -82,421 +95,262 @@ data Global
 
 data Program = Prog [Global]
 
--- Pretty printing functions for ProceduralIR
-prettyUop :: Uop -> SDoc
-prettyUop OPNegate = text "-"
-prettyUop OPLogicalNot = text "!"
-prettyUop OPIncrement = text "++"
-prettyUop OPDecrement = text "--"
+-- Helper functions for string formatting
+parens :: String -> String
+parens s = "(" ++ s ++ ")"
 
-prettyBop :: Bop -> SDoc
-prettyBop OPPlus = text "+"
-prettyBop OPMinus = text "-"
-prettyBop OPMultiply = text "*"
-prettyBop OPDivide = text "/"
-prettyBop OPModulo = text "%"
-prettyBop OPPlusAssign = text "+="
-prettyBop OPMinusAssign = text "-="
-prettyBop OPMultiplyAssign = text "*="
-prettyBop OPDivideAssign = text "/="
-prettyBop OPModuloAssign = text "%="
-prettyBop OPEqual = text "=="
-prettyBop OPNotEqual = text "!="
-prettyBop OPLogicalAnd = text "&&"
-prettyBop OPLogicalOr = text "||"
-prettyBop OPLess = text "<"
-prettyBop OPLessEqual = text "<="
-prettyBop OPGreater = text ">"
-prettyBop OPGreaterEqual = text ">="
+brackets :: String -> String
+brackets s = "[" ++ s ++ "]"
 
-prettyType :: Type -> SDoc
-prettyType TVoid = text "TVoid"
-prettyType TInt = text "TInt"
-prettyType TFloat = text "TFloat"
-prettyType TChar = text "TChar"
-prettyType (TIdent s) = text "TIdent" <> parens (doubleQuotes (text s))
-prettyType (TPoint t) = text "TPoint" <> parens (prettyType t)
-prettyType (TReference t) = text "TReference" <> parens (prettyType t)
+braces :: String -> String
+braces s = "{" ++ s ++ "}"
+
+quotes :: String -> String
+quotes s = "\"" ++ s ++ "\""
+
+commaSep :: [String] -> String
+commaSep = intercalate ", "
+
+intercalate :: String -> [String] -> String
+intercalate _ [] = ""
+intercalate _ [x] = x
+intercalate sep (x : xs) = x ++ sep ++ intercalate sep xs
+
+indent :: String -> String
+indent = unlines . map ("  " ++) . lines
+
+-- Pretty printing functions for ProceduralIR (now returning String)
+prettyUop :: Uop -> String
+prettyUop OPNegate = "-"
+prettyUop OPLogicalNot = "!"
+prettyUop OPIncrement = "++"
+prettyUop OPDecrement = "--"
+
+prettyBop :: Bop -> String
+prettyBop OPPlus = "+"
+prettyBop OPMinus = "-"
+prettyBop OPMultiply = "*"
+prettyBop OPDivide = "/"
+prettyBop OPModulo = "%"
+prettyBop OPPlusAssign = "+="
+prettyBop OPMinusAssign = "-="
+prettyBop OPMultiplyAssign = "*="
+prettyBop OPDivideAssign = "/="
+prettyBop OPModuloAssign = "%="
+prettyBop OPEqual = "=="
+prettyBop OPNotEqual = "!="
+prettyBop OPLogicalAnd = "&&"
+prettyBop OPLogicalOr = "||"
+prettyBop OPLess = "<"
+prettyBop OPLessEqual = "<="
+prettyBop OPGreater = ">"
+prettyBop OPGreaterEqual = ">="
+
+prettyType :: Type -> String
+prettyType TVoid = "TVoid"
+prettyType TInt = "TInt"
+prettyType TFloat = "TFloat"
+prettyType TChar = "TChar"
+prettyType (TIdent s) = "TIdent" ++ parens (quotes s)
+prettyType (TPoint t) = "TPoint" ++ parens (prettyType t)
+prettyType (TReference t) = "TReference" ++ parens (prettyType t)
 prettyType (TFuncPoint returnType paramTypes) =
-  text "TFuncPoint"
-    <> parens
+  "TFuncPoint"
+    ++ parens
       ( prettyType returnType
-          <> comma
-          <+> if null paramTypes
-            then text "(TVoid)"
-            else parens (vcat (punctuate comma (map prettyType paramTypes)))
+          ++ ", "
+          ++ if null paramTypes
+            then "(TVoid)"
+            else parens (commaSep (map prettyType paramTypes))
       )
 
-prettyExpression :: Expression -> SDoc
-prettyExpression (EVar x) = text "EVar" <> parens (doubleQuotes (text x))
-prettyExpression (EInt i) = text "EInt" <> parens (int i)
-prettyExpression (EChar c) = text "EChar" <+> text [c]
-prettyExpression (EString s) = text "EString" <+> text (show s)
+prettyExpression :: Expression -> String
+prettyExpression (EVar x) = "EVar" ++ parens (quotes x)
+prettyExpression (EInt i) = "EInt" ++ parens (show i)
+prettyExpression (EChar c) = "EChar " ++ show c
+prettyExpression (EString s) = "EString " ++ show s
 prettyExpression (EBinOp bop expressionA expressionB) =
-  text "EBinOp"
-    <> parens
+  "EBinOp"
+    ++ parens
       ( prettyBop bop
-          <> comma
-          <+> prettyExpression expressionA
-          <> comma
-          <+> prettyExpression expressionB
+          ++ ", "
+          ++ prettyExpression expressionA
+          ++ ", "
+          ++ prettyExpression expressionB
       )
 prettyExpression (EUnOp uop expression) =
-  text "EUnOp"
-    <> parens
+  "EUnOp"
+    ++ parens
       ( prettyUop uop
-          <> comma
-          <+> prettyExpression expression
+          ++ ", "
+          ++ prettyExpression expression
       )
 prettyExpression (ECall name arguments) =
-  text "ECall"
-    <> parens
-      ( doubleQuotes (text name)
-          <> comma
-          <+> parens
-            (hcat (punctuate (comma <+> text "") (map prettyExpression arguments)))
+  "ECall"
+    ++ parens
+      ( quotes name
+          ++ ", "
+          ++ parens (commaSep (map prettyExpression arguments))
       )
 prettyExpression (ECallExpr calleeExpression arguments) =
-  text "ECallExpr"
-    <> parens
+  "ECallExpr"
+    ++ parens
       ( prettyExpression calleeExpression
-          <> comma
-          <+> parens
-            (hcat (punctuate (comma <+> text "") (map prettyExpression arguments)))
+          ++ ", "
+          ++ parens (commaSep (map prettyExpression arguments))
       )
--- EArrayAccess String Expression (Maybe String)
 prettyExpression (EArrayAccess arrayExpression indexExpression) =
-  text "EArrayAccess"
-    <> parens
+  "EArrayAccess"
+    ++ parens
       ( prettyExpression arrayExpression
-          <> comma
-          <+> prettyExpression indexExpression
+          ++ ", "
+          ++ prettyExpression indexExpression
       )
 prettyExpression (EReference expression) =
-  text "EReference"
-    <> parens (prettyExpression expression)
+  "EReference" ++ parens (prettyExpression expression)
 prettyExpression (EDereference expression) =
-  text "EDereference"
-    <> parens (prettyExpression expression)
+  "EDereference" ++ parens (prettyExpression expression)
 prettyExpression (EMemberAccess expression field) =
-  text "EMemberAccess"
-    <> parens
+  "EMemberAccess"
+    ++ parens
       ( prettyExpression expression
-          <> comma
-          <+> doubleQuotes (text field)
+          ++ ", "
+          ++ quotes field
       )
 prettyExpression (EPointerAccess expression field) =
-  text "EPointerAccess"
-    <> parens
+  "EPointerAccess"
+    ++ parens
       ( prettyExpression expression
-          <> comma
-          <+> doubleQuotes (text field)
+          ++ ", "
+          ++ quotes field
       )
 prettyExpression (EParen expression) =
-  text "EParen" <> parens (prettyExpression expression)
-prettyExpression _ = text "<expression> not implemented yet"
+  "EParen" ++ parens (prettyExpression expression)
+prettyExpression _ = "<expression> not implemented yet"
 
-prettyStatement :: Statement -> SDoc
+prettyStatement :: Statement -> String
 prettyStatement (SExpr expression) =
-  text "SExpr"
-    <> parens
-      ( prettyExpression expression
-      )
+  "SExpr" ++ parens (prettyExpression expression)
 prettyStatement (SVarDecl varType name) =
-  text "SVarDecl"
-    <> parens
+  "SVarDecl"
+    ++ parens
       ( prettyType varType
-          <> comma
-          <+> doubleQuotes (text name)
+          ++ ", "
+          ++ quotes name
       )
 prettyStatement (SVarDef varType name expression) =
-  text "SVarDef"
-    <> parens
+  "SVarDef"
+    ++ parens
       ( prettyType varType
-          <> comma
-          <+> doubleQuotes (text name)
-          <> comma
-          <+> prettyExpression expression
+          ++ ", "
+          ++ quotes name
+          ++ ", "
+          ++ prettyExpression expression
       )
 prettyStatement (SAssign lhsExpression rhsExpression) =
-  text "SAssign"
-    <> parens
+  "SAssign"
+    ++ parens
       ( prettyExpression lhsExpression
-          <> comma
-          <+> prettyExpression rhsExpression
+          ++ ", "
+          ++ prettyExpression rhsExpression
       )
 prettyStatement (SVarAssign name expression) =
-  text "SVarAssign"
-    <> parens
-      ( doubleQuotes (text name)
-          <> comma
-          <+> prettyExpression expression
+  "SVarAssign"
+    ++ parens
+      ( quotes name
+          ++ ", "
+          ++ prettyExpression expression
       )
 prettyStatement (SArrayDecl arrayType name expressions) =
-  text "SArrayDecl"
-    <> parens
+  "SArrayDecl"
+    ++ parens
       ( prettyType arrayType
-          <> comma
-          <+> doubleQuotes (text name)
-          <> comma
-          <+> parens
-            (hcat (punctuate (comma <+> text "") (map prettyExpression expressions)))
+          ++ ", "
+          ++ quotes name
+          ++ ", "
+          ++ parens (commaSep (map prettyExpression expressions))
       )
 prettyStatement (SArrayAssign name index maybeLabel expression) =
-  text "SArrayAssign"
-    <> parens
-      ( doubleQuotes (text name)
-          <> comma
-          <+> prettyExpression index
-          <> comma
-          <+> case maybeLabel of
-            Nothing -> text ""
-            Just label -> doubleQuotes (text label)
-          <> comma
-          <+> prettyExpression expression
+  "SArrayAssign"
+    ++ parens
+      ( quotes name
+          ++ ", "
+          ++ prettyExpression index
+          ++ ", "
+          ++ case maybeLabel of
+            Nothing -> ""
+            Just label -> quotes label
+          ++ ", "
+          ++ prettyExpression expression
       )
 prettyStatement (SScope statements) =
   if null statements
-    then text "SScope {}"
+    then "SScope {}"
     else
-      text "SScope"
-        <> text "{"
-        $$ nest 2 (vcat (punctuate comma (map prettyStatement statements)))
-        $$ text "}"
+      "SScope {"
+        ++ "\n"
+        ++ indent (intercalate ",\n" (map prettyStatement statements))
+        ++ "\n}"
 prettyStatement (SIf expression statement maybeStatement) =
-  text "SIf"
-    <> parens
+  "SIf"
+    ++ parens
       ( prettyExpression expression
-          <> comma
-          <+> prettyStatement statement
-          <> comma
-          <+> case maybeStatement of
-            Nothing -> text ""
-            Just elseStatement -> prettyStatement (elseStatement)
+          ++ ", "
+          ++ prettyStatement statement
+          ++ ", "
+          ++ case maybeStatement of
+            Nothing -> ""
+            Just elseStatement -> prettyStatement elseStatement
       )
 prettyStatement (SWhile expression statement) =
-  text "SWhile"
-    <> parens
+  "SWhile"
+    ++ parens
       ( prettyExpression expression
-          <> comma
-          $$ (prettyStatement statement)
+          ++ ", "
+          ++ prettyStatement statement
       )
 prettyStatement (SFor initStatement condExpression updateStatement statement) =
-  text "SFor"
-    <> parens
+  "SFor"
+    ++ parens
       ( prettyStatement initStatement
-          <> comma
-          <+> prettyExpression condExpression
-          <> comma
-          <+> prettyStatement updateStatement
-          <> comma
-          $$ (prettyStatement statement)
+          ++ ", "
+          ++ prettyExpression condExpression
+          ++ ", "
+          ++ prettyStatement updateStatement
+          ++ ", "
+          ++ prettyStatement statement
       )
-prettyStatement (SBreak) =
-  text "SBreak"
+prettyStatement SBreak = "SBreak"
 prettyStatement (SReturn maybeExpression) =
-  text "SReturn"
-    <> case maybeExpression of
-      Nothing -> text ""
+  "SReturn"
+    ++ case maybeExpression of
+      Nothing -> ""
       Just expression -> parens (prettyExpression expression)
-prettyStatement (SGoto label) =
-  text "SGoto"
-    <> parens (doubleQuotes (text label))
-prettyStatement (SLabel label) =
-  text "SLabel"
-    <> parens (doubleQuotes (text label))
-prettyStatement _ = text "<statement> no implemented yet"
+prettyStatement (SGoto label) = "SGoto" ++ parens (quotes label)
+prettyStatement (SLabel label) = "SLabel" ++ parens (quotes label)
+prettyStatement _ = "<statement> not implemented yet"
 
-prettyParam :: (Type, String) -> SDoc
+prettyParam :: (Type, String) -> String
 prettyParam (paramType, paramName) =
-  parens (prettyType paramType <> comma <+> doubleQuotes (text paramName))
+  parens (prettyType paramType ++ ", " ++ quotes paramName)
 
-prettyGlobal :: Global -> SDoc
-prettyGlobal global = case global of
-  GFuncDef modifiers returnType name params body ->
-    text "GFuncDef"
-      <> parens
-        ( hcat
-            ( punctuate
-                (comma <+> text "")
-                (map (doubleQuotes . text) modifiers)
-            )
-            <> comma
-            <+> prettyType returnType
-            <> comma
-            <+> doubleQuotes (text name)
-            <> comma
-            <+> if null params
-              then text "()"
-              else parens (vcat (punctuate comma (map prettyParam params)))
-        )
-      <+> text "{"
-      $$ nest 2 (prettyStatement body)
-      $$ text "}"
+prettyGlobal :: Global -> String
+prettyGlobal (GFuncDef modifiers returnType name params body) =
+  "GFuncDef"
+    ++ parens
+      ( intercalate ", " (map quotes modifiers)
+          ++ ", "
+          ++ prettyType returnType
+          ++ ", "
+          ++ quotes name
+          ++ ", "
+          ++ if null params
+            then "()"
+            else parens (commaSep (map prettyParam params))
+      )
+    ++ " {\n"
+    ++ indent (prettyStatement body)
+    ++ "\n}"
 
-prettyProgram :: Program -> SDoc
-prettyProgram (Prog globals) =
-  vcat (map prettyGlobal globals)
-
-exampleAST :: Program
-exampleAST =
-  Prog
-    [ GFuncDef
-        []
-        TInt
-        "main"
-        []
-        ( SScope
-            [ SVarDecl (TIdent "token") "input",
-              SVarDecl (TIdent "token") "output",
-              SVarDecl TInt "i",
-              SVarDecl TInt "j",
-              SVarDef
-                (TPoint (TIdent "channel"))
-                "s_in"
-                ( ECall
-                    "create_buffer_nonblocking"
-                    ( [EInt 4]
-                    )
-                ),
-              SVarDef
-                (TPoint (TIdent "channel"))
-                "s_out"
-                ( ECall
-                    "create_buffer_nonblocking"
-                    ( [EInt 2]
-                    )
-                ),
-              SVarDef
-                (TPoint (TIdent "channel"))
-                "s_1"
-                ( ECall
-                    "create_buffer_nonblocking"
-                    ( [EInt 1]
-                    )
-                ),
-              SVarDef
-                (TPoint (TIdent "channel"))
-                "s_1_delay"
-                ( ECall
-                    "create_buffer_nonblocking"
-                    ( [EInt 1]
-                    )
-                ),
-              SExpr
-                ( ECall
-                    "writeToken"
-                    ( [ EVar "s_1",
-                        EInt 0
-                      ]
-                    )
-                ),
-              SWhile
-                (EInt 1)
-                ( SScope
-                    [ SExpr
-                        ( ECall
-                            "actor11SDF"
-                            [ EInt 2,
-                              EInt 1,
-                              EVar "s_in",
-                              EVar "s_1",
-                              EVar "f_1"
-                            ]
-                        )
-                    ]
-                ),
-              SArrayAssign "x" (EInt 0) Nothing (EInt 3),
-              SArrayAssign "x" (EInt 1) (Just "foo") (EInt 2),
-              SIf
-                (EBinOp OPLess (EVar "i") (EVar "n"))
-                (SReturn (Nothing))
-                Nothing,
-              SIf
-                (EBinOp OPGreater (EVar "i") (EInt 0))
-                (SReturn (Just (EInt 1)))
-                (Just (SReturn (Just (EInt 0)))),
-              SReturn (Just (EInt 0)),
-              SReturn (Nothing),
-              -- The following are some grammar that can't be achieved by cigrid AST
-              -- But now can be used
-
-              -- for (int i=0; i<n; ++i){
-              -- printf("%d\n", i);
-              -- }
-              SFor
-                (SVarDef TInt "i" (EInt 0))
-                (EBinOp OPLess (EVar "i") (EVar "n"))
-                (SExpr (EUnOp OPIncrement (EVar "i")))
-                (SScope [SExpr (ECall "printf" [EString "%d\n", EVar "i"])]),
-              -- struct fifo & fifo = f;
-              SVarDef
-                (TReference (TIdent "fifo"))
-                "fifo"
-                (EVar "f"),
-              -- printf("Hi"); // has new way to call
-              SExpr (ECallExpr (EVar "printf") [EString "Hi"]),
-              -- a->funca()
-              SExpr (ECallExpr (EPointerAccess (EVar "a") "funca") []),
-              -- a.getB().printB();
-              SExpr
-                ( ECallExpr
-                    ( EMemberAccess
-                        (ECallExpr (EMemberAccess (EVar "a") "getB") [])
-                        "printB"
-                    )
-                    []
-                ),
-              -- p[i]->value;
-              SExpr
-                ( EPointerAccess
-                    (EArrayAccess (EVar "p") (EVar "i"))
-                    "value"
-                ),
-              -- pthread_mutex_lock(&fifo->lock);
-              SExpr
-                ( ECall
-                    "pthread_mutex_lock"
-                    [ EReference
-                        (EPointerAccess (EVar "fifo") "lock")
-                    ]
-                ),
-              -- int value = *p;
-              -- \*p = 10;
-              SVarDef
-                TInt
-                "value"
-                (EDereference (EVar "p")),
-              SAssign
-                (EDereference (EVar "p"))
-                (EInt 10),
-              -- int input[2];
-              SArrayDecl
-                TInt
-                "input"
-                [EInt 2]
-            ]
-        ),
-      GFuncDef
-        ["static"]
-        TVoid
-        "actor11SDF"
-        [ (TInt, "consum"),
-          (TInt, "prod"),
-          (TPoint (TIdent "channel"), "ch_in"),
-          (TPoint (TIdent "channel"), "ch_out"),
-          ( TFuncPoint
-              TVoid
-              [ (TPoint (TIdent "token")),
-                (TPoint (TIdent "token"))
-              ],
-            "f"
-          )
-        ]
-        ( SScope []
-        )
-    ]
-
-main :: IO ()
-main = do
-  putStrLn $ showSDocUnsafe $ prettyProgram exampleAST
+prettyProgram :: Program -> String
+prettyProgram (Prog globals) = intercalate "\n\n" (map prettyGlobal globals)
