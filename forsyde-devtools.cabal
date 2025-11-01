@@ -26,6 +26,7 @@ common common-options
         containers == 0.7,
         bytestring == 0.12.2.0,
         process == 1.6.25.0,
+        hmatrix == 0.20.2,
 
 library
     import:           common-options
@@ -45,6 +46,7 @@ executable forsyde-devtools-exe
     other-modules:
         Arguments
         CoreIR
+        CoreToForSyDeIR
         ForSyDeIR
         ProceduralIR
         ProceduralIRToC

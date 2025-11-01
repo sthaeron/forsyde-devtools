@@ -113,13 +113,12 @@ inputFormatProceduralIR =
         <> help "Input file in Procedural-IR"
     )
 
--- Top-level. All of these 4 flags are optional, but one of them
--- need to be active. Same as inputFormatTop, where the function
--- for FormatCore has InputC as default but InputCore if flag is
--- turned on
+-- Top-level. All of these flags are optional, but one of them
+-- need to be active.
 outputFormatTop :: Parser OutputFormat
 outputFormatTop =
   outputFormatC
+    <|> outputFormatCore
     <|> outputFormatForSyDeIR
     <|> outputFormatForSyDeIRJSON
     <|> outputFormatProceduralIR
@@ -134,19 +133,13 @@ outputFormatC =
         <> help "Output file in C"
     )
 
--- Temporarily commented out, this is how it will work in the end where the
--- Core output format function has C as default if flag is unspecified, and Core
--- if set.
-{-
 outputFormatCore :: Parser OutputFormat
 outputFormatCore =
-  flag
-    OutputC
+  flag'
     OutputCore
     ( long "output-core"
-        <> help "Output file in Core"
+        <> help "Output file in Core (default)"
     )
--}
 
 outputFormatForSyDeIR :: Parser OutputFormat
 outputFormatForSyDeIR =
