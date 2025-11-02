@@ -70,10 +70,7 @@ static void f_d(token *in1, token *in2, token *out1, token *out2) {
 
 int main() {
 
-    #if PLATFORM == PICO2
-        // Initialize all components on the lab-kit.
-        BSP_Init();
-    #endif
+    init();
 
     // Temporary tokens for print/scan functions for input and output
     token input_a[4];
