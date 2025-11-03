@@ -28,11 +28,15 @@
 
 #if PLATFORM == PC
     #include "buffer_blocking_pc.h"
+    static void init(void) {}
 #endif
 
 #if PLATFORM == PICO2
     #include "buffer_blocking_pico2.h"
     #include <bsp.h>
+    static void init(void) {
+        BSP_Init();
+    }
 #endif
 
 #endif
