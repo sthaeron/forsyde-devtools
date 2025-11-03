@@ -5,7 +5,7 @@ module CoreToForSyDeIR where
 import CoreIR
 import Data.List (elemIndex)
 import ForSyDeIR
-import GHC
+import GHC hiding (targetId)
 import GHC.Core
 import GHC.Driver.Ppr
 import GHC.Types.Literal
@@ -132,29 +132,6 @@ findBinder targetBinder binds = case binds of
       then Just prId
       else findBinder targetBinder bindTail
 
-createSignalsFromBinds :: TranslationContext -> [(String, String)] -> [(String, String)] -> TranslationContext
-createSignalsFromBinds context bindPr binds = aux1 context bindPr binds
-  where
-    aux1 currentContext currentBindPr currentBinds = case currentBindPr of
-      [] -> currentContext
-      (currentBinder, currentPrId) : bindPrTail ->
-        let outputRates = case (findRates currentPrId (actors currentContext)) of
-              Just (_, rates) -> rates
-              Nothing -> error ("No rates found for actor: " ++ currentPrId)
-            newContext = aux2 currentContext (currentBinder, currentPrId) currentBinds outputRates
-         in aux1 newContext bindPrTail currentBinds
-    aux2 currentContext (currentBinder, currentPrId) currentBinds currentRates = case (currentBinds, currentRates) of
-      ([], _) -> currentContext
-      (_, []) -> currentContext
-      ((sourceBinder, targetId) : binderTail, currentRatesHead : currentRatesTail) ->
-        if currentBinder == sourceBinder
-          then
-            let (name, newContext) = (genSignalName currentContext)
-                newSignal = IRSignal name (currentPrId, currentRatesHead) (targetId, 1)
-                newNewContext = newContext {signals = (name, newSignal) : (signals newContext)}
-             in aux2 newNewContext (currentBinder, currentPrId) binderTail currentRatesTail
-          else aux2 currentContext (currentBinder, currentPrId) binderTail (currentRatesHead : currentRatesTail)
-
 translateOutputs :: TranslationContext -> CoreExpr -> TranslationContext
 translateOutputs context expr = case expr of
   App e a -> translateOutputs (translateOutputs context a) e
@@ -163,8 +140,7 @@ translateOutputs context expr = case expr of
   Case e _ _ alts -> case getVarFromAlts context alts of
     (_, Nothing) -> context
     (binder, Just index) ->
-      -- s_out, 0
-      let bind = showPpr (flags context) e -- ds
+      let bind = showPpr (flags context) e
           (name, newContext) = genSignalName context
           newSignal = IRSignal name (bind, index) (binder, 1)
        in newContext {systemOutputs = binder : (systemOutputs newContext), signals = (name, newSignal) : (signals newContext)}
@@ -213,9 +189,7 @@ translateArgument context arguments expr = case expr of
     let binder = showPpr (flags context) i
         index = getIndexFromAlts context alts
      in ((binder, index) : arguments, context)
-  _ -> (arguments, context)
-
--- _ -> error ("translateArgument: unsupported expression\n" ++ prettyCoreExpr expr)
+  _ -> error ("translateArgument: unsupported expression" ++ prettyCoreExpr (flags context) expr)
 
 getIndexFromAlts :: TranslationContext -> [Alt CoreBndr] -> (Maybe Int)
 getIndexFromAlts context alts = case alts of
@@ -273,24 +247,6 @@ getRateFromConstructors id list = case list of
       if prId == id
         then error ("TODO: implement getRateFromConstructors for actors " ++ prId)
         else getRateFromConstructors id prTail
-
--- system s_in = s_out
---   where
---     (s_out, s_1) = a_1 s_in (d_1 s_1)
-
--- translateOutput :: TranslationContext -> CoreExpr -> TranslationContext
--- translateOutput context e = case e of
---     Case e b _ alts ->
---     _ -> context
-
---     newSignal IRSignal "s_out" ("a_1", 1) ("output", 1)
-
---     a_1 context to output with s_out
-
--- Case(Var(ds_d1bd): (wild_00, Signal d_a1aj) {
---     Alt(DataAlt((,)):
--- 	    {s_out_a1a1, s_1_X1, } Var(s_out_a1a1)),
---     })
 
 translateCoreExpr :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 translateCoreExpr context binder expr = case expr of
