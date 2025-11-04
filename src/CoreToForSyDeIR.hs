@@ -189,7 +189,7 @@ translateArgument context arguments expr = case expr of
     let binder = showPpr (flags context) i
         index = getIndexFromAlts context alts
      in ((binder, index) : arguments, context)
-  _ -> error ("translateArgument: unsupported expression" ++ prettyCoreExpr (flags context) expr)
+  _ -> error ("translateArgument: unsupported expression\n" ++ prettyCoreExpr (flags context) expr)
 
 getIndexFromAlts :: TranslationContext -> [Alt CoreBndr] -> (Maybe Int)
 getIndexFromAlts context alts = case alts of
@@ -202,13 +202,14 @@ findRates actorName list = lookup actorName list
 
 -- Create signals based on process constructor input names and their rates
 createSignals :: TranslationContext -> String -> [(String, Maybe Int)] -> TranslationContext
-createSignals context pr inputs =
+createSignals context pr arguments =
   let inputRates = case (findRates pr (actors context)) of
         Just (rates, _) -> rates
         Nothing -> error ("No rates found for actor: " ++ pr)
-   in aux context pr inputs inputRates
+   in aux context pr arguments inputRates
   where
-    aux currentContext currentPr currentInputs rates = case (currentInputs, rates) of
+    aux :: TranslationContext -> String -> [(String, Maybe Int)] -> [Int] -> TranslationContext
+    aux currentContext currentPr currentArguments rates = case (currentArguments, rates) of
       ([], _) -> currentContext
       (_, []) -> currentContext
       ((inputHead, Just i) : inputTail, rateHead : rateTail) ->
@@ -233,32 +234,55 @@ getSourceRate :: TranslationContext -> String -> Int
 getSourceRate context id =
   if elem id (systemInputs context)
     then 1
-    else getRateFromConstructors id (map snd (constructors context))
-
-getRateFromConstructors :: String -> [IRConstructor] -> Int
-getRateFromConstructors id list = case list of
-  [] -> -1
-  prHead : prTail -> case prHead of
-    IRDelay prId _ (_, _) ->
-      if prId == id
-        then 1
-        else getRateFromConstructors id prTail
-    IRActor prId _ _ (_, _) ->
-      if prId == id
-        then error ("TODO: implement getRateFromConstructors for actors " ++ prId)
-        else getRateFromConstructors id prTail
+    else aux (map snd (constructors context))
+  where
+    aux :: [IRConstructor] -> Int
+    aux list = case list of
+      [] -> error ("getSourceRate: " ++ id ++ " not in a valid constructor")
+      prHead : prTail -> case prHead of
+        IRDelay prId _ (_, _) ->
+          if prId == id
+            then 1
+            else aux prTail
+        IRActor prId _ _ (_, _) ->
+          if prId == id
+            then
+              let outputRates = case (findRates prId (actors context)) of
+                    Just (_, rates) -> rates
+                    Nothing -> error ("getSourceRate: No rates found for actor " ++ prId)
+               in case outputRates of
+                    [] -> error ("getSourceRate: Empty output rates for actor " ++ prId)
+                    [i] -> i
+                    _ -> error ("getSourceRate: More than one output rate for actor " ++ prId)
+            else aux prTail
 
 translateCoreExpr :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 translateCoreExpr context binder expr = case expr of
-  Lam _ (Lam _ (Lam _ (App (App (App (Var (i)) _) _) _))) -> case (showPpr (flags context) i) of
-    "delaySDF" -> createDelaySDF context binder expr
-    _ -> error "expecting delaySDF got something else"
-  Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _)))) -> case (showPpr (flags context) i) of
-    "actor22SDF" -> createActorSDF context Actor22 binder expr
-    _ -> error "expecting actor22SDF got something else"
-  Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _))) -> case (showPpr (flags context) i) of
-    "actor12SDF" -> createActorSDF context Actor12 binder expr
-    _ -> error "expecting actor12SDF got something else"
+  Lam _ (Lam _ (Lam _ (App (App (App (Var (i)) _) _) _))) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "delaySDF" -> createDelaySDF context binder expr
+          _ -> error ("translateCoreExpr: expecting delaySDF got " ++ name)
+  Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _))) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor11SDF" -> createActorSDF context Actor11 binder expr
+          _ -> error ("translateCoreExpr: expecting actor11SDF got " ++ name)
+  Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _))) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor12SDF" -> createActorSDF context Actor12 binder expr
+          _ -> error ("translateCoreExpr: expecting actor12SDF got " ++ name)
+  Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _)))) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor21SDF" -> createActorSDF context Actor21 binder expr
+          _ -> error ("translateCoreExpr: expecting actor21SDF got " ++ name)
+  Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _)))) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor22SDF" -> createActorSDF context Actor22 binder expr
+          _ -> error ("translateCoreExpr: expecting actor22SDF got " ++ name)
   _ -> createFunction context binder expr
 
 -- delaySDF
@@ -272,7 +296,9 @@ createDelaySDF context binder expr =
 
 getActorSplit :: ActorType -> Int
 getActorSplit actorType = case actorType of
+  Actor11 -> 1
   Actor12 -> 1
+  Actor21 -> 2
   Actor22 -> 2
   _ -> error "getActorSplit: unsupported actor type"
 
