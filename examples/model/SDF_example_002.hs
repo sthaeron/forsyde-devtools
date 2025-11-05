@@ -3,22 +3,22 @@ module SDF_example_002 where
 import ForSyDe.Shallow
 
 -- Netlist
-system s_ina s_inb = s_out
+system s_in_1 s_in_2 = s_out
   where
-    s_1 = a_1 s_ina
-    s_2 = a_2 s_inb
-    s_3 = a_3 s_1 s_4_delayed
-    (s_out, s_4) = a_4 s_2 s_3
+    s_1 = a_a s_in_1
+    s_2 = a_b s_in_2
+    s_3 = a_c s_1 s_4_delayed
+    (s_out, s_4) = a_d s_2 s_3
     s_4_delayed = d_1 s_4
 
 -- Process specifications
-a_1 s1 = actor11SDF 2 1 f_1 s1
+a_a s_1 = actor11SDF 2 1 f_1 s_1
 
-a_2 s1 = actor11SDF 1 2 f_2 s1
+a_b s_1 = actor11SDF 1 2 f_2 s_1
 
-a_3 s1 s2 = actor21SDF (2, 1) 1 f_3 s1 s2
+a_c s_1 s_2 = actor21SDF (2, 1) 1 f_3 s_1 s_2
 
-a_4 s1 s2 = actor22SDF (2, 1) (1, 2) f_4 s1 s2
+a_d s_1 s_2 = actor22SDF (2, 1) (2, 1) f_4 s_1 s_2
 
 d_1 s = delaySDF [0] s
 
