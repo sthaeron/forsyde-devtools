@@ -60,8 +60,8 @@ data IRSystem = IRSystem ([String], [String]) [IRConstructor] [IRSignal] [IRFunc
 
 -- ForSyDe IR pretty printing functions
 
-indent :: String -> String
-indent = unlines . map ("    " ++) . lines
+indent :: Int -> String -> String
+indent numberSpaces = unlines . map (replicate numberSpaces ' ' ++) . lines
 
 prettyIRSignal :: IRSignal -> String
 prettyIRSignal (IRSignal signalId (inputId, inputRate) (outputId, outputRate)) =
@@ -86,7 +86,13 @@ prettyIRConstructor (IRActor actorId actorType functionId (inputs, outputs)) =
 
 prettyIRFunction :: DynFlags -> IRFunction -> String
 prettyIRFunction dflags (IRFunction functionId function) =
-  printf "IRFunction(\"%s\", %s)" functionId (maybe "" (prettyCoreExpr dflags) function)
+  printf
+    "IRFunction(\"%s\", %s)"
+    functionId
+    (maybe "" (prettyFunction dflags) function)
+
+prettyFunction :: DynFlags -> CoreExpr -> String
+prettyFunction dflags function = printf "\n%s" (indent 2 (prettyCoreExpr dflags function))
 
 prettyIRSystem :: DynFlags -> IRSystem -> String
 prettyIRSystem dflags (IRSystem (inputs, outputs) constructors signals functions) =
@@ -94,9 +100,9 @@ prettyIRSystem dflags (IRSystem (inputs, outputs) constructors signals functions
     "IRSystem(\n  {%s}, {%s},\n  {\n%s  },\n  {\n%s  },\n  {\n%s  }\n)"
     (intercalate ", " (map show inputs))
     (intercalate ", " (map show outputs))
-    (indent (intercalate ",\n" (map prettyIRConstructor constructors)))
-    (indent (intercalate ",\n" (map prettyIRSignal signals)))
-    (indent (intercalate ",\n" (map (prettyIRFunction dflags) functions)))
+    (indent 4 (intercalate ",\n" (map prettyIRConstructor constructors)))
+    (indent 4 (intercalate ",\n" (map prettyIRSignal signals)))
+    (indent 4 (intercalate ",\n" (map (prettyIRFunction dflags) functions)))
 
 -- ForSyDe IR to JSON functions
 
