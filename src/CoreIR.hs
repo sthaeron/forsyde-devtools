@@ -3,7 +3,7 @@ module CoreIR where
 import Data.List (intercalate)
 import GHC
 import GHC.Core
-import GHC.Data.EnumSet as EnumSet
+import GHC.Driver.Main
 import GHC.Driver.Ppr
 import GHC.Paths (libdir)
 import GHC.Plugins
@@ -55,37 +55,20 @@ prettyCoreAltCon dflags altCons = case altCons of
 compileToCore :: FilePath -> IO (CoreProgram, DynFlags)
 compileToCore filePath = runGhc (Just libdir) $ do
   dflags <- getSessionDynFlags
-  setSessionDynFlags $
-    updOptLevel 2 $
-      dflags
-        { ghcLink = NoLink,
-          ghcMode = CompManager,
-          verbosity = 0,
-          debugLevel = 0,
-          generalFlags =
-            EnumSet.fromList
-              [ Opt_SuppressTicks,
-                Opt_SuppressCoercions,
-                Opt_SuppressCoercionTypes,
-                Opt_SuppressVarKinds,
-                Opt_SuppressModulePrefixes,
-                Opt_SuppressTypeApplications,
-                Opt_SuppressIdInfo,
-                Opt_SuppressUnfoldings,
-                Opt_SuppressTypeSignatures,
-                Opt_SuppressUniques,
-                Opt_SuppressStgExts,
-                Opt_SuppressStgReps,
-                Opt_SuppressTimestamps,
-                Opt_SuppressCoreSizes
-              ]
-        }
-  newDflags <- getSessionDynFlags
+  let newDflags =
+        dflags
+          { ghcLink = NoLink,
+            ghcMode = CompManager,
+            verbosity = 0,
+            debugLevel = 0
+          }
+  _ <- setSessionDynFlags newDflags
   target <- guessTarget filePath Nothing Nothing
   setTargets [target]
   _ <- load LoadAllTargets
   modSummary <- getModSummary $ mkModuleName (takeBaseName filePath)
-  parse <- parseModule modSummary
-  typecheck <- typecheckModule parse
-  desugar <- desugarModule typecheck
-  return $ (mg_binds . dm_core_module $ desugar, newDflags)
+  env <- getSession
+  parsedModule <- liftIO $ hscParse env modSummary
+  (tcg, _) <- liftIO $ hscTypecheckRename env modSummary parsedModule
+  guts <- liftIO $ hscDesugar env modSummary tcg
+  return $ (mg_binds guts, newDflags)
