@@ -1,0 +1,126 @@
+NonRec(add = 
+  Lam(a -> 
+  Lam($dNum -> 
+  Lam(ds -> 
+  Let(
+    NonRec(fail = 
+      Lam(ds -> 
+      Case(App(App(App(Var(patError) * 
+      Type(LiftedRep)) * 
+      Type(())) * 
+      Lit("examples/model/SDF_example_005.hs:15:1-28|function add"#)) of wild {
+      }))
+    )
+   in
+    Case(Var(ds) of wild {
+      Alt(DEFAULT: {} =
+        App(Var(fail) * 
+        Var((##)))
+      ),
+      Alt(DataAlt(:): {x, ds} =
+        Case(Var(ds) of wild {
+          Alt(DEFAULT: {} =
+            App(Var(fail) * 
+            Var((##)))
+          ),
+          Alt(DataAlt([]): {} =
+            App(App(App(App(Var((,)) * 
+            Type([a])) * 
+            Type([a])) * 
+            App(App(Var(build) * 
+            Type(a)) * 
+            Lam(a -> 
+            Lam(c -> 
+            Lam(n -> 
+            App(App(Var(c) * 
+            App(App(App(App(Var(+) * 
+            Type(a)) * 
+            Var($dNum)) * 
+            Var(x)) * 
+            App(App(App(Var(fromInteger) * 
+            Type(a)) * 
+            Var($dNum)) * 
+            App(Var(IS) * 
+            Lit(1#))))) * 
+            Var(n))))))) * 
+            App(App(Var(build) * 
+            Type(a)) * 
+            Lam(a -> 
+            Lam(c -> 
+            Lam(n -> 
+            App(App(Var(c) * 
+            App(App(App(App(Var(+) * 
+            Type(a)) * 
+            Var($dNum)) * 
+            Var(x)) * 
+            App(App(App(Var(fromInteger) * 
+            Type(a)) * 
+            Var($dNum)) * 
+            App(Var(IS) * 
+            Lit(2#))))) * 
+            Var(n)))))))
+          )
+        })
+      )
+    })
+  ))))
+)
+
+NonRec(a_1 = 
+  Lam(c -> 
+  Lam($dNum -> 
+  Lam(s_1 -> 
+  App(App(App(App(App(App(App(Var(actor12SDF) * 
+  Type(c)) * 
+  Type(c)) * 
+  Type(c)) * 
+  App(Var(I#) * 
+  Lit(1#))) * 
+  App(App(App(App(Var((,)) * 
+  Type(Int)) * 
+  Type(Int)) * 
+  App(Var(I#) * 
+  Lit(1#))) * 
+  App(Var(I#) * 
+  Lit(1#)))) * 
+  App(App(Var(add) * 
+  Type(c)) * 
+  Var($dNum))) * 
+  Var(s_1)))))
+)
+
+NonRec(system = 
+  Lam(c -> 
+  Lam($dNum -> 
+  Lam(s_in -> 
+  Let(
+    NonRec(ds = 
+      App(App(App(Var(a_1) * 
+      Type(c)) * 
+      Var($dNum)) * 
+      Var(s_in))
+    )
+   in
+    App(App(App(App(Var((,)) * 
+    Type(Signal c)) * 
+    Type(Signal c)) * 
+    Case(Var(ds) of wild {
+      Alt(DataAlt((,)): {s_out1, s_out2} =
+        Var(s_out1)
+      )
+    })) * 
+    Case(Var(ds) of wild {
+      Alt(DataAlt((,)): {s_out1, s_out2} =
+        Var(s_out2)
+      )
+    }))
+  ))))
+)
+
+NonRec($trModule = 
+  App(App(Var(Module) * 
+  App(Var(TrNameS) * 
+  Lit("main"#))) * 
+  App(Var(TrNameS) * 
+  Lit("SDF_example_005"#)))
+)
