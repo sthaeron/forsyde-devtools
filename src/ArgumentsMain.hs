@@ -1,4 +1,4 @@
-module Arguments where
+module ArgumentsMain where
 
 import Options.Applicative
 
