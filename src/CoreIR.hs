@@ -15,7 +15,7 @@ indent = unlines . map ("  " ++) . lines
 
 prettyCoreBind :: DynFlags -> CoreBind -> String
 prettyCoreBind dflags bind = case bind of
-  NonRec b e -> printf "NonRec(%s = \n%s)" (showPpr dflags b) (indent (prettyCoreExpr dflags e))
+  NonRec b e -> printf "NonRec(%s =\n%s)" (showPpr dflags b) (indent (prettyCoreExpr dflags e))
   Rec binds -> printf "Rec({\n%s})" (indent (intercalate ",\n" (map (prettyBind dflags) binds)))
 
 prettyBind :: DynFlags -> (Var, CoreExpr) -> String
@@ -28,8 +28,8 @@ prettyCoreExpr :: DynFlags -> CoreExpr -> String
 prettyCoreExpr dflags expr = case expr of
   Var i -> printf "Var(%s)" (showPpr dflags i)
   Lit l -> printf "Lit(%s)" (showPpr dflags l)
-  App e a -> printf "App(%s * \n%s)" (prettyCoreExpr dflags e) (prettyCoreExpr dflags a)
-  Lam b e -> printf "Lam(%s -> \n%s)" (showPpr dflags b) (prettyCoreExpr dflags e)
+  App e a -> printf "App(%s *\n%s)" (prettyCoreExpr dflags e) (prettyCoreExpr dflags a)
+  Lam b e -> printf "Lam(%s ->\n%s)" (showPpr dflags b) (prettyCoreExpr dflags e)
   Type t -> printf "Type(%s)" (showPpr dflags t)
   Let bind e -> printf "Let(\n%s in\n%s)" (indent (prettyCoreBind dflags bind)) (indent (prettyCoreExpr dflags e))
   Case e b _ alts -> printf "Case(%s of %s {\n%s})" (prettyCoreExpr dflags e) (showPpr dflags b) (indent (prettyCoreAltList dflags alts))
