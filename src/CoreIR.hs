@@ -59,8 +59,9 @@ compileToCore filePath = runGhc (Just libdir) $ do
         dflags
           { ghcLink = NoLink,
             ghcMode = CompManager,
+            backend = interpreterBackend,
             verbosity = 0,
-            debugLevel = 0
+            debugLevel = 1
           }
   _ <- setSessionDynFlags newDflags
   target <- guessTarget filePath Nothing Nothing
