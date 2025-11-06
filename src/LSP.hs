@@ -13,12 +13,16 @@ import Control.Concurrent (forkFinally)
 import qualified Control.Exception as E
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class
+import Control.Monad.IO.Unlift
+import CoreIR
+import CoreToForSyDeIR
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
 import qualified Data.List.NonEmpty as NE
 import Data.Proxy
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
+import ForSyDeIR
 import Language.LSP.Protocol.Message
 import Language.LSP.Server
 import Network.Socket
@@ -32,6 +36,98 @@ diagramAcceptMethod = (SMethod_CustomMethod (Proxy @"diagram/accept"))
 
 setPreferencesMethod :: SMethod (Method_CustomMethod "keith/preferences/setPreferences")
 setPreferencesMethod = (SMethod_CustomMethod (Proxy @"keith/preferences/setPreferences"))
+
+forSyDeIRToGraph :: FilePath -> IRSystem -> GraphElement
+forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
+  where
+    createPort pid (n, r) =
+      KPort
+        { children = [label],
+          renderings = [],
+          properties = [],
+          gid = id
+        }
+      where
+        id = T.concat [pid, "$P", T.pack n]
+        label = KLabel {gid = T.concat [id, "$L0"], label = T.show r}
+    createNode = \case
+      (IRActor name _ _ _) ->
+        createNode'
+          name
+          name
+          [KEllipse]
+          [ (NodeLabelsPlacement, [1, 4, 6]),
+            (NodeSizeConstraints, [3]),
+            (NodeSizeMinimum, [64, 64])
+          ]
+      (IRDelay name d _) ->
+        createNode'
+          name
+          ((show $ length d) ++ "D")
+          [KEllipse]
+          [ (NodeLabelsPlacement, [1, 4, 6]),
+            (NodeSizeConstraints, [0, 1, 2, 3]),
+            (NodeSizeMinimum, [16, 16])
+          ]
+    findSourceSignals signals proc =
+      foldr f [] signals
+      where
+        f s acc =
+          let IRSignal n (p, rate) _ = s
+           in if p == proc then (n, rate) : acc else acc
+    findTargetSignals signals proc =
+      foldr f [] signals
+      where
+        f s acc =
+          let IRSignal n _ (p, rate) = s
+           in if p == proc then (n, rate) : acc else acc
+    createNode' name l r p = node
+      where
+        nid = T.pack ("$root$N" ++ name)
+        insignals = findSourceSignals signals name
+        outsignals = findTargetSignals signals name
+        inports = map (createPort nid) insignals
+        outports = map (createPort nid) outsignals
+        nl = KLabel {gid = T.concat [nid, "$L0"], label = T.pack l}
+        c = inports ++ outports ++ [nl]
+        node =
+          KNode
+            { gid = nid,
+              children = c,
+              renderings = r,
+              properties = p
+            }
+    createEdge (IRSignal n (sname, srate) (tname, trate)) = edge
+      where
+        sn = T.concat ["$root$N", T.pack sname, "$P", T.pack n]
+        tn = T.concat ["$root$N", T.pack tname, "$P", T.pack n]
+        name = T.concat [sn, "$E", T.pack n]
+        edge =
+          KEdge
+            { gid = name,
+              children = [],
+              renderings = [KPolyline],
+              properties = [],
+              source = sn,
+              target = tn
+            }
+    nodes =
+      map createNode actors
+        ++ map (\n -> createNode' n n [] []) inputs
+        ++ map (\n -> createNode' n n [] []) outputs
+    edges = map createEdge signals
+    graph =
+      KGraph
+        { gid = T.pack ("file://" ++ file),
+          child =
+            KNode
+              { gid = "$root",
+                children = nodes ++ edges,
+                properties = [],
+                renderings = []
+              },
+          properties = []
+        }
 
 setSynthesis :: A.Value
 setSynthesis =
@@ -64,74 +160,19 @@ updateOptions f =
           ]
     ]
 
-requestBounds :: FilePath -> A.Value
-requestBounds f =
+requestBounds :: FilePath -> IRSystem -> A.Value
+requestBounds f ir =
   A.object
     [ "clientId" .= T.pack "sprotty",
       "action"
         .= A.object
           [ "kind" .= T.pack "requestBounds",
             "newRoot"
-              .= KGraph
-                { gid = T.pack ("file://" ++ f),
-                  properties = [],
-                  child =
-                    KNode
-                      { gid = "$root",
-                        renderings = [],
-                        properties = [],
-                        children =
-                          [ KNode
-                              { children =
-                                  [ KLabel {label = "A", gid = "$root$Na$$L0"},
-                                    KPort
-                                      { children = [],
-                                        renderings = [],
-                                        properties = [],
-                                        gid = "$root$Na$$P0"
-                                      }
-                                  ],
-                                renderings = [KEllipse],
-                                properties =
-                                  [ (NodeLabelsPlacement, [1, 4, 6]),
-                                    (NodeSizeConstraints, [3]),
-                                    (NodeSizeMinimum, [64, 64])
-                                  ],
-                                gid = "$root$Na"
-                              },
-                            KNode
-                              { children =
-                                  [ KLabel {label = "B", gid = "$root$Nb$$L0"},
-                                    KPort
-                                      { children = [],
-                                        renderings = [],
-                                        properties = [],
-                                        gid = "$root$Nb$$P0"
-                                      }
-                                  ],
-                                renderings = [KEllipse],
-                                properties =
-                                  [ (NodeLabelsPlacement, [1, 4, 6]),
-                                    (NodeSizeConstraints, [3]),
-                                    (NodeSizeMinimum, [64, 64])
-                                  ],
-                                gid = "$root$Nb"
-                              },
-                            KEdge
-                              { children = [],
-                                renderings = [KPolyline],
-                                properties = [],
-                                gid = "$root$Na$$P0$E0",
-                                source = "$root$Na$$P0",
-                                target = "$root$Nb$$P0"
-                              }
-                          ]
-                      }
-                }
+              .= forSyDeIRToGraph f ir
           ]
     ]
 
-handlers :: FilePath -> Handlers (LspM ())
+handlers :: Input -> Handlers (LspM ())
 handlers f =
   mconcat
     [ notificationHandler SMethod_Initialized $ \_not -> do
@@ -140,10 +181,18 @@ handlers f =
         pure (),
       notificationHandler diagramAcceptMethod $ \_not -> do
         sendNotification diagramAcceptMethod setSynthesis
-        sendNotification diagramAcceptMethod (updateOptions f)
-        sendNotification diagramAcceptMethod (requestBounds f)
+        sendNotification diagramAcceptMethod (updateOptions file)
+        (core, dflags) <- withRunInIO (\u -> compileToCore file)
+        let ir = translateCoreProgram dflags core
+        let graphMessage = requestBounds file ir
+        withRunInIO (\u -> putStr $ prettyIRSystem dflags ir)
+        sendNotification diagramAcceptMethod graphMessage
         pure ()
     ]
+  where
+    file = case f of
+      FromClient -> ""
+      InputFile fn -> fn
 
 runServerC :: Handle -> Handle -> ServerDefinition config -> IO Int
 runServerC =
@@ -165,7 +214,7 @@ main = run =<< execParser opts
 
 -- Main function after arguments have been parsed.
 run :: Arguments -> IO Int
-run (Arguments (Host ip) (TCP p) (InputFile f)) =
+run (Arguments (Host ip) (TCP p) f) =
   runTCPServer (Just ip) p lsp
   where
     lsp s = do

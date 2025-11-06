@@ -31,6 +31,7 @@ common common-options
         network == 3.2.7.0,
         co-log-core == 0.3.2.5,
         prettyprinter == 1.7.1,
+        unliftio-core == 0.2.1.0,
 
 library
     import:           common-options
