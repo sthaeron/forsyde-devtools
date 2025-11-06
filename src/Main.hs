@@ -41,7 +41,7 @@ import Options.Applicative
 
 write_output :: Output -> OutputFormat -> [Char] -> IO ()
 write_output StdOut _ s =
-  putStrLn s
+  putStr s
 write_output (OutputFile (output_file, WithFileExtension)) _ s =
   writeFile output_file s
 write_output (OutputFile (output_file, NoFileExtension)) extension s =
