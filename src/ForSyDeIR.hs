@@ -97,7 +97,7 @@ prettyFunction dflags function = printf "\n%s" (indent 2 (prettyCoreExpr dflags 
 prettyIRSystem :: DynFlags -> IRSystem -> String
 prettyIRSystem dflags (IRSystem (inputs, outputs) constructors signals functions) =
   printf
-    "IRSystem(\n  {%s}, {%s},\n  {\n%s  },\n  {\n%s  },\n  {\n%s  }\n)"
+    "IRSystem(\n  {%s}, {%s},\n  {\n%s  },\n  {\n%s  },\n  {\n%s  }\n)\n"
     (intercalate ", " (map show inputs))
     (intercalate ", " (map show outputs))
     (indent 4 (intercalate ",\n" (map prettyIRConstructor constructors)))

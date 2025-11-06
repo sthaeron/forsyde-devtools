@@ -61,7 +61,7 @@ spec = do
       dflags <- customDflags
       simpleIRSystemString <- readFile "examples/test/simple.fir"
       prettyIRSystem dflags simpleIRSystem
-        `shouldBe` dropWhileEnd (`elem` "\n") (simpleIRSystemString)
+        `shouldBe` simpleIRSystemString
     it "Test hand-crafted IRSystem (JSON)" $ do
       simpleIRSystemString <- readFile "examples/test/simple.json"
       encode simpleIRSystem
