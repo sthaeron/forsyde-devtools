@@ -15,14 +15,14 @@ indent = unlines . map ("  " ++) . lines
 
 prettyCoreBind :: DynFlags -> CoreBind -> String
 prettyCoreBind dflags bind = case bind of
-  NonRec b e -> printf "NonRec(%s =\n%s)" (showPpr dflags b) (indent (prettyCoreExpr dflags e))
-  Rec binds -> printf "Rec({\n%s})" (indent (intercalate ",\n" (map (prettyBind dflags) binds)))
+  NonRec b e -> printf "NonRec(%s =\n%s)\n" (showPpr dflags b) (indent (prettyCoreExpr dflags e))
+  Rec binds -> printf "Rec({\n%s})\n" (indent (intercalate ",\n" (map (prettyBind dflags) binds)))
 
 prettyBind :: DynFlags -> (Var, CoreExpr) -> String
 prettyBind dflags (b, e) = printf "(%s = %s)" (showPpr dflags b) (prettyCoreExpr dflags e)
 
 prettyCoreProgram :: DynFlags -> CoreProgram -> String
-prettyCoreProgram dflags = intercalate "\n\n" . map (prettyCoreBind dflags)
+prettyCoreProgram dflags = intercalate "\n" . map (prettyCoreBind dflags)
 
 prettyCoreExpr :: DynFlags -> CoreExpr -> String
 prettyCoreExpr dflags expr = case expr of
