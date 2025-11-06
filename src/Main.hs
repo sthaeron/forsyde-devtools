@@ -3,9 +3,7 @@ module Main where
 import Arguments
 import CoreIR (compileToCore, prettyCoreProgram)
 import CoreToForSyDeIR
-import Data.Aeson
-import qualified Data.ByteString.Lazy.Char8 as BSC
-import ForSyDeIR (prettyIRSystem)
+import ForSyDeIR (prettyIRJSON, prettyIRSystem)
 import Options.Applicative
 
 {-
@@ -74,7 +72,7 @@ run (Arguments (InputFile input_file) output_file OutputForSyDeIR) = do
 run (Arguments (InputFile input_file) output_file OutputForSyDeIRJSON) = do
   (core, dflags) <- compileToCore input_file
   let ir = translateCoreProgram dflags core
-  let ir_json = (BSC.unpack (encode ir)) :: String
+  let ir_json = prettyIRJSON ir
   write_output output_file OutputForSyDeIRJSON ir_json
 run (Arguments (InputFile _) _ OutputProceduralIR) =
   putStrLn "To Procedural IR"

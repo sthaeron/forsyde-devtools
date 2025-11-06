@@ -1,8 +1,5 @@
 module ForSyDeIRSpec (spec) where
 
-import Data.Aeson
-import qualified Data.ByteString.Lazy.Char8 as BSC
-import Data.List (dropWhileEnd)
 import ForSyDeIR
 import GHC
 import GHC.Data.EnumSet as EnumSet
@@ -64,8 +61,8 @@ spec = do
         `shouldBe` simpleIRSystemString
     it "Test hand-crafted IRSystem (JSON)" $ do
       simpleIRSystemString <- readFile "examples/test/simple.json"
-      encode simpleIRSystem
-        `shouldBe` BSC.pack (dropWhileEnd (`elem` "\n") (simpleIRSystemString))
+      prettyIRJSON simpleIRSystem
+        `shouldBe` simpleIRSystemString
     it "Empty IR-system should not be an empty string" $ do
       dflags <- customDflags
       prettyIRSystem dflags (IRSystem ([], []) [] [] []) `shouldNotBe` ""
