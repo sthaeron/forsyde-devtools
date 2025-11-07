@@ -82,6 +82,7 @@ instance A.ToJSON KStyle where
 data KRendering
   = KEllipse [KStyle]
   | KPolyline [KStyle]
+  | KRoundedBendsPolyline [KStyle] Int
   | KRectangle [KStyle]
   | KText T.Text [KStyle]
 
@@ -89,6 +90,18 @@ instance A.ToJSON KRendering where
   toJSON rendering = case rendering of
     KEllipse styles -> simple "KEllipseImpl" styles
     KPolyline styles -> simple "KPolylineImpl" styles
+    KRoundedBendsPolyline styles radius ->
+      A.object
+        [ "type" .= T.pack "KRoundedBendsPolylineImpl",
+          "children" .= (Seq.empty :: Seq.Seq A.Object),
+          "actions" .= (Seq.empty :: Seq.Seq A.Object),
+          "styles" .= styles,
+          "bendRadius" .= radius,
+          "properties"
+            .= A.object
+              [ "klighd.lsp.rendering.id" .= T.pack "$R0"
+              ]
+        ]
     KRectangle styles -> simple "KRectangleImpl" styles
     KText text styles ->
       A.object

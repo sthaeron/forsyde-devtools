@@ -107,7 +107,7 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
           KEdge
             { gid = name,
               children = [],
-              renderings = [KPolyline []],
+              renderings = [KRoundedBendsPolyline [] 4],
               properties = [],
               source = sn,
               target = tn
