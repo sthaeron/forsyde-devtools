@@ -1,0 +1,44 @@
+Topology Matrix (Edges × Actors):
+Edge\Aca     b     c     d
+-------------------------------
+a → b  1.0   -4.0  0.0   0.0
+d → c  0.0   0.0   -1.0  4.0
+c → a  -2.0  0.0   4.0   0.0
+b → d  0.0   1.0   0.0   -2.0
+
+
+Matrix Rank: 3
+Number of actors: 4
+Number of edges: 4
+
+Null Space (fractional repetition vector for actors):
+-657721/75
+-347761/16
+-533737/12
+-30996/285
+
+
+Verification of null space vector:
+Topology Matrix × Repetition Vector ≈ Zero Vector? True
+
+Normalized repetition vector for ACTORS (integers):a=8
+b=2
+c=4
+d=1
+
+Generated schedule (actor firing order):
+d, c, a, a, c, a, a, b, c, a, a, c, a, a, b
+
+Initial tokens (provided by IR):
+ a → b: 0
+ d → c: 0
+ c → a: 0
+ b → d: 2
+
+Verification of schedule with computed initial tokens: OK
+
+Simulated buffer sizes (maximum tokens observed per edge):
+  a → b: 4
+  d → c: 4
+  c → a: 4
+  b → d: 2

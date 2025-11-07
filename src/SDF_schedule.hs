@@ -2,16 +2,11 @@
 
 module SDF_schedule (computeScheduleAndBuffers, computeScheduleAndBuffersPrint) where
 
-import Data.List (dropWhile, find, intercalate, nub)
+import Data.List (find, intercalate, nub)
 import Data.Maybe (catMaybes)
 import Data.Ratio (approxRational, denominator, numerator)
 import ForSyDeIR
-import GHC
-import GHC.Data.EnumSet as EnumSet
 import GHC.Generics (Generic)
-import GHC.Paths (libdir)
-import GHC.Plugins
-import GHC.Utils.Outputable
 import Numeric.LinearAlgebra as LinearAlgebra hiding (find)
 
 -- | Convert ForSyDe IR to SDF data structures
@@ -197,11 +192,11 @@ normalizeToInteger v =
       gcdAll = foldl1 gcd (map abs finalScaled)
    in if gcdAll == 0 then finalScaled else map (`div` gcdAll) finalScaled
 
--- | Print the matrix with edges as rows and actors as columns
-printMatrixEdgesRows :: [Edge] -> [Actor] -> Matrix R -> IO ()
-printMatrixEdgesRows edges actors matrix = do
-  -- Calculate the maximum width of each column
-  let actorNameWidths = map (length . name) actors
+-- | Return the matrix as a string with edges as rows and actors as columns
+matrixEdgesRowsToString :: [Edge] -> [Actor] -> Matrix R -> String
+matrixEdgesRowsToString edges actors matrix =
+  let -- Calculate the maximum width of each column
+      actorNameWidths = map (length . name) actors
       rowValueWidths = map (maximum . map (length . show)) (toLists matrix)
       colWidths = zipWith max actorNameWidths rowValueWidths
       totalColWidths = map (+ 2) colWidths -- Add 2 to each column width for spacing
@@ -209,28 +204,36 @@ printMatrixEdgesRows edges actors matrix = do
       -- Calculate the maximum width of the edge labels
       edgeLabelWidth = maximum (map (length . edgeLabel) edges)
 
-  -- Print the header
-  putStrLn "Topology Matrix (Edges × Actors):"
-  putStrLn $
-    pad (edgeLabelWidth + 2) "Edge\\Actor"
-      ++ concatMap (\(actor, width) -> pad width (name actor)) (zip actors totalColWidths)
+      -- Build the header
+      header =
+        pad (edgeLabelWidth + 2) "Edge\\Actor"
+          ++ concatMap (\(actor, width) -> pad width (name actor)) (zip actors totalColWidths)
 
-  -- Print the separator line
-  let totalWidth = edgeLabelWidth + 2 + sum totalColWidths
-  putStrLn $ replicate totalWidth '-'
+      -- Build the separator line
+      totalWidth = edgeLabelWidth + 2 + sum totalColWidths
+      separator = replicate totalWidth '-'
 
-  -- Print the matrix rows
-  mapM_ (printRow edgeLabelWidth totalColWidths) (zip edges (toLists matrix))
+      -- Build the matrix rows
+      rows = map (rowToString edgeLabelWidth totalColWidths) (zip edges (toLists matrix))
+
+      -- Combine everything
+      result =
+        "Topology Matrix (Edges × Actors):\n"
+          ++ header
+          ++ "\n"
+          ++ separator
+          ++ "\n"
+          ++ unlines rows
+   in result
   where
     pad width str = take width (str ++ repeat ' ')
     edgeLabel (Edge src dst _ _ _ _) = name src ++ " → " ++ name dst
 
-    printRow labelWidth colWidths (edge, rowValues) =
-      putStrLn $
-        pad (labelWidth + 2) (edgeLabel edge)
-          ++ concatMap
-            (\(val, width) -> pad width (show val))
-            (zip rowValues colWidths)
+    rowToString labelWidth colWidths (edge, rowValues) =
+      pad (labelWidth + 2) (edgeLabel edge)
+        ++ concatMap
+          (\(val, width) -> pad width (show val))
+          (zip rowValues colWidths)
 
 ----------------------------------------------------------
 -- Scheduler: Greedy + Forced approach with special handling for inputs.
@@ -439,7 +442,6 @@ computeScheduleAndBuffers irSystem =
                       verificationResult = mat #> vector repVector
                       isZeroVector = all (\x -> abs x < 1e-9) (LinearAlgebra.toList verificationResult)
 
-                      -- 在这里计算最终结果，这样repInt在作用域内
                       finalResult =
                         if not isZeroVector
                           then error "Verification failed: repetition vector is not in null space"
@@ -457,244 +459,110 @@ computeScheduleAndBuffers irSystem =
 -- Pretty-print version
 ----------------------------------------------------------
 
--- | Prints topology matrix, repetition vector, schedule, verification results, and buffer usage.
-computeScheduleAndBuffersPrint :: IRSystem -> IO ()
-computeScheduleAndBuffersPrint irSystem = do
+-- | Returns a string with topology matrix, repetition vector, schedule, verification results, and buffer usage.
+computeScheduleAndBuffersPrint :: IRSystem -> String
+computeScheduleAndBuffersPrint irSystem =
   let (actors, edges) = convertIRSystem irSystem
-
-  if null edges
-    then do
-      -- If there are no internal edges, fire all actor once, no buffer required
-      let schedNames = map name actors
-          bufSizes = replicate (length edges) 0
-      putStrLn "No internal edges found.\n"
-      putStrLn "Schedule (all actors fire once):"
-      putStrLn $ intercalate ", " schedNames
-      putStrLn "\nBuffer sizes: no buffer needed."
-    else do
-      let mat = buildTopologyMatrixEdgesRows actors edges
-      printMatrixEdgesRows edges actors mat
-
-      let rankMat = rank mat
-      putStrLn $ "\nMatrix Rank: " ++ show rankMat
-      putStrLn $ "Number of actors: " ++ show (length actors)
-      putStrLn $ "Number of edges: " ++ show (length edges)
-
-      if rankMat == length actors - 1
-        then do
-          let ns = computeNullSpace mat
-          putStrLn "\nNull Space (fractional repetition vector for actors):"
-          disp 4 ns
-
-          let repVec = flatten (takeColumns 1 ns)
-              repInt = normalizeToInteger repVec
-
-          -- Verification: multiply the integer repetition vector back to the topology matrix
-          let repVector = fromIntegral <$> repInt :: [R]
-              verificationResult = mat #> vector repVector
-              isZeroVector = all (\x -> abs x < 1e-9) (LinearAlgebra.toList verificationResult)
-
-          putStrLn "\nVerification of null space vector:"
-          putStrLn $ "Topology Matrix × Repetition Vector ≈ Zero Vector? " ++ show isZeroVector
-          if not isZeroVector
-            then do
-              putStrLn "Warning: Product is not zero!"
-              putStrLn "Product vector:"
-              print verificationResult
-            else return () -- verification passed
-          putStrLn "\nNormalized repetition vector for ACTORS (integers):"
-          let actorLabels = [name a | a <- actors]
-          putStrLn $ intercalate "\n" [label ++ "=" ++ show r | (label, r) <- zip actorLabels repInt]
-
-          let repCounts = map fromIntegral repInt :: [Int]
-              schedIdxs = greedySchedule actors edges repCounts
-              schedNames = map (name . (actors !!)) schedIdxs
-
-          putStrLn "\nGenerated schedule (actor firing order):"
-          putStrLn $ intercalate ", " schedNames
-
-          putStrLn "\nInitial tokens (provided by IR):"
-          let edgeLabels = [name (src e) ++ " → " ++ name (dst e) | e <- edges]
-          mapM_ (\(lbl, e) -> putStrLn $ " " ++ lbl ++ ": " ++ show (initTokens e)) (zip edgeLabels edges)
-
-          let ok = verifySchedule actors edges (map initTokens edges) schedIdxs repCounts
-          putStrLn $ "\nVerification of schedule with computed initial tokens: " ++ (if ok then "OK" else "FAILED")
-
-          ------------------------------------------------------
-          -- Simulate buffer usage for one period
-          ------------------------------------------------------
-          let bufSizes = simulateBufferUsage actors edges (map initTokens edges) schedIdxs
-          putStrLn "\nSimulated buffer sizes (maximum tokens observed per edge):"
-          mapM_ (\(lbl, sz) -> putStrLn $ "  " ++ lbl ++ ": " ++ show sz) (zip edgeLabels bufSizes)
+   in if null edges
+        then
+          -- If there are no internal edges, fire all actor once, no buffer required
+          let schedNames = map name actors
+              bufSizes = replicate (length edges) 0
+           in "No internal edges found.\n\n"
+                ++ "Schedule (all actors fire once):\n"
+                ++ intercalate ", " schedNames
+                ++ "\n\nBuffer sizes: no buffer needed."
         else
-          putStrLn "\nMatrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
+          let mat = buildTopologyMatrixEdgesRows actors edges
+              matrixStr = matrixEdgesRowsToString edges actors mat
 
-----------------------------------------------------------
--- Example Systems to test the algorithm
-----------------------------------------------------------
--- System with single actor and self loop
-exampleSystem1 :: IRSystem
-exampleSystem1 =
-  IRSystem
-    (["input"], ["output"])
-    [ IRActor "actor_1" Actor22 "add" (["s_in", "s_2"], ["s_out", "s_1"]),
-      IRDelay "delay_1" [0] ("s_1", "s_2")
-    ]
-    [ IRSignal "s_in" ("input", 1) ("actor_1", 1),
-      IRSignal "s_1" ("actor_1", 1) ("delay_1", 1),
-      IRSignal "s_2" ("delay_1", 1) ("actor_1", 1),
-      IRSignal "s_out" ("actor_1", 1) ("output", 1)
-    ]
-    [ IRFunction "add" Nothing
-    ]
+              rankMat = rank mat
+              header =
+                matrixStr
+                  ++ "\n\nMatrix Rank: "
+                  ++ show rankMat
+                  ++ "\nNumber of actors: "
+                  ++ show (length actors)
+                  ++ "\nNumber of edges: "
+                  ++ show (length edges)
+           in if rankMat == length actors - 1
+                then
+                  let ns = computeNullSpace mat
+                      repVec = flatten (takeColumns 1 ns)
+                      repInt = normalizeToInteger repVec
 
--- System with single actor and nothing else
-exampleSystem2 :: IRSystem
-exampleSystem2 =
-  IRSystem
-    (["in"], ["out"])
-    [ IRActor "actor" Actor11 "add" (["s_in"], ["s_out"])
-    ]
-    [ IRSignal "s_in" ("in", 1) ("actor", 1),
-      IRSignal "s_out" ("actor", 1) ("out", 1)
-    ]
-    [ IRFunction "add" Nothing
-    ]
+                      -- Verification: multiply the integer repetition vector back to the topology matrix
+                      repVector = fromIntegral <$> repInt :: [R]
+                      verificationResult = mat #> vector repVector
+                      isZeroVector = all (\x -> abs x < 1e-9) (LinearAlgebra.toList verificationResult)
 
--- System with two actors, one self loop
-exampleSystem3 :: IRSystem
-exampleSystem3 =
-  IRSystem
-    (["input"], ["output"])
-    [ IRActor "actor_1" Actor22 "add" (["s_in", "s_2"], ["s_1", "s_3"]),
-      IRDelay "delay_1" [0] ("s_1", "s_2"),
-      IRActor "actor_2" Actor11 "add" (["s_3"], ["s_out"])
-    ]
-    [ IRSignal "s_in" ("input", 1) ("actor_1", 1),
-      IRSignal "s_1" ("actor_1", 1) ("delay_1", 1),
-      IRSignal "s_2" ("delay_1", 1) ("actor_1", 1),
-      IRSignal "s_3" ("actor_1", 1) ("actor_2", 1),
-      IRSignal "s_out" ("actor_2", 1) ("output", 1)
-    ]
-    [ IRFunction "add" Nothing
-    ]
+                      nullSpaceStr =
+                        "\n\nNull Space (fractional repetition vector for actors):\n"
+                          ++ dispToString 4 ns
 
--- System with multiple inputs
-exampleSystem4 :: IRSystem
-exampleSystem4 =
-  IRSystem
-    (["s_ina", "s_inb"], ["s_out"])
-    [ IRActor "actor_a" Actor11 "add" (["s_ina"], ["s_1"]),
-      IRActor "actor_b" Actor11 "add" (["s_inb"], ["s_2"]),
-      IRActor "actor_c" Actor21 "add" (["s_1", "s_4"], ["s_3"]),
-      IRActor "actor_d" Actor22 "add" (["s_2", "s_3"], ["s_4_delay", "s_out"]),
-      IRDelay "delay" [0] ("s_4_delay", "s_4")
-    ]
-    [ IRSignal "s_ina" ("s_ina", 1) ("actor_a", 2),
-      IRSignal "s_inb" ("s_inb", 1) ("actor_b", 1),
-      IRSignal "s_1" ("actor_a", 1) ("actor_c", 2),
-      IRSignal "s_2" ("actor_b", 2) ("actor_d", 2),
-      IRSignal "s_3" ("actor_c", 1) ("actor_d", 1),
-      IRSignal "s_4_delay" ("actor_d", 1) ("delay", 1),
-      IRSignal "s_4" ("delay", 1) ("actor_c", 1),
-      IRSignal "s_out" ("actor_d", 2) ("s_out", 1)
-    ]
-    [ IRFunction "add" Nothing
-    ]
+                      verificationStr =
+                        "\n\nVerification of null space vector:"
+                          ++ "\nTopology Matrix × Repetition Vector ≈ Zero Vector? "
+                          ++ show isZeroVector
+                          ++ if not isZeroVector
+                            then
+                              "\nWarning: Product is not zero!\nProduct vector:\n"
+                                ++ show verificationResult
+                            else ""
 
-exampleSystem5 :: IRSystem
-exampleSystem5 =
-  IRSystem
-    (["s_in"], ["s_out"])
-    [ IRActor "a" Actor21 "add" (["s_in", "s3"], ["s1"]),
-      IRActor "b" Actor11 "add" (["s1"], ["s2"]),
-      IRActor "c" Actor12 "add" (["s2"], ["s3_delay", "s_out"]),
-      IRDelay "delay" [0, 0, 0, 0, 0, 0] ("s3_delay", "s3")
-    ]
-    [ IRSignal "s_in" ("s_in", 1) ("a", 2),
-      IRSignal "s1" ("a", 1) ("b", 2),
-      IRSignal "s2" ("b", 3) ("c", 1),
-      IRSignal "s3_delay" ("c", 2) ("delay", 2),
-      IRSignal "s3" ("delay", 3) ("a", 3),
-      IRSignal "s_out" ("c", 1) ("s_out", 1)
-    ]
-    [ IRFunction "add" Nothing
-    ]
+                      repVecStr =
+                        "\n\nNormalized repetition vector for ACTORS (integers):"
+                          ++ intercalate "\n" [label ++ "=" ++ show r | (label, r) <- zip (map name actors) repInt]
 
-exampleSystem6 :: IRSystem
-exampleSystem6 =
-  IRSystem
-    (["s_in"], ["s_out"])
-    [ IRActor "a" Actor12 "add" (["s_in", "s4"], ["s1"]),
-      IRActor "b" Actor11 "add" (["s1"], ["s2_delay"]),
-      IRActor "c" Actor11 "add" (["s3"], ["s4"]),
-      IRActor "d" Actor12 "add" (["s2"], ["s3", "s_out"]),
-      IRDelay "delay" [0, 0] ("s2_delay", "s2")
-    ]
-    [ IRSignal "s_in" ("s_in", 1) ("a", 2),
-      IRSignal "s1" ("a", 1) ("b", 4),
-      IRSignal "s2_delay" ("b", 1) ("delay", 1),
-      IRSignal "s2" ("delay", 2) ("d", 2),
-      IRSignal "s3" ("d", 4) ("c", 1),
-      IRSignal "s4" ("c", 4) ("a", 2),
-      IRSignal "s_out" ("d", 1) ("s_out", 1)
-    ]
-    [ IRFunction "add" Nothing
-    ]
+                      repCounts = map fromIntegral repInt :: [Int]
+                      schedIdxs = greedySchedule actors edges repCounts
+                      schedNames = map (name . (actors !!)) schedIdxs
 
-----------------------------------------------------------
--- Main
--- Run all the example Systems
-----------------------------------------------------------
-customDflags :: IO DynFlags
-customDflags = runGhc (Just libdir) $ do
-  dflags <- getSessionDynFlags
-  return $
-    updOptLevel 2 $
-      dflags
-        { ghcLink = NoLink,
-          ghcMode = CompManager,
-          verbosity = 0,
-          debugLevel = 0,
-          generalFlags =
-            EnumSet.fromList
-              [ Opt_SuppressTicks,
-                Opt_SuppressCoercions,
-                Opt_SuppressCoercionTypes,
-                Opt_SuppressVarKinds,
-                Opt_SuppressModulePrefixes,
-                Opt_SuppressTypeApplications,
-                Opt_SuppressIdInfo,
-                Opt_SuppressUnfoldings,
-                Opt_SuppressTypeSignatures,
-                Opt_SuppressUniques,
-                Opt_SuppressStgExts,
-                Opt_SuppressStgReps,
-                Opt_SuppressTimestamps,
-                Opt_SuppressCoreSizes
-              ]
-        }
+                      schedStr =
+                        "\n\nGenerated schedule (actor firing order):\n"
+                          ++ intercalate ", " schedNames
 
-main :: IO ()
-main = do
-  let examples =
-        [ ("Example System 1 (single actor with self-loop)", exampleSystem1),
-          ("Example System 2 (single actor only)", exampleSystem2),
-          ("Example System 3 (two actors, one self loop)", exampleSystem3),
-          ("Example System 4 (System with multiple inputs)", exampleSystem4),
-          ("Example System 5", exampleSystem5),
-          ("Example System 6", exampleSystem6)
-        ]
+                      initialTokensStr =
+                        "\n\nInitial tokens (provided by IR):"
+                          ++ concatMap
+                            (\(lbl, e) -> "\n " ++ lbl ++ ": " ++ show (initTokens e))
+                            (zip [name (src e) ++ " → " ++ name (dst e) | e <- edges] edges)
 
-  mapM_ runExample examples
+                      ok = verifySchedule actors edges (map initTokens edges) schedIdxs repCounts
+                      verificationSchedStr =
+                        "\n\nVerification of schedule with computed initial tokens: "
+                          ++ (if ok then "OK" else "FAILED")
+
+                      -- Simulate buffer usage for one period
+                      bufSizes = simulateBufferUsage actors edges (map initTokens edges) schedIdxs
+                      bufStr =
+                        "\n\nSimulated buffer sizes (maximum tokens observed per edge):"
+                          ++ concatMap
+                            (\(lbl, sz) -> "\n  " ++ lbl ++ ": " ++ show sz)
+                            (zip [name (src e) ++ " → " ++ name (dst e) | e <- edges] bufSizes)
+                   in header
+                        ++ nullSpaceStr
+                        ++ verificationStr
+                        ++ repVecStr
+                        ++ schedStr
+                        ++ initialTokensStr
+                        ++ verificationSchedStr
+                        ++ bufStr
+                else
+                  header ++ "\n\nMatrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
+
+-- Helper function to convert matrix display to string
+dispToString :: Int -> Matrix R -> String
+dispToString n mat =
+  let rows = toLists mat
+      formattedRows = map (map (formatNumber n)) rows
+   in unlines (map (intercalate "  " . map (pad 10)) formattedRows)
   where
-    runExample (name, system) = do
-      dflags <- customDflags
-      putStrLn $ "========================================================="
-      putStrLn $ "Running: " ++ name
-      putStrLn $ "========================================================="
-      putStrLn $ prettyIRSystem dflags system
+    formatNumber n x
+      | abs x < 1e-12 = "0"
+      | denominator rat == 1 = show (numerator rat)
+      | otherwise = show (numerator rat) ++ "/" ++ show (denominator rat)
+      where
+        rat = approxRational x (1e-12)
 
-      putStrLn "\n--- Detailed analysis ---\n"
-      computeScheduleAndBuffersPrint system
-      putStrLn "\n"
+    pad n str = take n (str ++ repeat ' ')

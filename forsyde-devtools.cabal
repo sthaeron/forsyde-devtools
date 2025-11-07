@@ -33,6 +33,7 @@ library
     exposed-modules:
         CoreIR
         ForSyDeIR
+        SDF_schedule
 
 executable forsyde-devtools-exe
     import:           common-options
@@ -45,6 +46,7 @@ executable forsyde-devtools-exe
         CoreIR
         ForSyDeIR
         CoreToForSyDeIR
+        SDF_schedule
 
 test-suite forsyde-devtools-test
     import:           common-options
@@ -54,6 +56,7 @@ test-suite forsyde-devtools-test
     ghc-options:      -rtsopts -with-rtsopts=-N
     other-modules:
         ForSyDeIRSpec
+        SDFScheduleSpec
     build-depends:
         forsyde-devtools,
         hspec,
