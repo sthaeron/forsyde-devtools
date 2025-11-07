@@ -18,6 +18,7 @@ import CoreIR
 import CoreToForSyDeIR
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
+import Data.Aeson.KeyMap ((!?))
 import qualified Data.List.NonEmpty as NE
 import Data.Proxy
 import qualified Data.Sequence as Seq
@@ -179,20 +180,38 @@ handlers f =
         pure (),
       notificationHandler setPreferencesMethod $ \_not -> do
         pure (),
-      notificationHandler diagramAcceptMethod $ \_not -> do
+      notificationHandler diagramAcceptMethod $ \TNotificationMessage {_params = p} -> do
+        let file = getFile p
         sendNotification diagramAcceptMethod setSynthesis
         sendNotification diagramAcceptMethod (updateOptions file)
-        (core, dflags) <- withRunInIO (\u -> compileToCore file)
+        (core, dflags) <- withRunInIO (\_u -> compileToCore file)
         let ir = translateCoreProgram dflags core
         let graphMessage = requestBounds file ir
-        withRunInIO (\u -> putStr $ prettyIRSystem dflags ir)
         sendNotification diagramAcceptMethod graphMessage
         pure ()
     ]
   where
-    file = case f of
-      FromClient -> ""
+    getFile params = case f of
+      FromClient -> case getFilePathFromClient params of
+        Just _file -> _file
+        Nothing -> ""
       InputFile fn -> fn
+    getFilePathFromClient params =
+      case params of
+        A.Object _a -> case (_a !? "action") of
+          Just _a -> case _a of
+            A.Object _a -> case (_a !? "options") of
+              Just a -> case a of
+                A.Object _a -> case (_a !? "sourceUri") of
+                  Just _a -> case _a of
+                    A.String _a -> Just $ T.unpack $ snd $ T.splitAt 6 _a
+                    _ -> Nothing
+                  _ -> Nothing
+                _ -> Nothing
+              _ -> Nothing
+            _ -> Nothing
+          _ -> Nothing
+        _ -> Nothing
 
 runServerC :: Handle -> Handle -> ServerDefinition config -> IO Int
 runServerC =
