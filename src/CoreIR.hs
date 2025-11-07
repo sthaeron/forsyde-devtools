@@ -3,11 +3,8 @@ module CoreIR where
 import Data.List (intercalate)
 import GHC
 import GHC.Core
-import GHC.Driver.Main
 import GHC.Driver.Ppr
-import GHC.Paths (libdir)
 import GHC.Plugins
-import System.FilePath (takeBaseName)
 import Text.Printf (printf)
 
 indent :: String -> String
@@ -19,7 +16,7 @@ prettyCoreBind dflags bind = case bind of
   Rec binds -> printf "Rec({\n%s})\n" (indent (intercalate ",\n" (map (prettyBind dflags) binds)))
 
 prettyBind :: DynFlags -> (Var, CoreExpr) -> String
-prettyBind dflags (b, e) = printf "(%s = %s)" (showPpr dflags b) (prettyCoreExpr dflags e)
+prettyBind dflags (b, e) = printf "(%s = \n%s)" (showPpr dflags b) (indent (prettyCoreExpr dflags e))
 
 prettyCoreProgram :: DynFlags -> CoreProgram -> String
 prettyCoreProgram dflags = intercalate "\n" . map (prettyCoreBind dflags)
@@ -34,7 +31,7 @@ prettyCoreExpr dflags expr = case expr of
   Let bind e -> printf "Let(\n%s in\n%s)" (indent (prettyCoreBind dflags bind)) (indent (prettyCoreExpr dflags e))
   Case e b _ alts -> printf "Case(%s of %s {\n%s})" (prettyCoreExpr dflags e) (showPpr dflags b) (indent (prettyCoreAltList dflags alts))
   Cast e co -> printf "Cast(%s by %s)" (prettyCoreExpr dflags e) (showPpr dflags co)
-  Tick t e -> printf "Tick(%s: \n%s)" (showPpr dflags t) (prettyCoreExpr dflags e)
+  Tick t e -> printf "Tick(%s: %s)" (showPpr dflags t) (prettyCoreExpr dflags e)
   Coercion co -> printf "Coercion(%s)" (showPpr dflags co)
 
 prettyCoreAlt :: DynFlags -> CoreAlt -> String
@@ -51,25 +48,3 @@ prettyCoreAltCon dflags altCons = case altCons of
   DataAlt d -> printf "DataAlt(%s)" (showPpr dflags d)
   LitAlt l -> printf "LitAlt(%s)" (showPpr dflags l)
   DEFAULT -> "DEFAULT"
-
-compileToCore :: FilePath -> IO (CoreProgram, DynFlags)
-compileToCore filePath = runGhc (Just libdir) $ do
-  dflags <- getSessionDynFlags
-  let newDflags =
-        dflags
-          { ghcLink = NoLink,
-            ghcMode = CompManager,
-            backend = interpreterBackend,
-            verbosity = 0,
-            debugLevel = 1
-          }
-  _ <- setSessionDynFlags newDflags
-  target <- guessTarget filePath Nothing Nothing
-  setTargets [target]
-  _ <- load LoadAllTargets
-  modSummary <- getModSummary $ mkModuleName (takeBaseName filePath)
-  env <- getSession
-  parsedModule <- liftIO $ hscParse env modSummary
-  (tcg, _) <- liftIO $ hscTypecheckRename env modSummary parsedModule
-  guts <- liftIO $ hscDesugar env modSummary tcg
-  return $ (mg_binds guts, newDflags)

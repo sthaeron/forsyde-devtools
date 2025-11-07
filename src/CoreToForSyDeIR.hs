@@ -108,6 +108,7 @@ translateInputs context expr = case expr of
         (pcId, newNewContext) = translateBodyExpr newContext [] e
         newNewNewContext = newNewContext {bindings = (binderId, pcId) : (bindings newNewContext)}
      in updateSignals newNewNewContext
+  Tick _ e -> translateInputs context e
   _ -> error ("translateInputs: unsupported expression\n" ++ prettyCoreExpr (flags context) expr)
 
 -- | Updates all the signals within `TranslationContext` which are temporarily
@@ -164,6 +165,7 @@ translateOutputs context expr = case expr of
         binderId = showPpr (flags newContext) b
         (pcId, newNewContext) = translateBodyExpr newContext [] e
      in newNewContext {bindings = (binderId, pcId) : (bindings newNewContext)}
+  Tick _ e -> translateOutputs context e
   _ -> error ("translateOutputs: unsupported expression\n" ++ prettyCoreExpr (flags context) expr)
 
 -- | Helper function for `translateOutputs` which identifies variable chosen by
@@ -196,6 +198,11 @@ translateBodyExpr context arguments expr = case expr of
   App e a ->
     let (newArguments, newContext) = translateArgument context arguments a
      in translateBodyExpr newContext newArguments e
+  -- Case (Var i) _ _ alts ->
+  --   let binder = showPpr (flags context) i
+  --       index = getIndexFromAlts context alts
+  --    in ((binder, index) : arguments, context)
+  Tick _ e -> translateBodyExpr context arguments e
   _ -> error ("translateBodyExpr: unsupported expression\n" ++ prettyCoreExpr (flags context) expr)
 
 -- Returns a list of arguments
@@ -210,6 +217,7 @@ translateArgument context arguments expr = case expr of
     let binder = showPpr (flags context) i
         index = getIndexFromAlts context alts
      in ((binder, index) : arguments, context)
+  Tick _ e -> translateArgument context arguments e
   _ -> error ("translateArgument: unsupported expression\n" ++ prettyCoreExpr (flags context) expr)
 
 getIndexFromAlts :: TranslationContext -> [Alt CoreBndr] -> (Maybe Int)

@@ -28,6 +28,7 @@ common common-options
         bytestring == 0.12.2.0,
         process == 1.6.25.0,
         hmatrix == 0.20.2,
+        syb == 0.7.3,
         lsp == 2.7.0.1,
         network == 3.2.7.0,
         co-log-core == 0.3.2.5,
@@ -52,10 +53,11 @@ executable forsyde-devtools-exe
     other-modules:
         ArgumentsMain
         CoreIR
-        CoreToForSyDeIR
         ForSyDeIR
         ProceduralIR
+        CoreToForSyDeIR
         ProceduralIRToC
+        Utilities
 
 executable forsyde-lsp-exe
     import:           common-options
