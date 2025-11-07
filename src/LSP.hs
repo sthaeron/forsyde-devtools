@@ -41,10 +41,10 @@ setPreferencesMethod = (SMethod_CustomMethod (Proxy @"keith/preferences/setPrefe
 forSyDeIRToGraph :: FilePath -> IRSystem -> GraphElement
 forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
   where
-    createPort pid (n, r) =
+    createPort pid renderings (n, r) =
       KPort
         { children = [label],
-          renderings = [],
+          renderings = renderings,
           properties = [],
           gid = id
         }
@@ -87,8 +87,8 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
         nid = T.pack ("$root$N" ++ name)
         insignals = findSourceSignals signals name
         outsignals = findTargetSignals signals name
-        inports = map (createPort nid) insignals
-        outports = map (createPort nid) outsignals
+        inports = map (createPort nid []) insignals
+        outports = map (createPort nid [KText "◆" []]) outsignals
         nl = KLabel {gid = T.concat [nid, "$L0"], label = T.pack l}
         c = inports ++ outports ++ [nl]
         node =
@@ -98,7 +98,7 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
               renderings = r,
               properties = p
             }
-    createEdge (IRSignal n (sname, srate) (tname, trate)) = edge
+    createEdge (IRSignal n (sname, _) (tname, _)) = edge
       where
         sn = T.concat ["$root$N", T.pack sname, "$P", T.pack n]
         tn = T.concat ["$root$N", T.pack tname, "$P", T.pack n]
