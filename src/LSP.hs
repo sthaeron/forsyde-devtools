@@ -173,7 +173,7 @@ requestBounds f ir =
           ]
     ]
 
-handlers :: Input -> Handlers (LspM ())
+handlers :: Input -> Handlers (LspM (Maybe FilePath))
 handlers f =
   mconcat
     [ notificationHandler SMethod_Initialized $ \_not -> do
@@ -181,7 +181,9 @@ handlers f =
       notificationHandler setPreferencesMethod $ \_not -> do
         pure (),
       notificationHandler diagramAcceptMethod $ \TNotificationMessage {_params = p} -> do
-        let file = getFile p
+        c <- getConfig
+        let file = maybe (getFile p) id c
+        _ <- setConfig (Just file)
         sendNotification diagramAcceptMethod setSynthesis
         sendNotification diagramAcceptMethod (updateOptions file)
         (core, dflags) <- withRunInIO (\_u -> compileToCore file)
@@ -240,9 +242,9 @@ run (Arguments (Host ip) (TCP p) f) =
       handle <- socketToHandle s ReadWriteMode
       runServerC handle handle $
         ServerDefinition
-          { parseConfig = const $ const $ Right (),
+          { parseConfig = const $ const $ Right Nothing,
             onConfigChange = const $ pure (),
-            defaultConfig = (),
+            defaultConfig = Nothing,
             configSection = "demo",
             doInitialize = \env _req -> pure $ Right env,
             staticHandlers = \_caps -> (handlers f),
