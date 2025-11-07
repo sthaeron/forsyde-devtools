@@ -57,23 +57,45 @@ instance Show KProperty where
 
 type KProperties = [(KProperty, [Int])]
 
+data KStyle
+  = KBackgroundColor Int Int Int
+  | KForegroundColor Int Int Int
+
+instance A.ToJSON KStyle where
+  toJSON style = case style of
+    KBackgroundColor r g b -> color "KBackgroundImpl" r g b
+    KForegroundColor r g b -> color "KForegroundImpl" r g b
+    where
+      color t r g b =
+        A.object
+          [ "type" .= (T.pack t),
+            "color"
+              .= A.object
+                [ "red" .= r,
+                  "green" .= g,
+                  "blue" .= b
+                ],
+            "alpha" .= (255 :: Int),
+            "selection" .= False
+          ]
+
 data KRendering
-  = KEllipse
-  | KPolyline
-  | KRectangle
+  = KEllipse [KStyle]
+  | KPolyline [KStyle]
+  | KRectangle [KStyle]
 
 instance A.ToJSON KRendering where
   toJSON rendering = case rendering of
-    KEllipse -> simple "KEllipseImpl"
-    KPolyline -> simple "KPolylineImpl"
-    KRectangle -> simple "KRectangleImpl"
+    KEllipse styles -> simple "KEllipseImpl" styles
+    KPolyline styles -> simple "KPolylineImpl" styles
+    KRectangle styles -> simple "KRectangleImpl" styles
     where
-      simple r =
+      simple r s =
         A.object
           [ "type" .= (T.pack r),
             "children" .= (Seq.empty :: Seq.Seq A.Object),
             "actions" .= (Seq.empty :: Seq.Seq A.Object),
-            "styles" .= (Seq.empty :: Seq.Seq A.Object),
+            "styles" .= s,
             "properties"
               .= A.object
                 [ "klighd.lsp.rendering.id" .= T.pack "$R0"

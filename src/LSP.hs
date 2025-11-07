@@ -56,7 +56,7 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
         createNode'
           name
           name
-          [KEllipse]
+          [KEllipse [KBackgroundColor 160 160 240]]
           [ (NodeLabelsPlacement, [1, 4, 6]),
             (NodeSizeConstraints, [3]),
             (NodeSizeMinimum, [64, 64])
@@ -65,7 +65,7 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
         createNode'
           name
           ((show $ length d) ++ "D")
-          [KEllipse]
+          [KEllipse []]
           [ (NodeLabelsPlacement, [1, 4, 6]),
             (NodeSizeConstraints, [0, 1, 2, 3]),
             (NodeSizeMinimum, [16, 16])
@@ -107,7 +107,7 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
           KEdge
             { gid = name,
               children = [],
-              renderings = [KPolyline],
+              renderings = [KPolyline []],
               properties = [],
               source = sn,
               target = tn
