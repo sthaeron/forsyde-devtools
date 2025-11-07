@@ -38,9 +38,11 @@ diagramAcceptMethod = (SMethod_CustomMethod (Proxy @"diagram/accept"))
 setPreferencesMethod :: SMethod (Method_CustomMethod "keith/preferences/setPreferences")
 setPreferencesMethod = (SMethod_CustomMethod (Proxy @"keith/preferences/setPreferences"))
 
+-- | Convert ForSyDe IR into the graph representation understood by KLighD
 forSyDeIRToGraph :: FilePath -> IRSystem -> GraphElement
 forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
   where
+    -- \| Create a port with a label for signal rate
     createPort pid renderings (n, r) =
       KPort
         { children = [label],
@@ -51,6 +53,7 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
       where
         id = T.concat [pid, "$P", T.pack n]
         label = KLabel {gid = T.concat [id, "$L0"], label = T.show r}
+    -- \| Create a node based on an IRActor
     createNode = \case
       (IRActor name _ _ _) ->
         createNode'
@@ -70,18 +73,21 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
             (NodeSizeConstraints, [0, 1, 2, 3]),
             (NodeSizeMinimum, [16, 16])
           ]
+    -- \| Find all signals which the process is the source of
     findSourceSignals signals proc =
       foldr f [] signals
       where
         f s acc =
           let IRSignal n (p, rate) _ = s
            in if p == proc then (n, rate) : acc else acc
+    -- \| Find all signals which the process is the target of
     findTargetSignals signals proc =
       foldr f [] signals
       where
         f s acc =
           let IRSignal n _ (p, rate) = s
            in if p == proc then (n, rate) : acc else acc
+    -- \| Helper for createNode and global inputs / outputs
     createNode' name l r p = node
       where
         nid = T.pack ("$root$N" ++ name)
@@ -98,6 +104,7 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
               renderings = r,
               properties = p
             }
+    -- \| Create an edge from an IRSignal, depends on port id
     createEdge (IRSignal n (sname, _) (tname, _)) = edge
       where
         sn = T.concat ["$root$N", T.pack sname, "$P", T.pack n]
@@ -130,6 +137,7 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
           properties = []
         }
 
+-- | Send our supported syntheses to the LSP client (KLighD-VSCode)
 setSynthesis :: A.Value
 setSynthesis =
   A.object
@@ -147,6 +155,7 @@ setSynthesis =
           ]
     ]
 
+-- | Send the supported options for the file
 updateOptions :: FilePath -> A.Value
 updateOptions f =
   A.object
@@ -161,6 +170,7 @@ updateOptions f =
           ]
     ]
 
+-- | Send the graph for layout and display to the LSP client (KLighD-VSCode)
 requestBounds :: FilePath -> IRSystem -> A.Value
 requestBounds f ir =
   A.object
@@ -173,6 +183,7 @@ requestBounds f ir =
           ]
     ]
 
+-- | The static notification and request handlers we support
 handlers :: Input -> Handlers (LspM (Maybe FilePath))
 handlers f =
   mconcat
@@ -181,6 +192,8 @@ handlers f =
       notificationHandler setPreferencesMethod $ \_not -> do
         pure (),
       notificationHandler diagramAcceptMethod $ \TNotificationMessage {_params = p} -> do
+        -- In the case where the client does not provide a sourceUri, use the
+        -- old one. This is the case for e.g. the refreshDiagram action
         c <- getConfig
         let file = maybe (getFile p) id c
         _ <- setConfig (Just file)
@@ -198,6 +211,7 @@ handlers f =
         Just _file -> _file
         Nothing -> ""
       InputFile fn -> fn
+    -- This can probably be done in a better, more clever way
     getFilePathFromClient params =
       case params of
         A.Object _a -> case (_a !? "action") of
@@ -221,7 +235,7 @@ runServerC =
     (L.cmap (fmap $ T.pack . show . pretty) (L.cmap show L.logStringStderr))
     (L.cmap (fmap $ T.pack . show . pretty) (L.cmap show L.logStringStderr))
 
--- Main function - process arguments and call the "real main" run
+-- | Process arguments for the LSP and run it
 main :: IO Int
 main = run =<< execParser opts
   where
@@ -233,7 +247,7 @@ main = run =<< execParser opts
             <> header "ForSyDe DevTools"
         )
 
--- Main function after arguments have been parsed.
+-- | Start the LSP
 run :: Arguments -> IO Int
 run (Arguments (Host ip) (TCP p) f) =
   runTCPServer (Just ip) p lsp
@@ -252,6 +266,7 @@ run (Arguments (Host ip) (TCP p) f) =
             options = defaultOptions
           }
 
+-- | Listen on host and port, as well as accept and fork off connections
 runTCPServer :: Maybe HostName -> ServiceName -> (Socket -> IO a1) -> IO a2
 runTCPServer host port server = withSocketsDo $ do
   addr <- resolve
