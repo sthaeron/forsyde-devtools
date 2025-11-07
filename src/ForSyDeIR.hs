@@ -10,14 +10,19 @@ module ForSyDeIR
     prettyIRConstructor,
     prettyIRFunction,
     prettyIRSystem,
+    prettyIRJSON,
   )
 where
 
 import CoreIR (prettyCoreExpr)
 import Data.Aeson
+import Data.Aeson.Encode.Pretty
+import Data.Function
 import Data.List (intercalate)
 import qualified Data.Sequence as Seq
 import qualified Data.Text as Text
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Builder as TLB
 import GHC (DynFlags)
 import GHC.Core
 import Text.Printf (printf)
@@ -97,7 +102,7 @@ prettyFunction dflags function = printf "\n%s" (indent 2 (prettyCoreExpr dflags 
 prettyIRSystem :: DynFlags -> IRSystem -> String
 prettyIRSystem dflags (IRSystem (inputs, outputs) constructors signals functions) =
   printf
-    "IRSystem(\n  {%s}, {%s},\n  {\n%s  },\n  {\n%s  },\n  {\n%s  }\n)"
+    "IRSystem(\n  {%s}, {%s},\n  {\n%s  },\n  {\n%s  },\n  {\n%s  }\n)\n"
     (intercalate ", " (map show inputs))
     (intercalate ", " (map show outputs))
     (indent 4 (intercalate ",\n" (map prettyIRConstructor constructors)))
@@ -158,3 +163,10 @@ instance ToJSON IRSystem where
               "functions" .= Seq.fromList functions
             ]
       ]
+
+prettyIRJSON :: (ToJSON a) => a -> String
+prettyIRJSON v =
+  TLB.singleton '\n'
+    & mappend (encodePrettyToTextBuilder v)
+    & TLB.toLazyText
+    & TL.unpack
