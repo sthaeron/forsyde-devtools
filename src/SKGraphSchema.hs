@@ -10,6 +10,7 @@ import qualified Data.Map as M
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 
+-- | Structural graph elements. The Id should be unique
 data GraphElement
   = KLabel
       { label :: !T.Text,
@@ -41,6 +42,7 @@ data GraphElement
         gid :: !T.Text
       }
 
+-- | ELK properties that influence layout, rendering, etc
 data KProperty
   = NodeLabelsPlacement
   | NodeSizeConstraints
@@ -55,8 +57,10 @@ instance Show KProperty where
   show EdgeType = "org.eclipse.elk.edge.type"
   show JunctionPoints = "org.eclipse.elk.junctionPoints"
 
+-- We might want to change this later if we add the symbolic enum names
 type KProperties = [(KProperty, [Int])]
 
+-- | Styles which change how an object is rendered
 data KStyle
   = KBackgroundColor Int Int Int
   | KForegroundColor Int Int Int
@@ -66,6 +70,8 @@ instance A.ToJSON KStyle where
     KBackgroundColor r g b -> color "KBackgroundImpl" r g b
     KForegroundColor r g b -> color "KForegroundImpl" r g b
     where
+      -- Note that these types support more properties but they are not relevant
+      -- to our project at the moment
       color t r g b =
         A.object
           [ "type" .= (T.pack t),
@@ -79,6 +85,7 @@ instance A.ToJSON KStyle where
             "selection" .= False
           ]
 
+-- | Sprotty renderings which are what is actually displayed
 data KRendering
   = KEllipse [KStyle]
   | KPolyline [KStyle]
