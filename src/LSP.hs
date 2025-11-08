@@ -221,23 +221,17 @@ handlers f =
         Just _file -> _file
         Nothing -> ""
       InputFile fn -> fn
-    -- This can probably be done in a better, more clever way
+    getKey key = \case
+      A.Object o -> o !? key
+      _ -> Nothing
     getFilePathFromClient params =
-      case params of
-        A.Object _a -> case (_a !? "action") of
-          Just _a -> case _a of
-            A.Object _a -> case (_a !? "options") of
-              Just a -> case a of
-                A.Object _a -> case (_a !? "sourceUri") of
-                  Just _a -> case _a of
-                    A.String _a -> Just $ T.unpack $ snd $ T.splitAt 6 _a
-                    _ -> Nothing
-                  _ -> Nothing
-                _ -> Nothing
-              _ -> Nothing
-            _ -> Nothing
+      Just params
+        >>= getKey "action"
+        >>= getKey "options"
+        >>= getKey "sourceUri"
+        >>= \case
+          A.String _a -> Just $ T.unpack $ snd $ T.splitAt 6 _a
           _ -> Nothing
-        _ -> Nothing
 
 runServerC :: Handle -> Handle -> ServerDefinition config -> IO Int
 runServerC =
