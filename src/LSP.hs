@@ -43,22 +43,30 @@ forSyDeIRToGraph :: FilePath -> IRSystem -> GraphElement
 forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
   where
     -- \| Create a port with a label for signal rate
-    createPort pid renderings (n, r) =
-      KPort
-        { children = [label],
-          renderings = renderings,
-          properties = [],
-          gid = id
-        }
+    createPortWithRate pid renderings (n, r) =
+      createPort' renderings [label] (id, r)
       where
         id = T.concat [pid, "$P", T.pack n]
         label = KLabel {gid = T.concat [id, "$L0"], label = T.show r}
+    createPortWithoutRate pid renderings (n, r) =
+      createPort' renderings [] (id, r)
+      where
+        id = T.concat [pid, "$P", T.pack n]
+    -- \| Create a port with the passed renderings and children
+    createPort' renderings children (gid, _) =
+      KPort
+        { children = children,
+          renderings = renderings,
+          properties = [],
+          gid = gid
+        }
     -- \| Create a node based on an IRActor
     createNode = \case
       (IRActor name _ _ _) ->
         createNode'
           name
-          name
+          (createPortWithRate)
+          (Just name)
           [KEllipse [KBackgroundColor 160 160 240]]
           [ (NodeLabelsPlacement, [1, 4, 6]),
             (NodeSizeConstraints, [3]),
@@ -67,11 +75,12 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
       (IRDelay name d _) ->
         createNode'
           name
-          ((show $ length d) ++ "D")
-          [KEllipse []]
+          (createPortWithoutRate)
+          Nothing
+          [KEllipse [KBackgroundColor 0 0 0]]
           [ (NodeLabelsPlacement, [1, 4, 6]),
-            (NodeSizeConstraints, [0, 1, 2, 3]),
-            (NodeSizeMinimum, [16, 16])
+            (NodeSizeConstraints, [3]),
+            (NodeSizeMinimum, [12, 12])
           ]
     -- \| Find all signals which the process is the source of
     findSourceSignals signals proc =
@@ -88,15 +97,15 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
           let IRSignal n _ (p, rate) = s
            in if p == proc then (n, rate) : acc else acc
     -- \| Helper for createNode and global inputs / outputs
-    createNode' name l r p = node
+    createNode' name createPort l r p = node
       where
         nid = T.pack ("$root$N" ++ name)
         insignals = findSourceSignals signals name
         outsignals = findTargetSignals signals name
         inports = map (createPort nid []) insignals
-        outports = map (createPort nid [KText "◆" []]) outsignals
-        nl = KLabel {gid = T.concat [nid, "$L0"], label = T.pack l}
-        c = inports ++ outports ++ [nl]
+        outports = map (createPort nid (maybe [] (\_l -> [KText "◆" []]) l)) outsignals
+        nl = maybe [] (\l -> [KLabel {gid = T.concat [nid, "$L0"], label = T.pack l}]) l
+        c = inports ++ outports ++ nl
         node =
           KNode
             { gid = nid,
@@ -121,8 +130,8 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
             }
     nodes =
       map createNode actors
-        ++ map (\n -> createNode' n n [] []) inputs
-        ++ map (\n -> createNode' n n [] []) outputs
+        ++ map (\n -> createNode' n (createPortWithoutRate) (Just n) [] []) inputs
+        ++ map (\n -> createNode' n (createPortWithoutRate) (Just n) [] []) outputs
     edges = map createEdge signals
     graph =
       KGraph
