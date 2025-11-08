@@ -2,7 +2,7 @@ module Main where
 
 import ArgumentsMain
 import CoreIR (prettyCoreProgram)
-import CoreToForSyDeIR
+import CoreIRToForSyDeIR (translateCoreProgram)
 import ForSyDeIR (prettyIRJSON, prettyIRSystem)
 import Options.Applicative
 import Utilities (compileToCore)

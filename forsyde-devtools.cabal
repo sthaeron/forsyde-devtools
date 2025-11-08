@@ -55,7 +55,7 @@ executable forsyde-devtools-exe
         CoreIR
         ForSyDeIR
         ProceduralIR
-        CoreToForSyDeIR
+        CoreIRToForSyDeIR
         ProceduralIRToC
         Utilities
 
