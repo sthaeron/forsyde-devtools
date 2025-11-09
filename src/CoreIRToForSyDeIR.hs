@@ -96,18 +96,33 @@ translateSystem initialContext expr = case expr of
 -- of the `TranslationContext` by updating constructors and signals.
 translateSystemOutputs :: TranslationContext -> CoreExpr -> TranslationContext
 translateSystemOutputs initialContext expr = case expr of
-  Var i ->
-    let outputId = showPpr (flags initialContext) i
-        (sourceId, sourceRate) = getSourceFromArgument initialContext outputId
-        newSignal = IRSignal outputId (sourceId, sourceRate) (outputId, 1)
+  Var out ->
+    let context1 = updateSystemOutput initialContext out
+        context2 = context1 {systemInputs = reverse (systemInputs context1)}
+        context3 = updateConstructorsAndSignals context2
+     in context3
+  App (App (App (App (Var _) (Type _)) (Type _)) (Var out1)) (Var out2) ->
+    let context1 = foldl updateSystemOutput initialContext [out1, out2]
         context2 =
-          initialContext
-            { systemOutputs = outputId : (systemOutputs initialContext),
-              signals = (outputId, newSignal) : (signals initialContext)
+          context1
+            { systemInputs = reverse (systemInputs context1),
+              systemOutputs = reverse (systemOutputs context1)
             }
         context3 = updateConstructorsAndSignals context2
      in context3
   _ -> error ("translateSystemOutputs: unsupported expression\n" ++ prettyCoreExpr (flags initialContext) expr)
+
+updateSystemOutput :: TranslationContext -> Id -> TranslationContext
+updateSystemOutput initialContext output =
+  let outputId = showPpr (flags initialContext) output
+      (sourceId, sourceRate) = getSourceFromArgument initialContext outputId
+      newSignal = IRSignal outputId (sourceId, sourceRate) (outputId, 1)
+      context1 =
+        initialContext
+          { systemOutputs = outputId : (systemOutputs initialContext),
+            signals = (outputId, newSignal) : (signals initialContext)
+          }
+   in context1
 
 -- | Updates all the signals within `TranslationContext` which are temporarily
 -- using a binder as the signal source. Replaces them with their associated
