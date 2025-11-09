@@ -1,6 +1,6 @@
 module Main where
 
-import Arguments
+import ArgumentsMain
 import CoreIR (compileToCore, prettyCoreProgram)
 import CoreToForSyDeIR
 import ForSyDeIR (prettyIRJSON, prettyIRSystem)
