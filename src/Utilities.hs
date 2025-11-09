@@ -21,7 +21,7 @@ compileToCore filePath = runGhc (Just libdir) $ do
             ghcMode = CompManager,
             backend = interpreterBackend,
             verbosity = 0,
-            debugLevel = 1
+            debugLevel = 0
           }
   _ <- setSessionDynFlags newDflags
   target <- guessTarget filePath Nothing Nothing
