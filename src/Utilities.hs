@@ -36,7 +36,7 @@ compileToCore filePath = runGhc (Just libdir) $ do
   return $ (mg_binds guts, newDflags)
 
 -- | Updates all bindings within the function called `system` and adds NOINLINE
--- pragmas. Prevents the pre optimisier run during desurgaring from inlining
+-- pragmas. Prevents the pre optimisier run during desugaring from inlining
 -- bindings relating to variables and functions within the compiled net list.
 --
 -- Solution is inspired by discussions from the GHC API issue:

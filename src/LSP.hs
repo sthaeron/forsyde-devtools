@@ -14,8 +14,7 @@ import qualified Control.Exception as E
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class
 import Control.Monad.IO.Unlift
-import CoreIR
-import CoreToForSyDeIR
+import CoreIRToForSyDeIR
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
 import Data.Aeson.KeyMap ((!?))
@@ -31,6 +30,7 @@ import Options.Applicative
 import Prettyprinter
 import SKGraphSchema
 import System.IO
+import Utilities
 
 diagramAcceptMethod :: SMethod (Method_CustomMethod "diagram/accept")
 diagramAcceptMethod = (SMethod_CustomMethod (Proxy @"diagram/accept"))
