@@ -154,11 +154,11 @@ updateConstructorsAndSignals initialContext =
                   -- the index of the output rather than a rate
                   let outputRates = case (lookup pcId (pcRates currentContext)) of
                         Just (_, rates) -> rates
-                        Nothing -> error ("updateSignals - No rates found for actor: " ++ pcId)
+                        Nothing -> error ("updateConstructorsAndSignals - No rates found for process constructor: " ++ pcId)
                       newSignal = IRSignal signalId (pcId, outputRates !! sourceRate) (targetId, targetRate)
                       context1 = updateConstructorsOutputs currentContext signalId pcId sourceRate
                    in aux context1 signalsTail ((signalId, newSignal) : acc)
-                _ -> error ("updateSignals - binder is not associated with any process constructors")
+                _ -> error ("updateConstructorsAndSignals - binder is not associated with any process constructors")
               Nothing ->
                 -- Signal source was already a process constructor meaning it
                 -- only had 1 output, thus passing index zero
@@ -214,7 +214,7 @@ translateSystemExpr initialContext expr = case expr of
     let pcId = showPpr (flags initialContext) i
         aId = showPpr (flags initialContext) a
         arguments = [(aId)]
-        context1 = createSignals initialContext pcId arguments
+        context1 = createSignalsFromArguments initialContext pcId arguments
      in (PcId pcId, context1)
   -- Application of process constructors with 2 input
   App (App (Var i) (Var a1)) (Var a2) ->
@@ -222,7 +222,7 @@ translateSystemExpr initialContext expr = case expr of
         a1Id = showPpr (flags initialContext) a1
         a2Id = showPpr (flags initialContext) a2
         arguments = [(a1Id), (a2Id)]
-        context1 = createSignals initialContext pcId arguments
+        context1 = createSignalsFromArguments initialContext pcId arguments
      in (PcId pcId, context1)
   -- Application of process constructors with 3 input
   App (App (App (Var i) (Var a1)) (Var a2)) (Var a3) ->
@@ -231,7 +231,7 @@ translateSystemExpr initialContext expr = case expr of
         a2Id = showPpr (flags initialContext) a2
         a3Id = showPpr (flags initialContext) a3
         arguments = [(a1Id), (a2Id), (a3Id)]
-        context1 = createSignals initialContext pcId arguments
+        context1 = createSignalsFromArguments initialContext pcId arguments
      in (PcId pcId, context1)
   -- Application of process constructors with 4 input
   App (App (App (App (Var i) (Var a1)) (Var a2)) (Var a3)) (Var a4) ->
@@ -241,7 +241,7 @@ translateSystemExpr initialContext expr = case expr of
         a3Id = showPpr (flags initialContext) a3
         a4Id = showPpr (flags initialContext) a4
         arguments = [(a1Id), (a2Id), (a3Id), (a4Id)]
-        context1 = createSignals initialContext pcId arguments
+        context1 = createSignalsFromArguments initialContext pcId arguments
      in (PcId pcId, context1)
   Case (Var i) _ _ alts ->
     let bindingId = showPpr (flags initialContext) i
@@ -265,15 +265,15 @@ getIndexFromAlts context alts = case alts of
 -- | Creates signals based on the arguments of a process constructor. All
 -- signals created with this function have the process constructor as the
 -- target.
-createSignals :: TranslationContext -> String -> [(String)] -> TranslationContext
-createSignals context pcId arguments =
+createSignalsFromArguments :: TranslationContext -> String -> [(String)] -> TranslationContext
+createSignalsFromArguments context pcId arguments =
   -- The input rates of the process constructor are used to determine the
   -- targetRate of created signals, the index for the input is the same as the
   -- current arguments index.
   let inputRates = case (lookup pcId (pcRates context)) of
         Just (rates, _) -> rates
-        Nothing -> error ("createSignals - No rates found for actor: " ++ pcId)
-   in aux context arguments inputRates
+        Nothing -> error ("createSignalsFromArguments - No rates found for process constructor: " ++ pcId)
+   in aux context (reverse arguments) (reverse inputRates)
   where
     aux :: TranslationContext -> [(String)] -> [Int] -> TranslationContext
     aux currentContext currentArguments rates = case (currentArguments, rates) of
@@ -282,7 +282,8 @@ createSignals context pcId arguments =
       (argumentsHead : argumentsTail, ratesHead : ratesTail) ->
         let (sourceId, sourceRate) = getSourceFromArgument currentContext argumentsHead
             newSignal = IRSignal argumentsHead (sourceId, sourceRate) (pcId, ratesHead)
-            context1 = currentContext {signals = (argumentsHead, newSignal) : (signals currentContext)}
+            newSignals = (argumentsHead, newSignal) : (signals currentContext)
+            context1 = currentContext {signals = newSignals}
             context2 = updateConstructorsInputs context1 pcId argumentsHead
          in aux context2 argumentsTail ratesTail
 
@@ -306,26 +307,33 @@ updateConstructorsInputs initialContext pcId signalId =
              in (currentPcId, newConstructor)
         else (currentPcId, currentConstructor)
 
--- | Helper function for `createSignals` which returns the id and rate for the
--- source of a signal based on an argument. If the argument is associated with
--- a `Binder` which directly represents a process constructor the returned id is
--- said pcId and the rate is 1. However, if the argument is associated with a
--- `Binder` which indirectly represents a process constructor the the returned
--- id is the associated bindingId and the rate is the associated index. Will
--- temporarily use the binder as the signal source and will be updated later in
--- the translation when all binders have been identified.
+-- | Helper function for `createSignalsFromArguments` which returns the id and
+-- rate for the source of a signal based on an argument.
+--
+-- NOTE: If argument does not directly represent a process constructor then a
+-- temporary source is returned. It will have to be updated later by
+-- `updateConstructorsAndSignals` when all binders have been identified.
 getSourceFromArgument :: TranslationContext -> String -> (String, Int)
-getSourceFromArgument context id =
-  if elem id (systemInputs context)
-    then (id, 1)
+getSourceFromArgument context argument =
+  if elem argument (systemInputs context)
+    then (argument, 1)
     else
-      let maybeBinder = (lookup id (binders context))
+      let maybeBinder = (lookup argument (binders context))
        in case maybeBinder of
-            -- If the binder is just an id then it must be connected to a
-            -- process constructor with only 1 output?
-            Just (PcId pcId) -> (pcId, 1)
+            -- Argument is associated with a binder which directly represents a
+            -- process constructor meaning said constructor only has 1 output.
+            Just (PcId pcId) ->
+              let outputRates = case (lookup pcId (pcRates context)) of
+                    Just (_, rates) -> rates
+                    Nothing -> error ("getSourceFromArgument - No rates found for process constructor: " ++ pcId)
+               in (pcId, outputRates !! 0)
+            -- Argument is associated with a binder which indirectly represents
+            -- a process constructor meaning said constructor has multiple
+            -- outputs. Will temporarily use the binder as the signal source.
+            -- This will be updated later in the translation when all binders
+            -- have been identified.
             Just (Binding bindingId index) -> (bindingId, index)
-            Nothing -> error ("getSourceFromArgument - unable to identify id as a system input or binder: " ++ id)
+            Nothing -> error ("getSourceFromArgument - Unable to identify argument as a system input or binder: " ++ argument)
 
 -- | Creates actors and delays by pattern matching based on the number of
 -- inputs to the top level function, represented by `Lam`, and inputs to the
@@ -432,18 +440,20 @@ createDelaySDF context binder expr =
    in context {constructors = (delayId, newDelay) : (constructors context), pcRates = newActorsList}
 
 createActorSDF :: TranslationContext -> ActorType -> CoreBndr -> CoreExpr -> TranslationContext
-createActorSDF context actorType binder expr =
+createActorSDF initialContext actorType binder expr =
   let lits = getLits expr []
-      maybeFunctionName = getFunctionName context expr
+      maybeFunctionName = getFunctionName initialContext expr
    in case maybeFunctionName of
         Nothing -> error "No function found for actor"
         Just functionName ->
-          let (inRates, outRates) = splitAt (getActorSplit actorType) lits
-              actorId = showPpr (flags context) binder
-              baseOutputs = replicate (length outRates) ""
+          let (inputRates, outputRates) = splitAt (getActorSplit actorType) lits
+              actorId = showPpr (flags initialContext) binder
+              baseOutputs = replicate (length outputRates) ""
               newActor = IRActor actorId actorType functionName ([], baseOutputs)
-              newActorsList = (actorId, (inRates, outRates)) : (pcRates context)
-           in context {pcRates = newActorsList, constructors = (actorId, newActor) : (constructors context)}
+              newActors = (actorId, (inputRates, outputRates)) : (pcRates initialContext)
+              newConstructors = (actorId, newActor) : (constructors initialContext)
+              context1 = initialContext {pcRates = newActors, constructors = newConstructors}
+           in context1
 
 -- | Helper function for `createDelaySDF` and `createActorSDF` which returns
 -- all integer literals within their expression as a list.
@@ -475,7 +485,6 @@ getActorSplit actorType = case actorType of
   Actor42 -> 4
   Actor43 -> 4
   Actor44 -> 4
-  _ -> error "getActorSplit: unsupported actor type"
 
 createFunction :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 createFunction context binder expr =
