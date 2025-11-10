@@ -94,13 +94,18 @@ translateSystem initialContext expr = case expr of
 
 -- | Identifies the system outputs of the net list and does the final clean-up
 -- of the `TranslationContext` by updating constructors and signals.
+--
+-- NOTE: This function needs to be updated with new pattern matches for
+-- translation to support net lists with additional system ouputs.
 translateSystemOutputs :: TranslationContext -> CoreExpr -> TranslationContext
 translateSystemOutputs initialContext expr = case expr of
+  -- System has 1 output
   Var out ->
     let context1 = updateSystemOutput initialContext out
         context2 = context1 {systemInputs = reverse (systemInputs context1)}
         context3 = updateConstructorsAndSignals context2
      in context3
+  -- System has 2 outputs
   App (App (App (App (Var _) (Type _)) (Type _)) (Var out1)) (Var out2) ->
     let context1 = foldl updateSystemOutput initialContext [out1, out2]
         context2 =
@@ -201,17 +206,17 @@ translateSystemBinds initialContext binds = case binds of
 -- potentially updated `TranslationContext`.
 --
 -- NOTE: This function needs to be updated with new pattern matches for
--- translation to support additional process constructors.
+-- translation to support process constructors with more inputs.
 translateSystemExpr :: TranslationContext -> CoreExpr -> (Binder, TranslationContext)
 translateSystemExpr initialContext expr = case expr of
-  -- delaySDF
+  -- Application of process constructors with 1 input
   App (Var i) (Var a) ->
     let pcId = showPpr (flags initialContext) i
         aId = showPpr (flags initialContext) a
         arguments = [(aId)]
         context1 = createSignals initialContext pcId arguments
      in (PcId pcId, context1)
-  -- actor22SDF
+  -- Application of process constructors with 2 input
   App (App (Var i) (Var a1)) (Var a2) ->
     let pcId = showPpr (flags initialContext) i
         a1Id = showPpr (flags initialContext) a1
@@ -307,6 +312,9 @@ getSourceFromArgument context id =
 -- inputs to the top level function, represented by `Lam`, and inputs to the
 -- process constructor, represented by `App`. If it cannot match an actor or
 -- delay then it creates a function.
+--
+-- NOTE: This function needs to be updated with new pattern matches for
+-- translation to support additional process constructors.
 translateCoreExpr :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 translateCoreExpr context binder expr = case expr of
   Lam _ (App (App (App (Var (i)) _) _) _) ->
