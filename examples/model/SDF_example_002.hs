@@ -9,7 +9,7 @@ system s_in_1 s_in_2 = s_out
     s_1 = a_a s_in_1
     s_2 = a_b s_in_2
     s_3 = a_c s_1 s_4_delayed
-    (s_out, s_4) = a_d s_2 s_3
+    (s_4, s_out) = a_d s_2 s_3
     s_4_delayed = d_1 s_4
 
 -- Process specifications
@@ -23,7 +23,7 @@ a_c :: Signal Int -> Signal Int -> Signal Int
 a_c s_1 s_2 = actor21SDF (2, 1) 1 f_3 s_1 s_2
 
 a_d :: Signal Int -> Signal Int -> (Signal Int, Signal Int)
-a_d s_1 s_2 = actor22SDF (2, 1) (2, 1) f_4 s_1 s_2
+a_d s_1 s_2 = actor22SDF (2, 1) (1, 2) f_4 s_1 s_2
 
 d_1 :: Signal Int -> Signal Int
 d_1 s = delaySDF [0] s
