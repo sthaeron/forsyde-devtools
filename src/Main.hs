@@ -1,10 +1,11 @@
 module Main where
 
 import ArgumentsMain
-import CoreIR (compileToCore, prettyCoreProgram)
-import CoreToForSyDeIR
+import CoreIR (prettyCoreProgram)
+import CoreIRToForSyDeIR (translateCoreProgram)
 import ForSyDeIR (prettyIRJSON, prettyIRSystem)
 import Options.Applicative
+import Utilities (compileToCore)
 
 {-
 
@@ -74,7 +75,7 @@ run (Arguments (InputFile input_file) output_file OutputForSyDeIRJSON) = do
   let ir = translateCoreProgram dflags core
   let ir_json = prettyIRJSON ir
   write_output output_file OutputForSyDeIRJSON ir_json
-run (Arguments (InputFile _) _ OutputProceduralIR) =
+run (Arguments (InputFile _) _ OutputProceduralIR) = do
   putStrLn "To Procedural IR"
 -- What we have so far, take input file and write out core
 run (Arguments (InputFile input_file) output_file OutputCore) = do
