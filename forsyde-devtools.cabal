@@ -67,10 +67,11 @@ executable forsyde-lsp-exe
     build-depends:    forsyde-devtools
     other-modules:
         ArgumentsLSP
+        CoreIR
         ForSyDeIR
         CoreIRToForSyDeIR
-        SKGraphSchema
         Utilities
+        SKGraphSchema
 
 test-suite forsyde-devtools-test
     import:           common-options
