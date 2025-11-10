@@ -221,7 +221,26 @@ translateSystemExpr initialContext expr = case expr of
     let pcId = showPpr (flags initialContext) i
         a1Id = showPpr (flags initialContext) a1
         a2Id = showPpr (flags initialContext) a2
-        arguments = [(a2Id), (a1Id)]
+        arguments = [(a1Id), (a2Id)]
+        context1 = createSignals initialContext pcId arguments
+     in (PcId pcId, context1)
+  -- Application of process constructors with 3 input
+  App (App (App (Var i) (Var a1)) (Var a2)) (Var a3) ->
+    let pcId = showPpr (flags initialContext) i
+        a1Id = showPpr (flags initialContext) a1
+        a2Id = showPpr (flags initialContext) a2
+        a3Id = showPpr (flags initialContext) a3
+        arguments = [(a1Id), (a2Id), (a3Id)]
+        context1 = createSignals initialContext pcId arguments
+     in (PcId pcId, context1)
+  -- Application of process constructors with 4 input
+  App (App (App (App (Var i) (Var a1)) (Var a2)) (Var a3)) (Var a4) ->
+    let pcId = showPpr (flags initialContext) i
+        a1Id = showPpr (flags initialContext) a1
+        a2Id = showPpr (flags initialContext) a2
+        a3Id = showPpr (flags initialContext) a3
+        a4Id = showPpr (flags initialContext) a4
+        arguments = [(a1Id), (a2Id), (a3Id), (a4Id)]
         context1 = createSignals initialContext pcId arguments
      in (PcId pcId, context1)
   Case (Var i) _ _ alts ->
@@ -332,6 +351,16 @@ translateCoreExpr context binder expr = case expr of
      in case name of
           "actor12SDF" -> createActorSDF context Actor12 binder expr
           _ -> error ("translateCoreExpr: expecting actor12SDF got " ++ name)
+  Lam _ (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor13SDF" -> createActorSDF context Actor13 binder expr
+          _ -> error ("translateCoreExpr: expecting actor13SDF got " ++ name)
+  Lam _ (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor14SDF" -> createActorSDF context Actor14 binder expr
+          _ -> error ("translateCoreExpr: expecting actor14SDF got " ++ name)
   Lam _ (Lam _ (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _)) ->
     let name = showPpr (flags context) i
      in case name of
@@ -342,6 +371,56 @@ translateCoreExpr context binder expr = case expr of
      in case name of
           "actor22SDF" -> createActorSDF context Actor22 binder expr
           _ -> error ("translateCoreExpr: expecting actor22SDF got " ++ name)
+  Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _) _)) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor23SDF" -> createActorSDF context Actor23 binder expr
+          _ -> error ("translateCoreExpr: expecting actor23SDF got " ++ name)
+  Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _) _) _)) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor24SDF" -> createActorSDF context Actor24 binder expr
+          _ -> error ("translateCoreExpr: expecting actor24SDF got " ++ name)
+  Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _) _))) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor31SDF" -> createActorSDF context Actor31 binder expr
+          _ -> error ("translateCoreExpr: expecting actor31SDF got " ++ name)
+  Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _) _) _))) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor32SDF" -> createActorSDF context Actor32 binder expr
+          _ -> error ("translateCoreExpr: expecting actor32SDF got " ++ name)
+  Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _) _) _) _))) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor33SDF" -> createActorSDF context Actor33 binder expr
+          _ -> error ("translateCoreExpr: expecting actor33SDF got " ++ name)
+  Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _) _) _) _) _))) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor34SDF" -> createActorSDF context Actor34 binder expr
+          _ -> error ("translateCoreExpr: expecting actor34SDF got " ++ name)
+  Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _) _) _) _)))) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor41SDF" -> createActorSDF context Actor41 binder expr
+          _ -> error ("translateCoreExpr: expecting actor41SDF got " ++ name)
+  Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _) _) _) _) _)))) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor42SDF" -> createActorSDF context Actor42 binder expr
+          _ -> error ("translateCoreExpr: expecting actor42SDF got " ++ name)
+  Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _) _) _) _) _) _)))) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor43SDF" -> createActorSDF context Actor43 binder expr
+          _ -> error ("translateCoreExpr: expecting actor43SDF got " ++ name)
+  Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (App (App (App (Var (i)) _) _) _) _) _) _) _) _) _) _) _) _) _) _) _)))) ->
+    let name = showPpr (flags context) i
+     in case name of
+          "actor44SDF" -> createActorSDF context Actor44 binder expr
+          _ -> error ("translateCoreExpr: expecting actor44SDF got " ++ name)
   _ -> createFunction context binder expr
 
 createDelaySDF :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
@@ -382,8 +461,20 @@ getActorSplit :: ActorType -> Int
 getActorSplit actorType = case actorType of
   Actor11 -> 1
   Actor12 -> 1
+  Actor13 -> 1
+  Actor14 -> 1
   Actor21 -> 2
   Actor22 -> 2
+  Actor23 -> 2
+  Actor24 -> 2
+  Actor31 -> 3
+  Actor32 -> 3
+  Actor33 -> 3
+  Actor34 -> 3
+  Actor41 -> 4
+  Actor42 -> 4
+  Actor43 -> 4
+  Actor44 -> 4
   _ -> error "getActorSplit: unsupported actor type"
 
 createFunction :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
