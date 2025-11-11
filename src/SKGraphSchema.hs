@@ -93,6 +93,7 @@ data KRendering
   | KArc [KStyle] Float Float -- startAngle (Float), arcAngle (Float)
   | KSpline [KStyle]
   | KRectangle [KStyle]
+  | KRoundedRectangle [KStyle] Float Float -- cornerWidth (Float), cornerHeight (Float)
   | KText T.Text [KStyle]
 
 instance A.ToJSON KRendering where
@@ -119,6 +120,19 @@ instance A.ToJSON KRendering where
           "styles" .= styles,
           "startAngle" .= startAngle,
           "arcAngle" .= arcAngle,
+          "properties"
+            .= A.object
+              [ "klighd.lsp.rendering.id" .= T.pack "$R0"
+              ]
+        ]
+    KRoundedRectangle styles w h ->
+      A.object
+        [ "type" .= T.pack "KRoundedRectangleImpl",
+          "children" .= (Seq.empty :: Seq.Seq A.Object),
+          "actions" .= (Seq.empty :: Seq.Seq A.Object),
+          "styles" .= styles,
+          "cornerWidth" .= w,
+          "cornerHeight" .= h,
           "properties"
             .= A.object
               [ "klighd.lsp.rendering.id" .= T.pack "$R0"
