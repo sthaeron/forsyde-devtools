@@ -17,7 +17,7 @@ cabal run forsyde-devtools-exe -- examples/model/SDF_example_003.hs --output-for
 ```
 
 ## Documentation
-Detailed documentation relating to the different components of this project can be found in the [docs](docs) directory. When in the development environment, the documentation can be built and served as a webpage using the commands:
+An overview of the project can be found in [project-overview.md](docs/project-overview.md). When in the development environment, the documentation can be built and served as a webpage using the commands:
 ```shell
 mkdocs build
 mkdocs serve
