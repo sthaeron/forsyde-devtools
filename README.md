@@ -30,3 +30,14 @@ mkdocs serve
 - Mohammad Afif Ramadhan
 - Sebastian Thaeron
 - Zicong Zhang
+
+## Acknowledgements
+We would like to thank:
+
+- Professor Ingo Sander – for supervising, mentoring, and giving us the opportunity to contribute to his research project.
+
+- [The Real-Time and Embedded Systems Group](https://www.uni-kiel.de/de/tf/forschen/institut-informatik/echtzeitsysteme/eingebettete-systeme) at [Kiel University](https://www.uni-kiel.de/de/) – for their time, support, and assistance related to the [KIELER](https://github.com/kieler) research project.
+
+- Lecturer Elias Flening – for teaching and mentoring us in project management during the course IL2232 Embedded Systems Design Project at KTH.
+
+- Associate Professor Jiantong Li and Associate Professor Johnny Öberg – for teaching us research methodology and scientific writing in the course II2211 Research Methodology and Scientific Writing for Embedded Systems at KTH.
