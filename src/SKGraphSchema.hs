@@ -89,7 +89,9 @@ instance A.ToJSON KStyle where
 data KRendering
   = KEllipse [KStyle]
   | KPolyline [KStyle]
-  | KRoundedBendsPolyline [KStyle] Int
+  | KRoundedBendsPolyline [KStyle] Int -- bendRadius (Int)
+  | KArc [KStyle] Float Float -- startAngle (Float), arcAngle (Float)
+  | KSpline [KStyle]
   | KRectangle [KStyle]
   | KText T.Text [KStyle]
 
@@ -109,6 +111,20 @@ instance A.ToJSON KRendering where
               [ "klighd.lsp.rendering.id" .= T.pack "$R0"
               ]
         ]
+    KArc styles startAngle arcAngle ->
+      A.object
+        [ "type" .= T.pack "KArcImpl",
+          "children" .= (Seq.empty :: Seq.Seq A.Object),
+          "actions" .= (Seq.empty :: Seq.Seq A.Object),
+          "styles" .= styles,
+          "startAngle" .= startAngle,
+          "arcAngle" .= arcAngle,
+          "properties"
+            .= A.object
+              [ "klighd.lsp.rendering.id" .= T.pack "$R0"
+              ]
+        ]
+    KSpline styles -> simple "KSplineImpl" styles
     KRectangle styles -> simple "KRectangleImpl" styles
     KText text styles ->
       A.object
