@@ -120,10 +120,14 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
         tn = T.concat ["$root$N", T.pack tname, "$P", T.pack n]
         name = T.concat [sn, "$E", T.pack n]
         sigid = T.concat [name, "$L0"]
+        children =
+          if n == sname || n == tname
+            then []
+            else [KLabel {gid = sigid, label = T.pack n}]
         edge =
           KEdge
             { gid = name,
-              children = [KLabel {gid = sigid, label = T.pack n}],
+              children = children,
               renderings = [KRoundedBendsPolyline [] 4],
               properties = [],
               source = sn,
