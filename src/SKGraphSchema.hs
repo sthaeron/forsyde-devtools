@@ -89,7 +89,7 @@ instance A.ToJSON KStyle where
 data KRendering
   = KEllipse [KStyle]
   | KPolyline [KStyle]
-  | KRoundedBendsPolyline [KStyle] Int -- bendRadius (Int)
+  | KRoundedBendsPolyline [KStyle] Float -- bendRadius (Float)
   | KArc [KStyle] Float Float -- startAngle (Float), arcAngle (Float)
   | KSpline [KStyle]
   | KRectangle [KStyle]
