@@ -15,31 +15,31 @@ stripSemicolon str =
     then init str
     else str
 
-translateUop :: Uop -> String
-translateUop OPNegate = "-"
-translateUop OPLogicalNot = "!"
-translateUop OPIncrement = "++"
-translateUop OPDecrement = "--"
+translateUnaryOperator :: UnaryOperator -> String
+translateUnaryOperator Negate = "-"
+translateUnaryOperator LogicalNot = "!"
+translateUnaryOperator Increment = "++"
+translateUnaryOperator Decrement = "--"
 
-translateBop :: Bop -> String
-translateBop OPPlus = "+"
-translateBop OPMinus = "-"
-translateBop OPMultiply = "*"
-translateBop OPDivide = "/"
-translateBop OPModulo = "%"
-translateBop OPPlusAssign = "+="
-translateBop OPMinusAssign = "-="
-translateBop OPMultiplyAssign = "*="
-translateBop OPDivideAssign = "/="
-translateBop OPModuloAssign = "%="
-translateBop OPEqual = "=="
-translateBop OPNotEqual = "!="
-translateBop OPLogicalAnd = "&&"
-translateBop OPLogicalOr = "||"
-translateBop OPLess = "<"
-translateBop OPLessEqual = "<="
-translateBop OPGreater = ">"
-translateBop OPGreaterEqual = ">="
+translateBinaryOperator :: BinaryOperator -> String
+translateBinaryOperator Plus = "+"
+translateBinaryOperator Minus = "-"
+translateBinaryOperator Multiply = "*"
+translateBinaryOperator Divide = "/"
+translateBinaryOperator Modulo = "%"
+translateBinaryOperator PlusAssign = "+="
+translateBinaryOperator MinusAssign = "-="
+translateBinaryOperator MultiplyAssign = "*="
+translateBinaryOperator DivideAssign = "/="
+translateBinaryOperator ModuloAssign = "%="
+translateBinaryOperator Equal = "=="
+translateBinaryOperator NotEqual = "!="
+translateBinaryOperator LogicalAnd = "&&"
+translateBinaryOperator LogicalOr = "||"
+translateBinaryOperator Less = "<"
+translateBinaryOperator LessEqual = "<="
+translateBinaryOperator Greater = ">"
+translateBinaryOperator GreaterEqual = ">="
 
 translateType :: Type -> String
 translateType TVoid = "void"
@@ -64,9 +64,9 @@ translateExpression (EInt i) = show i
 translateExpression (EChar c) = show c
 translateExpression (EString s) = show s
 translateExpression (EBinOp bop exprA exprB) =
-  translateExpression exprA ++ " " ++ translateBop bop ++ " " ++ translateExpression exprB
+  translateExpression exprA ++ " " ++ translateBinaryOperator bop ++ " " ++ translateExpression exprB
 translateExpression (EUnOp uop expr) =
-  translateUop uop ++ translateExpression expr
+  translateUnaryOperator uop ++ translateExpression expr
 translateExpression (ECall name arguments) =
   name ++ "(" ++ intercalate ", " (map translateExpression arguments) ++ ")"
 translateExpression (ECallExpr calleeExpr arguments) =
@@ -149,9 +149,17 @@ translateParam (paramType, paramName) =
   translateType paramType ++ " " ++ paramName
 
 translateGlobal :: Global -> String
-translateGlobal (GFuncDef modifiers returnType name params body) =
-  (if null modifiers then "" else intercalate " " modifiers ++ " ")
+translateGlobal (GFuncDef (Just storageClass) returnType name params body) =
+  (prettyStorageClass storageClass)
     ++ translateType returnType
+    ++ " "
+    ++ name
+    ++ "("
+    ++ intercalate ", " (map translateParam params)
+    ++ ")"
+    ++ translateStatement body
+translateGlobal (GFuncDef Nothing returnType name params body) =
+  translateType returnType
     ++ " "
     ++ name
     ++ "("

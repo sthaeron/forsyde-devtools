@@ -8,7 +8,7 @@ exampleProceduralIR :: Program
 exampleProceduralIR =
   Prog
     [ GFuncDef
-        []
+        Nothing
         TInt
         "main"
         []
@@ -71,19 +71,19 @@ exampleProceduralIR =
               SArrayAssign "x" (EInt 0) Nothing (EInt 3),
               SArrayAssign "x" (EInt 1) (Just "foo") (EInt 2),
               SIf
-                (EBinOp OPLess (EVar "i") (EVar "n"))
+                (EBinOp Less (EVar "i") (EVar "n"))
                 (SReturn Nothing)
                 Nothing,
               SIf
-                (EBinOp OPGreater (EVar "i") (EInt 0))
+                (EBinOp Greater (EVar "i") (EInt 0))
                 (SReturn (Just (EInt 1)))
                 (Just (SReturn (Just (EInt 0)))),
               SReturn (Just (EInt 0)),
               SReturn Nothing,
               SFor
                 (SVarDef TInt "i" (EInt 0))
-                (EBinOp OPLess (EVar "i") (EVar "n"))
-                (SExpr (EUnOp OPIncrement (EVar "i")))
+                (EBinOp Less (EVar "i") (EVar "n"))
+                (SExpr (EUnOp Increment (EVar "i")))
                 (SScope [SExpr (ECall "printf" [EString "%d\n", EVar "i"])]),
               SVarDef
                 (TReference (TIdent "fifo"))
@@ -125,7 +125,7 @@ exampleProceduralIR =
             ]
         ),
       GFuncDef
-        ["static"]
+        (Just Static)
         TVoid
         "actor11SDF"
         [ (TInt, "consum"),

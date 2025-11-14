@@ -1,4 +1,4 @@
-GFuncDef(, TInt, "main", ()) {
+GFuncDef(TInt, "main", {},
   SScope {
     SVarDecl(TIdent("token"), "input"),
     SVarDecl(TIdent("token"), "output"),
@@ -35,9 +35,9 @@ GFuncDef(, TInt, "main", ()) {
 
   }
 
-}
+)
 
-GFuncDef("static", TVoid, "actor11SDF", ((TInt, "consum"), (TInt, "prod"), (TPoint(TIdent("channel")), "ch_in"), (TPoint(TIdent("channel")), "ch_out"), (TFuncPoint(TVoid, (TPoint(TIdent("token")), TPoint(TIdent("token")))), "f"))) {
+GFuncDef(static, TVoid, "actor11SDF", {(TInt, "consum"), (TInt, "prod"), (TPoint(TIdent("channel")), "ch_in"), (TPoint(TIdent("channel")), "ch_out"), (TFuncPoint(TVoid, (TPoint(TIdent("token")), TPoint(TIdent("token")))), "f")},
   SScope {}
 
-}
+)
