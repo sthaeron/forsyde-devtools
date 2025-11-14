@@ -1,10 +1,10 @@
 # Core IR
 
 ## Tutorials
-Videos about an introduction to Core can be found in [GHC Hackathon](https://www.youtube.com/watch?v=EQA69dvkQIk&list=PLBkRCigjPwyeCSD_DFxpd246YIF7_RDDI) and [Into the Core - Squeezing Haskell into Nine Constructors by Simon Peyton Jones ](https://www.youtube.com/watch?v=uR_VzYxvbxg). For thorough information about Core, consult the [core syn type](https://gitlab.haskell.org/ghc/ghc/-/wikis/commentary/compiler/core-syn-type#case-expressions) wiki.
+Videos introducing Core can be found in [GHC Hackathon](https://www.youtube.com/watch?v=EQA69dvkQIk&list=PLBkRCigjPwyeCSD_DFxpd246YIF7_RDDI) and [Into the Core - Squeezing Haskell into Nine Constructors by Simon Peyton Jones ](https://www.youtube.com/watch?v=uR_VzYxvbxg). For thorough information about Core, consult the [core syn type](https://gitlab.haskell.org/ghc/ghc/-/wikis/commentary/compiler/core-syn-type#case-expressions) wiki.
 
 ## Core algebraic data type
-The top level of our Core IR translation starts from a  `CoreProgram` which is a type synonym of a list of `CoreBind`. Each `CoreBind` is a type synonym of a `Bind CoreBndr`. A `Bind CoreBndr` is a specific type synonym of the `Bind` data type used by GHC Core. Core algebraic data types are defined in the code snippet below. 
+The top level of our Core IR translation starts from a `CoreProgram` which is a type synonym of a list of `CoreBind`. Each `CoreBind` is a type synonym of a `Bind CoreBndr`. A `Bind CoreBndr` is a specific type synonym of the `Bind` data type used by GHC Core. Core algebraic data types are defined in the code snippet below. 
 
 ``` Haskell
 type CoreExpr = Expr Var
@@ -57,4 +57,4 @@ compileToCore filePath = runGhc (Just libdir) $ do
 
 ```
 
-The `noInlineTypecheck` is a hand crafted solution to tackle the inlining problem in Core. The implementation of this function is inspired by discussion in a GitLab [issue](https://gitlab.haskell.org/ghc/ghc/-/issues/24386) from the GHC repo.
+The `noInlineTypecheck` is a hand crafted solution to tackle the inlining problem in Core.  discussionThe implementation of this function is inspired by thes in a GitLab [issue](https://gitlab.haskell.org/ghc/ghc/-/issues/24386) from the GHC repo.

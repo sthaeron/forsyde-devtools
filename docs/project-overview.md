@@ -35,7 +35,7 @@ This is done by implementing:
 Optional Goals: 
 - Explore compiling to new hardware platform (Jetson Nano and Jetson Thor), other Model of Computations, and other languages. 
 - Static multicore scheduling with blocking read and blocking writes for buffers between cores. 
-- Automatic multicore scheduling using Design space exploration tools. 
+- Automatic multicore scheduling using Design Space Exploration tools. 
 
 # Project Structure
 The following picture represents the whole structure of the ForSyDe DevTool project. The rectangular shapes present an input or output component, while the spherical shapes present transitions between components.
@@ -51,10 +51,10 @@ If you want a quick start with Haskell, please consult the Haskell [Get started]
 [GHC.Core](https://hackage-content.haskell.org/package/ghc-9.10.2/docs/GHC-Core.html) is an explicitly typed intermediate representation used by the GHC compiler and acquired via the GHC APIs. It results from a series of systematic normalisations that transform Haskell code into a simpler form while preserving all language features. The resulting Core program is procedural in nature, making it more compatible with C than the original Haskell source. To know more about Core, please consult the [Core IR](core-ir.md) documentation.
 
 ## ForSyDe
-[ForSyDe](https://forsyde.github.io/), which stands for Formal System Design, is a methodology for designing a system that is correct-by-construction by emphasizing formal-based high-level modelling and abstraction, and conducting verification early in the design process. ForSyDe provides the means to implement models at high levels of abstraction through a Haskell program.
+[ForSyDe](https://forsyde.github.io/), which stands for Formal System Design, is a methodology for designing a system that is correct-by-construction by emphasising formal-based high-level modelling and abstraction, as well as conducting verification early in the design process. ForSyDe provides the means to implement models at high levels of abstraction through a Haskell program.
 
 ### ForSyDe Shallow
-[ForSyDe-Shallow](https://forsyde.github.io/forsyde-shallow/) is the first and longest-standing version of the ForSyDe modeling framework. Implemented as a shallow-embedded domain-specific language (EDSL) in Haskell, it supports modeling, simulation, and early design validation of heterogeneous embedded and cyber-physical systems. The framework builds on the principles of models of computation (MoC) while leveraging Haskell’s pure functions and higher-order abstractions. A getting-started tutorial for ForSyDe-Shallow can be found [here](https://forsyde.github.io/forsyde-shallow/getting_started#getting-started-with-forsyde-shallow). There is also a [setup guide](https://forsyde.github.io/forsyde-shallow/setup), an [API documentation page](https://hackage.haskell.org/package/forsyde-shallow), and an [example project repository](https://github.com/forsyde/forsyde-shallow-examples).
+[ForSyDe-Shallow](https://forsyde.github.io/forsyde-shallow/) is the first and longest-standing version of the ForSyDe modeling framework. It is implemented as a shallow-embedded domain-specific language (EDSL) in Haskell, it supports modeling, simulation, and early design validation of heterogeneous embedded and cyber-physical systems. The framework builds on the principles of models of computation (MoC) while leveraging Haskell’s pure functions and higher-order abstractions. A getting-started tutorial for ForSyDe-Shallow can be found [here](https://forsyde.github.io/forsyde-shallow/getting_started#getting-started-with-forsyde-shallow). There is also a [setup guide](https://forsyde.github.io/forsyde-shallow/setup), an [API documentation page](https://hackage.haskell.org/package/forsyde-shallow), and an [example project](https://github.com/forsyde/forsyde-shallow-examples) repository.
 
 #### ForSyDe Shallow SDF
 [ForSyDe.Shallow.MoC.SDF](https://hackage.haskell.org/package/forsyde-shallow-3.5.0.0/docs/ForSyDe-Shallow-MoC-SDF.html) is the list of models that follows the [Synchronous Data Flow (SDF)](https://en.wikipedia.org/wiki/Synchronous_Data_Flow) MoC. SDF is a model in which the amount of data that is consumed and produced by each actor is fixed and known beforehand. An example SDF graph is shown in following picture, where actors are depicted as blue circles, with directed edges showing the direction of the flow of data and the annotated numbers describing how many tokens are consumed and produced by each actor.
@@ -70,7 +70,6 @@ In order to correctly implement a Synchronous Data Flow (SDF) graph, the communi
 
 The implementation of the SDF must:
 - Determine the necessary FIFO buffer sizes for each arc.
-
 - Derive a schedule ensuring actors fire only when data is ready.
 
 Scheduling can be:
@@ -79,7 +78,6 @@ Scheduling can be:
 
 ForSyDe Devtools implement, static scheduling. There are two static schedules to choose from:
 - PASS – Periodic Admissible Sequential Schedule (for single processors)
-
 - PAPS – Periodic Admissible Parallel Schedule (for parallel systems)
 
 If a PASS exists for a graph, this means that a PAPS also exists. ForSyDe DevTools currently implements PASS only.
