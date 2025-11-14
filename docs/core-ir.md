@@ -57,4 +57,4 @@ compileToCore filePath = runGhc (Just libdir) $ do
 
 ```
 
-The `noInlineTypecheck` is a hand crafted solution to tackle the inlining problem in Core.  discussionThe implementation of this function is inspired by thes in a GitLab [issue](https://gitlab.haskell.org/ghc/ghc/-/issues/24386) from the GHC repo.
+The `noInlineTypecheck` is a hand crafted solution to tackle the inlining problem in Core. The implementation of this function is inspired by the discussions in a GitLab [issue](https://gitlab.haskell.org/ghc/ghc/-/issues/24386) from the GHC repo.

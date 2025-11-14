@@ -57,7 +57,9 @@ If you want a quick start with Haskell, please consult the Haskell [Get started]
 [ForSyDe-Shallow](https://forsyde.github.io/forsyde-shallow/) is the first and longest-standing version of the ForSyDe modeling framework. It is implemented as a shallow-embedded domain-specific language (EDSL) in Haskell, it supports modeling, simulation, and early design validation of heterogeneous embedded and cyber-physical systems. The framework builds on the principles of models of computation (MoC) while leveraging Haskell’s pure functions and higher-order abstractions. A getting-started tutorial for ForSyDe-Shallow can be found [here](https://forsyde.github.io/forsyde-shallow/getting_started#getting-started-with-forsyde-shallow). There is also a [setup guide](https://forsyde.github.io/forsyde-shallow/setup), an [API documentation page](https://hackage.haskell.org/package/forsyde-shallow), and an [example project](https://github.com/forsyde/forsyde-shallow-examples) repository.
 
 #### ForSyDe Shallow SDF
-[ForSyDe.Shallow.MoC.SDF](https://hackage.haskell.org/package/forsyde-shallow-3.5.0.0/docs/ForSyDe-Shallow-MoC-SDF.html) is the list of models that follows the [Synchronous Data Flow (SDF)](https://en.wikipedia.org/wiki/Synchronous_Data_Flow) MoC. SDF is a model in which the amount of data that is consumed and produced by each actor is fixed and known beforehand. An example SDF graph is shown in following picture, where actors are depicted as blue circles, with directed edges showing the direction of the flow of data and the annotated numbers describing how many tokens are consumed and produced by each actor.
+[ForSyDe.Shallow.MoC.SDF](https://hackage.haskell.org/package/forsyde-shallow-3.5.0.0/docs/ForSyDe-Shallow-MoC-SDF.html) is the list of models that follows the [Synchronous Data Flow (SDF)](https://en.wikipedia.org/wiki/Synchronous_Data_Flow) MoC. SDF is a model in which the amount of data that is consumed and produced by each actor is fixed and known beforehand. 
+
+An example SDF graph is shown below, where actors are depicted as blue circles, with directed edges showing the direction of the flow of data and the annotated numbers describing how many tokens are consumed and produced by each actor.
 ![SDF graph](sdf.svg)
 ## ForSyDe IR
 ForSyDe IR is a custom intermediate representation built by the ForSyDe DevTools team. It serves as the basis for the compiler and visualiser. The documentation of ForSyDe IR can be found in [ForSyDe IR](forsyde-ir.md) documentation.
@@ -80,7 +82,7 @@ ForSyDe Devtools implement, static scheduling. There are two static schedules to
 - PASS – Periodic Admissible Sequential Schedule (for single processors)
 - PAPS – Periodic Admissible Parallel Schedule (for parallel systems)
 
-If a PASS exists for a graph, this means that a PAPS also exists. ForSyDe DevTools currently implements PASS only.
+ForSyDe DevTools currently implements PASS only.
 
 In order to know if a PASS exists, a topology matrix Γ should be first constructed. In Γ, the entry of row i and column j is the number of tokens produced (positive number) or consumed (negative number) by node j on arc i. If a SDF graph with s nodes has rank(Γ) = s − 1 then a PASS exists.
 
