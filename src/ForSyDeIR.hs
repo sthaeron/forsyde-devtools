@@ -15,6 +15,7 @@ module ForSyDeIR
 where
 
 import CoreIR (prettyCoreExpr)
+import CoreIRToProceduralIR
 import Data.Aeson
 import Data.Aeson.Encode.Pretty
 import Data.Function
@@ -25,7 +26,10 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
 import GHC (DynFlags)
 import GHC.Core
+import ProceduralIR
+import ProceduralIRToC hiding (indent)
 import Text.Printf (printf)
+import Prelude hiding (id)
 
 -- ForSyDe IR data types
 
@@ -94,10 +98,10 @@ prettyIRFunction dflags (IRFunction functionId function) =
   printf
     "IRFunction(\"%s\", %s)"
     functionId
-    (maybe "" (prettyFunction dflags) function)
+    (maybe "" (prettyFunction dflags functionId) function)
 
-prettyFunction :: DynFlags -> CoreExpr -> String
-prettyFunction dflags function = printf "\n%s" (indent 2 (prettyCoreExpr dflags function))
+prettyFunction :: DynFlags -> String -> CoreExpr -> String
+prettyFunction dflags id function = printf "\n%s" (indent 2 (translateProgram (translateCoreExprToProgram dflags id function)))
 
 prettyIRSystem :: DynFlags -> IRSystem -> String
 prettyIRSystem dflags (IRSystem (inputs, outputs) constructors signals functions) =

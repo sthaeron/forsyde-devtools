@@ -154,14 +154,14 @@ translateGlobal :: Global -> String
 translateGlobal global = case global of
   GFuncDeclare (Just storageClass) returnType id parameters ->
     printf
-      "%s %s %s(%s)"
+      "%s %s %s(%s);"
       (prettyStorageClass storageClass)
       (translateType returnType)
       (id)
       (intercalate ", " (map translateParam parameters))
   GFuncDeclare Nothing returnType id parameters ->
     printf
-      "%s %s(%s)"
+      "%s %s(%s);"
       (translateType returnType)
       (id)
       (intercalate ", " (map translateParam parameters))

@@ -58,6 +58,7 @@ executable forsyde-devtools-exe
         SDFSchedule
         ProceduralIR
         CoreIRToForSyDeIR
+        CoreIRToProceduralIR
         ProceduralIRToC
         Utilities
 
