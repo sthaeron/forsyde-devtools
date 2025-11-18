@@ -18,8 +18,8 @@ This document provides a comprehensive overview of the ForSyDe DevTools project,
     - [Procedural IR](#procedural-ir)
     - [C code](#c-code)
   - [Visualiser](#visualiser)
+    - [KLighD](#klighd)
     - [Language Server Protocol](#language-server-protocol)
-    - [KlightD Client](#klightd-client)
     - [Graphical Representation](#graphical-representation)
   - [Testing](#testing)
 - [Programming Guidelines/Restrictions](#programming-guidelinesrestrictions)
@@ -103,15 +103,31 @@ The documentation of Procedural IR in ForSyDe DevTools can be found in [Procedur
 C code generation is the last step in the compiler. The generated C code is a structural pretty printed from of Procedural IR. The generation also depends on the C code templates and libraries which are described in [C-code Templates](c-code-templates.md) documentation.
 
 ## Visualiser
-- TODO
-### Language Server Protocol
-- TODO
+The Visualiser continues from the ForSyDe Intermediate Representation,
+which has all the information needed to make a graph as it is basically already a graph representation.
+The process constructors make up the nodes and the signals make up the edges
+(including global inputs and outputs).
 
-### KlightD Client
-- TODO
+This representation still needs to be transformed into another which
+contains information on how it should be displayed.
+
+### KLighD
+KIELER Lightweight Diagrams is the backend for the visualisation,
+specifically the [KLighD-VSCode](https://github.com/kieler/klighd-vscode)
+variant.
+
+### Language Server Protocol
+To facilitate integration with KLighD, VSCode, and possibly other IDEs,
+the visualiser implements the Language Server Protocol for communication.
+
+KLighD communicates through the [Diagram Server API](https://github.com/kieler/klighd-vscode/wiki/Diagram-Server-Communication-%E2%80%90-Architectural-Overview),
+which is built on top of the Language Server Protocol.
+It is described through JSON Schema [in the repository](https://github.com/kieler/klighd-vscode/tree/main/schema)
+though that is not yet complete with all features KLighD-VSCode supports.
 
 ### Graphical Representation 
 - TODO
+
 
 ## Testing
 Testing is crucial to check the correctness and the integrity of the work. Tests are manually written and exposed to a test suite in order to execute them. The documentation of the testing in ForSyDe DevTools can be found in [Testing](testing.md) documentation.
