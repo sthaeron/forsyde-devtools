@@ -1,13 +1,17 @@
 module ProceduralIR
-  ( Uop (..),
-    Bop (..),
+  ( UnaryOperator (..),
+    BinaryOperator (..),
     Type (..),
     Expression (..),
     Statement (..),
     Global (..),
     Program (..),
-    prettyUop,
-    prettyBop,
+    StorageClass (..),
+    TypeQualifier (..),
+    prettyStorageClass,
+    prettyTypeQualifier,
+    prettyBinaryOperator,
+    prettyUnaryOperator,
     prettyType,
     prettyExpression,
     prettyStatement,
@@ -16,31 +20,47 @@ module ProceduralIR
   )
 where
 
-data Uop
-  = OPNegate -- -rhs
-  | OPLogicalNot -- !rhs
-  | OPIncrement -- ++rhs
-  | OPDecrement -- --rhs
+import Text.Printf (printf)
+import Prelude hiding (id)
 
-data Bop
-  = OPPlus -- lhs + rhs
-  | OPMinus -- lhs - rhs
-  | OPMultiply -- lhs * rhs
-  | OPDivide -- lhs / rhs
-  | OPModulo -- lhs % rhs
-  | OPPlusAssign -- lhs += rhs
-  | OPMinusAssign -- lhs -= rhs
-  | OPMultiplyAssign -- lhs *= rhs
-  | OPDivideAssign -- lhs /= rhs
-  | OPModuloAssign -- lhs %= rhs
-  | OPEqual -- lhs == rhs
-  | OPNotEqual -- lhs != rhs
-  | OPLogicalAnd -- lhs && rhs
-  | OPLogicalOr -- lhs || rhs
-  | OPLess -- lhs < rhs
-  | OPLessEqual -- lhs <= rhs
-  | OPGreater -- lhs > rhs
-  | OPGreaterEqual -- lhs >= rhs
+data StorageClass
+  = Auto
+  | Register
+  | Static
+  | Extern
+  | TypeDefinition
+
+data TypeQualifier
+  = Const
+  | Restrict
+  | Volatile
+
+data UnaryOperator
+  = Negate -- -rhs
+  | LogicalNot -- !rhs
+  | Increment -- ++rhs
+  | Decrement -- --rhs
+
+data BinaryOperator
+  = Plus -- lhs + rhs
+  | Minus -- lhs - rhs
+  | Multiply -- lhs * rhs
+  | Divide -- lhs / rhs
+  | Modulo -- lhs % rhs
+  | PlusAssign -- lhs += rhs
+  | MinusAssign -- lhs -= rhs
+  | MultiplyAssign -- lhs *= rhs
+  | DivideAssign -- lhs /= rhs
+  | ModuloAssign -- lhs %= rhs
+  | Equal -- lhs == rhs
+  | NotEqual -- lhs != rhs
+  | LogicalAnd -- lhs && rhs
+  | LogicalOr -- lhs || rhs
+  | Less -- lhs < rhs
+  | LessEqual -- lhs <= rhs
+  | Greater -- lhs > rhs
+  | GreaterEqual -- lhs >= rhs
+  deriving (Show)
 
 -- Types
 data Type
@@ -49,9 +69,10 @@ data Type
   | TFloat
   | TChar
   | TIdent String
-  | TPoint Type -- int * var
-  | TReference Type -- int & var
-  | TFuncPoint Type [Type] -- void (*func)([type])
+  | TPointer Type -- int *pointer
+  | TReference Type -- int &pointer
+  | TFunctionPointer Type [Type] -- int (*pointer)(int, int)
+  | TQualifiedType [TypeQualifier] Type
 
 -- Expressions
 data Expression
@@ -59,15 +80,14 @@ data Expression
   | EInt Int
   | EChar Char
   | EString String
-  | EBinOp Bop Expression Expression
-  | EUnOp Uop Expression
+  | EBinOp BinaryOperator Expression Expression
+  | EUnOp UnaryOperator Expression
   | ECall String [Expression] -- string(), simple function call
   | ECallExpr Expression [Expression] -- abc.foo(), enable more complex function call
   | EArrayAccess Expression Expression -- expr[expr], modified from cigrid for better expressiveness
   | EReference Expression -- &expr
-  | EDereference Expression
-  | -- \*expr
-    EMemberAccess Expression String -- expr.string
+  | EDereference Expression -- (*expr)
+  | EMemberAccess Expression String -- expr.string
   | EPointerAccess Expression String -- expr->string
   | EParen Expression -- (expr)
 
@@ -91,7 +111,11 @@ data Statement
 
 -- Globals
 data Global
-  = GFuncDef [String] Type String [(Type, String)] Statement
+  = GFuncDeclare (Maybe StorageClass) Type String [(Type, String)]
+  | GFuncDef (Maybe StorageClass) Type String [(Type, String)] Statement
+  | GVarDeclare Type String
+  | GVarDef Type String Expression
+  | GStruct String [(Type, String)]
 
 data Program = Prog [Global]
 
@@ -120,49 +144,43 @@ indent :: String -> String
 indent = unlines . map ("  " ++) . lines
 
 -- Pretty printing functions for ProceduralIR (now returning String)
-prettyUop :: Uop -> String
-prettyUop OPNegate = "-"
-prettyUop OPLogicalNot = "!"
-prettyUop OPIncrement = "++"
-prettyUop OPDecrement = "--"
+prettyUnaryOperator :: UnaryOperator -> String
+prettyUnaryOperator Negate = "-"
+prettyUnaryOperator LogicalNot = "!"
+prettyUnaryOperator Increment = "++"
+prettyUnaryOperator Decrement = "--"
 
-prettyBop :: Bop -> String
-prettyBop OPPlus = "+"
-prettyBop OPMinus = "-"
-prettyBop OPMultiply = "*"
-prettyBop OPDivide = "/"
-prettyBop OPModulo = "%"
-prettyBop OPPlusAssign = "+="
-prettyBop OPMinusAssign = "-="
-prettyBop OPMultiplyAssign = "*="
-prettyBop OPDivideAssign = "/="
-prettyBop OPModuloAssign = "%="
-prettyBop OPEqual = "=="
-prettyBop OPNotEqual = "!="
-prettyBop OPLogicalAnd = "&&"
-prettyBop OPLogicalOr = "||"
-prettyBop OPLess = "<"
-prettyBop OPLessEqual = "<="
-prettyBop OPGreater = ">"
-prettyBop OPGreaterEqual = ">="
+prettyBinaryOperator :: BinaryOperator -> String
+prettyBinaryOperator Plus = "+"
+prettyBinaryOperator Minus = "-"
+prettyBinaryOperator Multiply = "*"
+prettyBinaryOperator Divide = "/"
+prettyBinaryOperator Modulo = "%"
+prettyBinaryOperator PlusAssign = "+="
+prettyBinaryOperator MinusAssign = "-="
+prettyBinaryOperator MultiplyAssign = "*="
+prettyBinaryOperator DivideAssign = "/="
+prettyBinaryOperator ModuloAssign = "%="
+prettyBinaryOperator Equal = "=="
+prettyBinaryOperator NotEqual = "!="
+prettyBinaryOperator LogicalAnd = "&&"
+prettyBinaryOperator LogicalOr = "||"
+prettyBinaryOperator Less = "<"
+prettyBinaryOperator LessEqual = "<="
+prettyBinaryOperator Greater = ">"
+prettyBinaryOperator GreaterEqual = ">="
 
 prettyType :: Type -> String
-prettyType TVoid = "TVoid"
-prettyType TInt = "TInt"
-prettyType TFloat = "TFloat"
-prettyType TChar = "TChar"
-prettyType (TIdent s) = "TIdent" ++ parens (quotes s)
-prettyType (TPoint t) = "TPoint" ++ parens (prettyType t)
-prettyType (TReference t) = "TReference" ++ parens (prettyType t)
-prettyType (TFuncPoint returnType paramTypes) =
-  "TFuncPoint"
-    ++ parens
-      ( prettyType returnType
-          ++ ", "
-          ++ if null paramTypes
-            then "(TVoid)"
-            else parens (commaSep (map prettyType paramTypes))
-      )
+prettyType currentType = case currentType of
+  TVoid -> "TVoid"
+  TInt -> "TInt"
+  TFloat -> "TFloat"
+  TChar -> "TChar"
+  TIdent id -> printf "TIdent(%s)" (quotes id)
+  TPointer ty -> printf "TPointer(%s)" (prettyType ty)
+  TReference ty -> printf "TReference(%s)" (prettyType ty)
+  TFunctionPointer ty typeParameters -> printf "TFunctionPointer(%s, {%s})" (prettyType ty) (intercalate ", " (map prettyType typeParameters))
+  TQualifiedType qualifers ty -> printf "%s %s" (intercalate " " (map (prettyTypeQualifier) qualifers)) (prettyType ty)
 
 prettyExpression :: Expression -> String
 prettyExpression (EVar x) = "EVar" ++ parens (quotes x)
@@ -172,7 +190,7 @@ prettyExpression (EString s) = "EString " ++ show s
 prettyExpression (EBinOp bop expressionA expressionB) =
   "EBinOp"
     ++ parens
-      ( prettyBop bop
+      ( prettyBinaryOperator bop
           ++ ", "
           ++ prettyExpression expressionA
           ++ ", "
@@ -181,7 +199,7 @@ prettyExpression (EBinOp bop expressionA expressionB) =
 prettyExpression (EUnOp uop expression) =
   "EUnOp"
     ++ parens
-      ( prettyUop uop
+      ( prettyUnaryOperator uop
           ++ ", "
           ++ prettyExpression expression
       )
@@ -226,7 +244,6 @@ prettyExpression (EPointerAccess expression field) =
       )
 prettyExpression (EParen expression) =
   "EParen" ++ parens (prettyExpression expression)
-prettyExpression _ = "<expression> not implemented yet"
 
 prettyStatement :: Statement -> String
 prettyStatement (SExpr expression) =
@@ -285,12 +302,12 @@ prettyStatement (SArrayAssign name index maybeLabel expression) =
       )
 prettyStatement (SScope statements) =
   if null statements
-    then "SScope {}"
+    then "SScope({})"
     else
-      "SScope {"
+      "SScope({"
         ++ "\n"
         ++ indent (intercalate ",\n" (map prettyStatement statements))
-        ++ "\n}"
+        ++ "})"
 prettyStatement (SIf expression statement maybeStatement) =
   "SIf"
     ++ parens
@@ -328,29 +345,71 @@ prettyStatement (SReturn maybeExpression) =
       Just expression -> parens (prettyExpression expression)
 prettyStatement (SGoto label) = "SGoto" ++ parens (quotes label)
 prettyStatement (SLabel label) = "SLabel" ++ parens (quotes label)
-prettyStatement _ = "<statement> not implemented yet"
 
 prettyParam :: (Type, String) -> String
 prettyParam (paramType, paramName) =
   parens (prettyType paramType ++ ", " ++ quotes paramName)
 
+prettyTypeQualifier :: TypeQualifier -> String
+prettyTypeQualifier qualifier = case qualifier of
+  Const -> "const"
+  Restrict -> "restrict"
+  Volatile -> "volatile"
+
+prettyStorageClass :: StorageClass -> String
+prettyStorageClass storageClass = case storageClass of
+  Auto -> "auto"
+  Register -> "register"
+  Static -> "static"
+  Extern -> "extern"
+  TypeDefinition -> "typedef"
+
 prettyGlobal :: Global -> String
-prettyGlobal (GFuncDef modifiers returnType name params body) =
-  "GFuncDef"
-    ++ parens
-      ( intercalate ", " (map quotes modifiers)
-          ++ ", "
-          ++ prettyType returnType
-          ++ ", "
-          ++ quotes name
-          ++ ", "
-          ++ if null params
-            then "()"
-            else parens (commaSep (map prettyParam params))
-      )
-    ++ " {\n"
-    ++ indent (prettyStatement body)
-    ++ "\n}"
+prettyGlobal global = case global of
+  GFuncDeclare (Just storageClass) returnType id parameters ->
+    printf
+      "GFuncDeclare(%s, %s, %s, {%s})"
+      (prettyStorageClass storageClass)
+      (prettyType returnType)
+      (quotes id)
+      (intercalate ", " (map prettyParam parameters))
+  GFuncDeclare Nothing returnType id parameters ->
+    printf
+      "GFuncDeclare(%s, %s, {%s})"
+      (prettyType returnType)
+      (quotes id)
+      (intercalate ", " (map prettyParam parameters))
+  GFuncDef (Just storageClass) returnType id parameters body ->
+    printf
+      "GFuncDef(%s, %s, %s, {%s}, %s)"
+      (prettyStorageClass storageClass)
+      (prettyType returnType)
+      (quotes id)
+      (intercalate ", " (map prettyParam parameters))
+      (prettyStatement body)
+  GFuncDef Nothing returnType id parameters body ->
+    printf
+      "GFuncDef(%s, %s, {%s}, %s)"
+      (prettyType returnType)
+      (quotes id)
+      (intercalate ", " (map prettyParam parameters))
+      (prettyStatement body)
+  GVarDeclare varType id ->
+    printf
+      "GVarDeclare(%s, %s)"
+      (prettyType varType)
+      (quotes id)
+  GVarDef varType id expression ->
+    printf
+      "GVarDef(%s, %s, %s)"
+      (prettyType varType)
+      (quotes id)
+      (prettyExpression expression)
+  GStruct id fields ->
+    printf
+      "GStruct(%s {\n%s})"
+      (quotes id)
+      (intercalate ",\n" (map prettyParam fields))
 
 prettyProgram :: Program -> String
 prettyProgram (Prog globals) = intercalate "\n\n" (map prettyGlobal globals)

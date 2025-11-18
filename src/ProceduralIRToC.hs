@@ -2,9 +2,9 @@ module ProceduralIRToC where
 
 import Data.List (intercalate)
 import ProceduralIR
-import System.IO
 import System.Process (readProcess)
 import Text.Printf (printf)
+import Prelude hiding (id)
 
 indent :: String -> String
 indent = unlines . map ("  " ++) . lines
@@ -15,48 +15,50 @@ stripSemicolon str =
     then init str
     else str
 
-translateUop :: Uop -> String
-translateUop OPNegate = "-"
-translateUop OPLogicalNot = "!"
-translateUop OPIncrement = "++"
-translateUop OPDecrement = "--"
+translateUnaryOperator :: UnaryOperator -> String
+translateUnaryOperator Negate = "-"
+translateUnaryOperator LogicalNot = "!"
+translateUnaryOperator Increment = "++"
+translateUnaryOperator Decrement = "--"
 
-translateBop :: Bop -> String
-translateBop OPPlus = "+"
-translateBop OPMinus = "-"
-translateBop OPMultiply = "*"
-translateBop OPDivide = "/"
-translateBop OPModulo = "%"
-translateBop OPPlusAssign = "+="
-translateBop OPMinusAssign = "-="
-translateBop OPMultiplyAssign = "*="
-translateBop OPDivideAssign = "/="
-translateBop OPModuloAssign = "%="
-translateBop OPEqual = "=="
-translateBop OPNotEqual = "!="
-translateBop OPLogicalAnd = "&&"
-translateBop OPLogicalOr = "||"
-translateBop OPLess = "<"
-translateBop OPLessEqual = "<="
-translateBop OPGreater = ">"
-translateBop OPGreaterEqual = ">="
+translateBinaryOperator :: BinaryOperator -> String
+translateBinaryOperator Plus = "+"
+translateBinaryOperator Minus = "-"
+translateBinaryOperator Multiply = "*"
+translateBinaryOperator Divide = "/"
+translateBinaryOperator Modulo = "%"
+translateBinaryOperator PlusAssign = "+="
+translateBinaryOperator MinusAssign = "-="
+translateBinaryOperator MultiplyAssign = "*="
+translateBinaryOperator DivideAssign = "/="
+translateBinaryOperator ModuloAssign = "%="
+translateBinaryOperator Equal = "=="
+translateBinaryOperator NotEqual = "!="
+translateBinaryOperator LogicalAnd = "&&"
+translateBinaryOperator LogicalOr = "||"
+translateBinaryOperator Less = "<"
+translateBinaryOperator LessEqual = "<="
+translateBinaryOperator Greater = ">"
+translateBinaryOperator GreaterEqual = ">="
 
 translateType :: Type -> String
-translateType TVoid = "void"
-translateType TInt = "int"
-translateType TFloat = "float"
-translateType TChar = "char"
-translateType (TIdent s) = s
-translateType (TPoint t) = translateType t ++ "*"
-translateType (TReference t) = translateType t ++ "&"
-translateType (TFuncPoint returnType paramTypes) =
-  translateType returnType
-    ++ "(*)("
-    ++ ( if null paramTypes
-           then "void"
-           else intercalate ", " (map translateType paramTypes)
-       )
-    ++ ")"
+translateType currentType = case currentType of
+  TVoid -> "void"
+  TInt -> "int"
+  TFloat -> "float"
+  TChar -> "char"
+  TIdent s -> s
+  TPointer t -> translateType t ++ "*"
+  TReference t -> translateType t ++ "&"
+  TQualifiedType qualifers ty -> (intercalate " " (map prettyTypeQualifier qualifers)) ++ (translateType ty)
+  TFunctionPointer returnType paramTypes ->
+    translateType returnType
+      ++ "(*)("
+      ++ ( if null paramTypes
+             then "void"
+             else intercalate ", " (map translateType paramTypes)
+         )
+      ++ ")"
 
 translateExpression :: Expression -> String
 translateExpression (EVar x) = x
@@ -64,9 +66,9 @@ translateExpression (EInt i) = show i
 translateExpression (EChar c) = show c
 translateExpression (EString s) = show s
 translateExpression (EBinOp bop exprA exprB) =
-  translateExpression exprA ++ " " ++ translateBop bop ++ " " ++ translateExpression exprB
+  translateExpression exprA ++ " " ++ translateBinaryOperator bop ++ " " ++ translateExpression exprB
 translateExpression (EUnOp uop expr) =
-  translateUop uop ++ translateExpression expr
+  translateUnaryOperator uop ++ translateExpression expr
 translateExpression (ECall name arguments) =
   name ++ "(" ++ intercalate ", " (map translateExpression arguments) ++ ")"
 translateExpression (ECallExpr calleeExpr arguments) =
@@ -149,15 +151,51 @@ translateParam (paramType, paramName) =
   translateType paramType ++ " " ++ paramName
 
 translateGlobal :: Global -> String
-translateGlobal (GFuncDef modifiers returnType name params body) =
-  (if null modifiers then "" else intercalate " " modifiers ++ " ")
-    ++ translateType returnType
-    ++ " "
-    ++ name
-    ++ "("
-    ++ intercalate ", " (map translateParam params)
-    ++ ")"
-    ++ translateStatement body
+translateGlobal global = case global of
+  GFuncDeclare (Just storageClass) returnType id parameters ->
+    printf
+      "%s %s %s(%s)"
+      (prettyStorageClass storageClass)
+      (translateType returnType)
+      (id)
+      (intercalate ", " (map translateParam parameters))
+  GFuncDeclare Nothing returnType id parameters ->
+    printf
+      "%s %s(%s)"
+      (translateType returnType)
+      (id)
+      (intercalate ", " (map translateParam parameters))
+  GFuncDef (Just storageClass) returnType id parameters body ->
+    printf
+      "%s %s %s(%s)\n%s"
+      (prettyStorageClass storageClass)
+      (translateType returnType)
+      (id)
+      (intercalate ", " (map translateParam parameters))
+      (translateStatement body)
+  GFuncDef Nothing returnType id parameters body ->
+    printf
+      "%s %s(%s)\n%s"
+      (translateType returnType)
+      (id)
+      (intercalate ", " (map translateParam parameters))
+      (translateStatement body)
+  GVarDeclare varType id ->
+    printf
+      "%s %s;"
+      (translateType varType)
+      (id)
+  GVarDef varType id expression ->
+    printf
+      "%s %s = %s;"
+      (translateType varType)
+      (id)
+      (translateExpression expression)
+  GStruct id fields ->
+    printf
+      "%s {\n%s};"
+      (id)
+      (intercalate ",\n" (map translateParam fields))
 
 translateProgram :: Program -> String
 translateProgram (Prog globals) =
