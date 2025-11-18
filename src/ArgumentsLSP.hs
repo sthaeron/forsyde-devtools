@@ -7,6 +7,10 @@ data Input
   = InputFile FilePath
   | FromClient
 
+data Output
+  = ToClient
+  | StdOut
+
 -- Host IP(V4) address
 data IP
   = Host String
@@ -26,6 +30,11 @@ data Arguments = Arguments
     input :: Input
   }
 
+inputTop :: Parser Input
+inputTop =
+  inputFile
+    <|> inputFromClient
+
 -- Handle file input. Default is to get the file from your client, but
 -- allow user to pass a filename directly to server for debugging.
 inputFile :: Parser Input
@@ -35,6 +44,14 @@ inputFile =
     ( metavar "INPUT"
         <> value FromClient
         <> help "Input filename (debug option), if unset get file from client"
+    )
+
+inputFromClient :: Parser Input
+inputFromClient =
+  flag'
+    FromClient
+    ( long "input-client"
+        <> help "Input from client (default)"
     )
 
 -- IP - String "127.0.0.1" by default, otherwise provide -a or --address and
@@ -70,4 +87,4 @@ arguments =
   Arguments
     <$> ipAddress
     <*> tcpPort
-    <*> inputFile
+    <*> inputTop

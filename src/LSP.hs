@@ -17,7 +17,10 @@ import Control.Monad.IO.Unlift
 import CoreIRToForSyDeIR
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
+import Data.Aeson.Encode.Pretty as AP
 import Data.Aeson.KeyMap ((!?))
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy.Char8 as BSL8
 import qualified Data.List.NonEmpty as NE
 import Data.Proxy
 import qualified Data.Sequence as Seq
@@ -244,7 +247,7 @@ runServerC =
     (L.cmap (fmap $ T.pack . show . pretty) (L.cmap show L.logStringStderr))
 
 -- | Process arguments for the LSP and run it
-main :: IO Int
+main :: IO ()
 main = run =<< execParser opts
   where
     opts =
@@ -256,23 +259,34 @@ main = run =<< execParser opts
         )
 
 -- | Start the LSP
-run :: Arguments -> IO Int
-run (Arguments (Host ip) (TCP p) f) =
-  runTCPServer (Just ip) p lsp
-  where
-    lsp s = do
-      handle <- socketToHandle s ReadWriteMode
-      runServerC handle handle $
-        ServerDefinition
-          { parseConfig = const $ const $ Right Nothing,
-            onConfigChange = const $ pure (),
-            defaultConfig = Nothing,
-            configSection = "demo",
-            doInitialize = \env _req -> pure $ Right env,
-            staticHandlers = \_caps -> (handlers f),
-            interpretHandler = \env -> Iso (runLspT env) liftIO,
-            options = defaultOptions
-          }
+run :: Arguments -> IO ()
+run (Arguments (Host ip) (TCP p) i_f) =
+  case i_f of
+    FromClient ->
+      runTCPServer (Just ip) p lsp
+      where
+        lsp s = do
+          handle <- socketToHandle s ReadWriteMode
+          -- server returns IO Int, wrapper with "pure ()" so that expression
+          -- returns IO ()
+          _ <-
+            runServerC handle handle $
+              ServerDefinition
+                { parseConfig = const $ const $ Right Nothing,
+                  onConfigChange = const $ pure (),
+                  defaultConfig = Nothing,
+                  configSection = "demo",
+                  doInitialize = \env _req -> pure $ Right env,
+                  staticHandlers = \_caps -> (handlers FromClient),
+                  interpretHandler = \env -> Iso (runLspT env) liftIO,
+                  options = defaultOptions
+                }
+          pure ()
+    InputFile f -> do
+      (core, dflags) <- withRunInIO (\_u -> compileToCore f)
+      let ir = translateCoreProgram dflags core
+      let graphMessage = requestBounds f ir
+      BSL8.putStrLn $ AP.encodePretty graphMessage
 
 -- | Listen on host and port, as well as accept and fork off connections
 runTCPServer :: Maybe HostName -> ServiceName -> (Socket -> IO a1) -> IO a2
