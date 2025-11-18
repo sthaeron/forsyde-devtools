@@ -50,6 +50,24 @@ data KProperty
   | EdgeType
   | JunctionPoints
 
+data KPlacementData
+  = KTopPosition Float Float -- absolute (Float), relative (Float)
+  | KLeftPosition Float Float -- absolute (Float), relative (Float)
+  | KRightPosition Float Float -- absolute (Float), relative (Float)
+  | KBottomPosition Float Float -- absolute (Float), relative (Float)
+
+-- "Fake" KRendering called "KArrow". A function that returns a KPolygon that
+-- creates an arrow. KLineJoin rounds the edges on the arrow
+kArrow :: KRendering
+kArrow =
+  KPolygon
+    [KBackgroundColor 0 0 0, KLineJoin, KLineWidth]
+    [ (KLeftPosition 0.0 0.0, KTopPosition 0.0 0.0),
+      (KLeftPosition 0.0 0.4, KTopPosition 0.0 0.5),
+      (KLeftPosition 0.0 0.0, KBottomPosition 0.0 0.0),
+      (KRightPosition 0.0 0.0, KBottomPosition 0.0 0.5)
+    ]
+
 instance Show KProperty where
   show NodeLabelsPlacement = "org.eclipse.elk.nodeLabels.placement"
   show NodeSizeConstraints = "org.eclipse.elk.nodeSize.constraints"
@@ -64,11 +82,28 @@ type KProperties = [(KProperty, [Int])]
 data KStyle
   = KBackgroundColor Int Int Int
   | KForegroundColor Int Int Int
+  | KLineJoin
+  | KLineWidth
 
 instance A.ToJSON KStyle where
   toJSON style = case style of
     KBackgroundColor r g b -> color "KBackgroundImpl" r g b
     KForegroundColor r g b -> color "KForegroundImpl" r g b
+    KLineJoin ->
+      A.object
+        [ "lineJoin" .= (1 :: Int),
+          "miterLimit" .= (10 :: Int),
+          "type" .= T.pack "KLineJoinImpl",
+          "propagateToChildren" .= (False :: Bool),
+          "selection" .= (False :: Bool)
+        ]
+    KLineWidth ->
+      A.object
+        [ "lineWidth" .= (1 :: Int),
+          "type" .= T.pack "KLineWidthImpl",
+          "propagateToChildren" .= (False :: Bool),
+          "selection" .= (False :: Bool)
+        ]
     where
       -- Note that these types support more properties but they are not relevant
       -- to our project at the moment
@@ -95,6 +130,31 @@ data KRendering
   | KRectangle [KStyle]
   | KRoundedRectangle [KStyle] Float Float -- cornerWidth (Float), cornerHeight (Float)
   | KText T.Text [KStyle]
+  | KPolygon [KStyle] [(KPlacementData, KPlacementData)] -- points, list (x,y) [(KPlacementData, KPlacementData)]
+
+buildCoords :: [(KPlacementData, KPlacementData)] -> [A.Value]
+buildCoords placements = case placements of
+  (p1, p2) : xs ->
+    A.object
+      [ "x" .= p1,
+        "y" .= p2
+      ]
+      : buildCoords xs
+  [] -> []
+
+instance A.ToJSON KPlacementData where
+  toJSON placement = case placement of
+    KTopPosition absolute relative -> simple "KTopPositionImpl" absolute relative
+    KLeftPosition absolute relative -> simple "KLeftPositionImpl" absolute relative
+    KRightPosition absolute relative -> simple "KRightPositionImpl" absolute relative
+    KBottomPosition absolute relative -> simple "KBottomPositionImpl" absolute relative
+    where
+      simple name absolute relative =
+        A.object
+          [ "type" .= T.pack name,
+            "absolute" .= absolute,
+            "relative" .= relative
+          ]
 
 instance A.ToJSON KRendering where
   toJSON rendering = case rendering of
@@ -150,6 +210,18 @@ instance A.ToJSON KRendering where
               [ "klighd.lsp.rendering.id" .= T.pack "$R0"
               ],
           "text" .= text
+        ]
+    KPolygon styles p ->
+      A.object
+        [ "type" .= T.pack "KPolygonImpl",
+          "children" .= (Seq.empty :: Seq.Seq A.Object),
+          "actions" .= (Seq.empty :: Seq.Seq A.Object),
+          "styles" .= styles,
+          "points" .= (Seq.fromList (buildCoords p)),
+          "properties"
+            .= A.object
+              [ "klighd.lsp.rendering.id" .= T.pack "$R0"
+              ]
         ]
     where
       simple r s =
