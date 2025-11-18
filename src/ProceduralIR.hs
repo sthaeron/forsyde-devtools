@@ -60,6 +60,7 @@ data BinaryOperator
   | LessEqual -- lhs <= rhs
   | Greater -- lhs > rhs
   | GreaterEqual -- lhs >= rhs
+  deriving (Show)
 
 -- Types
 data Type
@@ -68,9 +69,10 @@ data Type
   | TFloat
   | TChar
   | TIdent String
-  | TPoint Type -- int * var
-  | TReference Type -- int & var
-  | TFuncPoint Type [Type] -- void (*func)([type])
+  | TPointer Type -- int *pointer
+  | TReference Type -- int &pointer
+  | TFunctionPointer Type [Type] -- int (*pointer)(int, int)
+  | TQualifiedType [TypeQualifier] Type
 
 -- Expressions
 data Expression
@@ -169,22 +171,16 @@ prettyBinaryOperator Greater = ">"
 prettyBinaryOperator GreaterEqual = ">="
 
 prettyType :: Type -> String
-prettyType TVoid = "TVoid"
-prettyType TInt = "TInt"
-prettyType TFloat = "TFloat"
-prettyType TChar = "TChar"
-prettyType (TIdent s) = "TIdent" ++ parens (quotes s)
-prettyType (TPoint t) = "TPoint" ++ parens (prettyType t)
-prettyType (TReference t) = "TReference" ++ parens (prettyType t)
-prettyType (TFuncPoint returnType paramTypes) =
-  "TFuncPoint"
-    ++ parens
-      ( prettyType returnType
-          ++ ", "
-          ++ if null paramTypes
-            then "(TVoid)"
-            else parens (commaSep (map prettyType paramTypes))
-      )
+prettyType currentType = case currentType of
+  TVoid -> "TVoid"
+  TInt -> "TInt"
+  TFloat -> "TFloat"
+  TChar -> "TChar"
+  TIdent id -> printf "TIdent(%s)" (quotes id)
+  TPointer ty -> printf "TPointer(%s)" (prettyType ty)
+  TReference ty -> printf "TReference(%s)" (prettyType ty)
+  TFunctionPointer ty typeParameters -> printf "TFunctionPointer(%s, {%s})" (prettyType ty) (intercalate ", " (map prettyType typeParameters))
+  TQualifiedType qualifers ty -> printf "%s %s" (intercalate " " (map (prettyTypeQualifier) qualifers)) (prettyType ty)
 
 prettyExpression :: Expression -> String
 prettyExpression (EVar x) = "EVar" ++ parens (quotes x)
@@ -306,12 +302,12 @@ prettyStatement (SArrayAssign name index maybeLabel expression) =
       )
 prettyStatement (SScope statements) =
   if null statements
-    then "SScope {}"
+    then "SScope({})"
     else
-      "SScope {"
+      "SScope({"
         ++ "\n"
         ++ indent (intercalate ",\n" (map prettyStatement statements))
-        ++ "\n}"
+        ++ "})"
 prettyStatement (SIf expression statement maybeStatement) =
   "SIf"
     ++ parens

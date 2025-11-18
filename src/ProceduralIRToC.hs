@@ -2,9 +2,9 @@ module ProceduralIRToC where
 
 import Data.List (intercalate)
 import ProceduralIR
-import System.IO
 import System.Process (readProcess)
 import Text.Printf (printf)
+import Prelude hiding (id)
 
 indent :: String -> String
 indent = unlines . map ("  " ++) . lines
@@ -42,21 +42,23 @@ translateBinaryOperator Greater = ">"
 translateBinaryOperator GreaterEqual = ">="
 
 translateType :: Type -> String
-translateType TVoid = "void"
-translateType TInt = "int"
-translateType TFloat = "float"
-translateType TChar = "char"
-translateType (TIdent s) = s
-translateType (TPoint t) = translateType t ++ "*"
-translateType (TReference t) = translateType t ++ "&"
-translateType (TFuncPoint returnType paramTypes) =
-  translateType returnType
-    ++ "(*)("
-    ++ ( if null paramTypes
-           then "void"
-           else intercalate ", " (map translateType paramTypes)
-       )
-    ++ ")"
+translateType currentType = case currentType of
+  TVoid -> "void"
+  TInt -> "int"
+  TFloat -> "float"
+  TChar -> "char"
+  TIdent s -> s
+  TPointer t -> translateType t ++ "*"
+  TReference t -> translateType t ++ "&"
+  TQualifiedType qualifers ty -> (intercalate " " (map prettyTypeQualifier qualifers)) ++ (translateType ty)
+  TFunctionPointer returnType paramTypes ->
+    translateType returnType
+      ++ "(*)("
+      ++ ( if null paramTypes
+             then "void"
+             else intercalate ", " (map translateType paramTypes)
+         )
+      ++ ")"
 
 translateExpression :: Expression -> String
 translateExpression (EVar x) = x
@@ -149,23 +151,51 @@ translateParam (paramType, paramName) =
   translateType paramType ++ " " ++ paramName
 
 translateGlobal :: Global -> String
-translateGlobal (GFuncDef (Just storageClass) returnType name params body) =
-  (prettyStorageClass storageClass)
-    ++ translateType returnType
-    ++ " "
-    ++ name
-    ++ "("
-    ++ intercalate ", " (map translateParam params)
-    ++ ")"
-    ++ translateStatement body
-translateGlobal (GFuncDef Nothing returnType name params body) =
-  translateType returnType
-    ++ " "
-    ++ name
-    ++ "("
-    ++ intercalate ", " (map translateParam params)
-    ++ ")"
-    ++ translateStatement body
+translateGlobal global = case global of
+  GFuncDeclare (Just storageClass) returnType id parameters ->
+    printf
+      "%s %s %s(%s)"
+      (prettyStorageClass storageClass)
+      (translateType returnType)
+      (id)
+      (intercalate ", " (map translateParam parameters))
+  GFuncDeclare Nothing returnType id parameters ->
+    printf
+      "%s %s(%s)"
+      (translateType returnType)
+      (id)
+      (intercalate ", " (map translateParam parameters))
+  GFuncDef (Just storageClass) returnType id parameters body ->
+    printf
+      "%s %s %s(%s)\n%s"
+      (prettyStorageClass storageClass)
+      (translateType returnType)
+      (id)
+      (intercalate ", " (map translateParam parameters))
+      (translateStatement body)
+  GFuncDef Nothing returnType id parameters body ->
+    printf
+      "%s %s(%s)\n%s"
+      (translateType returnType)
+      (id)
+      (intercalate ", " (map translateParam parameters))
+      (translateStatement body)
+  GVarDeclare varType id ->
+    printf
+      "%s %s;"
+      (translateType varType)
+      (id)
+  GVarDef varType id expression ->
+    printf
+      "%s %s = %s;"
+      (translateType varType)
+      (id)
+      (translateExpression expression)
+  GStruct id fields ->
+    printf
+      "%s {\n%s};"
+      (id)
+      (intercalate ",\n" (map translateParam fields))
 
 translateProgram :: Program -> String
 translateProgram (Prog globals) =

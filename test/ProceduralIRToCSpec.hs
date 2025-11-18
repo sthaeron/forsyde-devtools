@@ -19,28 +19,28 @@ exampleProceduralIR =
               SVarDecl TInt "i",
               SVarDecl TInt "j",
               SVarDef
-                (TPoint (TIdent "channel"))
+                (TPointer (TIdent "channel"))
                 "s_in"
                 ( ECall
                     "create_buffer_nonblocking"
                     ([EInt 4])
                 ),
               SVarDef
-                (TPoint (TIdent "channel"))
+                (TPointer (TIdent "channel"))
                 "s_out"
                 ( ECall
                     "create_buffer_nonblocking"
                     ([EInt 2])
                 ),
               SVarDef
-                (TPoint (TIdent "channel"))
+                (TPointer (TIdent "channel"))
                 "s_1"
                 ( ECall
                     "create_buffer_nonblocking"
                     ([EInt 1])
                 ),
               SVarDef
-                (TPoint (TIdent "channel"))
+                (TPointer (TIdent "channel"))
                 "s_1_delay"
                 ( ECall
                     "create_buffer_nonblocking"
@@ -131,12 +131,12 @@ exampleProceduralIR =
         "actor11SDF"
         [ (TInt, "consum"),
           (TInt, "prod"),
-          (TPoint (TIdent "channel"), "ch_in"),
-          (TPoint (TIdent "channel"), "ch_out"),
-          ( TFuncPoint
+          (TPointer (TIdent "channel"), "ch_in"),
+          (TPointer (TIdent "channel"), "ch_out"),
+          ( TFunctionPointer
               TVoid
-              [ (TPoint (TIdent "token")),
-                (TPoint (TIdent "token"))
+              [ (TPointer (TIdent "token")),
+                (TPointer (TIdent "token"))
               ],
             "f"
           )
