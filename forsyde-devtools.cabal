@@ -55,7 +55,6 @@ executable forsyde-devtools-exe
         ArgumentsMain
         CoreIR
         ForSyDeIR
-        CoreToForSyDeIR
         SDFSchedule
         ProceduralIR
         CoreIRToForSyDeIR
