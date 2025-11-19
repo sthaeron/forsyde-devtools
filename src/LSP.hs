@@ -48,12 +48,12 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
     createPortWithRate pid renderings properties (n, r) =
       createPort' renderings properties [label] (id, r)
       where
-        id = pid <> "$P" <> T.show n
-        label = KLabel {gid = id <> "$L0", label = T.show r}
+        id = pid <> "$P$" <> T.show n
+        label = KLabel {gid = id <> "$L$" <> T.show n, label = T.show r}
     createPortWithoutRate pid renderings properties (n, r) =
       createPort' renderings properties [] (id, r)
       where
-        id = pid <> "$P" <> T.show n
+        id = pid <> "$P$" <> T.show n
     -- \| Create a port with the passed renderings and children
     createPort' renderings properties children (gid, _) =
       KPort
@@ -101,12 +101,12 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
     -- \| Helper for createNode and global inputs / outputs
     createNode' name createPort l r p = node
       where
-        nid = "$root$N" <> T.show name
+        nid = "$root$N$" <> T.show name
         insignals = findInputSignals signals name
         outsignals = findOutputSignals signals name
         inports = map (createPort nid (maybe [] (\_l -> [KText "◆" []]) l) []) insignals
         outports = map (createPort nid [] []) outsignals
-        nl = maybe [] (\l -> [KLabel {gid = nid <> "$L0", label = T.show l}]) l
+        nl = maybe [] (\l -> [KLabel {gid = nid <> "$L$" <> T.show name, label = T.show l}]) l
         c = inports ++ outports ++ nl
         node =
           KNode
@@ -118,10 +118,10 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
     -- \| Create an edge from an IRSignal, depends on port id
     createEdge (IRSignal n (sname, _) (tname, _)) = edge
       where
-        sn = "$root$N" <> T.show sname <> "$P" <> T.show n
-        tn = "$root$N" <> T.show tname <> "$P" <> T.show n
-        name = sn <> "$E" <> T.show n
-        sigid = name <> "$L0"
+        sn = "$root$N$" <> T.show sname <> "$P$" <> T.show n
+        tn = "$root$N$" <> T.show tname <> "$P$" <> T.show n
+        name = sn <> "$E$" <> T.show n
+        sigid = name <> "$L$" <> T.show n
         children =
           if n == sname || n == tname
             then []
