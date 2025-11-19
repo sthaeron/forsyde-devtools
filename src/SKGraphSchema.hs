@@ -50,6 +50,7 @@ data KProperty
   | NodeSizeMinimum [Int]
   | EdgeType Int
   | JunctionPoints [Int]
+  | LayerConstraint Int
 
 data KPlacementData
   = KTopPosition Float Float -- absolute (Float), relative (Float)
@@ -317,3 +318,4 @@ instance A.ToJSON GraphElement where
         NodeSizeMinimum l -> ("org.eclipse.elk.nodeSize.minimum", A.toJSON $ Seq.fromList l)
         EdgeType v -> ("org.eclipse.elk.edge.type", A.toJSON v)
         JunctionPoints l -> ("org.eclipse.elk.junctionPoints", A.toJSON $ Seq.fromList l)
+        LayerConstraint v -> ("org.eclipse.elk.layered.layering.layerConstraint", A.toJSON v)

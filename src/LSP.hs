@@ -135,8 +135,8 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
             }
     nodes =
       map createNode actors
-        ++ map (\n -> createNode' n (createPortWithoutRate) (Just n) [] []) inputs
-        ++ map (\n -> createNode' n (createPortWithoutRate) (Just n) [] []) outputs
+        ++ map (\n -> createNode' n (createPortWithoutRate) (Just n) [] [LayerConstraint 2]) inputs
+        ++ map (\n -> createNode' n (createPortWithoutRate) (Just n) [] [LayerConstraint 4]) outputs
     edges = map createEdge signals
     graph =
       KGraph
