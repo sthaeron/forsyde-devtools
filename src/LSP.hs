@@ -20,7 +20,10 @@ import qualified Data.Aeson as A
 import Data.Aeson.Encode.Pretty as AP
 import Data.Aeson.KeyMap ((!?))
 import qualified Data.ByteString.Lazy.Char8 as BSL8
+import qualified Data.Foldable as F
+import Data.Function
 import qualified Data.List.NonEmpty as NE
+import Data.Maybe
 import Data.Proxy
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
@@ -213,15 +216,49 @@ handlers f =
         c <- getConfig
         let file = maybe (getFile p) id c
         _ <- setConfig (Just file)
+        let sel = getSelected p & map (T.split (\_c -> _c == '$')) & map last & map T.unpack
+        _ <- withRunInIO (\_u -> putStrLn $ show $ sel)
         sendNotification diagramAcceptMethod setSynthesis
         sendNotification diagramAcceptMethod (updateOptions file)
         (core, dflags) <- withRunInIO (\_u -> compileToCore file)
         let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
+        let IRSystem _ procs sigs _ = forsydeIR
+        let s = map findSignalSpan (map IRString sel) <*> [sigs] & mconcat
+        let a = map findProcessSpan (map IRString sel) <*> [procs] & mconcat
+        let spans = s ++ a
+        _ <- if length spans > 0 then withRunInIO (\_u -> putStrLn $ show spans) else pure ()
+
         let graphMessage = requestBounds file forsydeIR
         sendNotification diagramAcceptMethod graphMessage
         pure ()
     ]
   where
+    findIR :: (a -> Maybe b) -> (a -> Bool) -> [a] -> [b]
+    findIR transform match l =
+      foldr
+        ( \e a ->
+            if match e
+              then case transform e of
+                Just ret -> ret : a
+                Nothing -> a
+              else a
+        )
+        []
+        l
+    findSignalSpan :: IRId -> [IRSignal] -> [IRSpan]
+    findSignalSpan sig l = findIR transform match l
+      where
+        match (IRSignal n _ _) = sig == n
+        transform (IRSignal n _ _) = varToSpan n
+    findProcessSpan :: IRId -> [IRConstructor] -> [IRSpan]
+    findProcessSpan proc l = findIR transform match l
+      where
+        match = \case
+          IRDelay n _ _ -> proc == n
+          IRActor n _ _ _ -> proc == n
+        transform = \case
+          IRDelay n _ _ -> varToSpan n
+          IRActor n _ _ _ -> varToSpan n
     getFile params = case f of
       FromClient -> case getFilePathFromClient params of
         Just _file -> _file
@@ -230,6 +267,22 @@ handlers f =
     getKey key = \case
       A.Object o -> o !? key
       _ -> Nothing
+    getSelected params =
+      Just params
+        >>= getKey "action"
+        >>= getKey "selectedElementsIDs"
+        >>= \case
+          A.Array _a -> Just $ F.toList _a
+          _ -> Nothing
+        & maybeToList
+        & mconcat
+        & foldr
+          ( \j l ->
+              case j of
+                A.String s -> s : l
+                _ -> l
+          )
+          []
     getFilePathFromClient params =
       Just params
         >>= getKey "action"
