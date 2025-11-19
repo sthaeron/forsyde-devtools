@@ -41,6 +41,7 @@ library
     exposed-modules:
         CoreIR
         ForSyDeIR
+        SDFSchedule
         ProceduralIR
         ProceduralIRToC
 
@@ -54,6 +55,7 @@ executable forsyde-devtools-exe
         ArgumentsMain
         CoreIR
         ForSyDeIR
+        SDFSchedule
         ProceduralIR
         CoreIRToForSyDeIR
         ProceduralIRToC
@@ -80,6 +82,8 @@ test-suite forsyde-devtools-test
     main-is:          Spec.hs
     ghc-options:      -rtsopts -with-rtsopts=-N
     other-modules:
+        ForSyDeIRSpec
+        SDFScheduleSpec
         ForSyDeIRSpec,
         ProceduralIRSpec,
         ProceduralIRToCSpec
