@@ -1,12 +1,11 @@
 module Main where
 
-import Arguments
-import CoreIR (compileToCore, prettyCoreProgram)
-import CoreToForSyDeIR
-import Data.Aeson
-import qualified Data.ByteString.Lazy.Char8 as BSC
-import ForSyDeIR (prettyIRSystem)
+import ArgumentsMain
+import CoreIR (prettyCoreProgram)
+import CoreIRToForSyDeIR (translateCoreProgram)
+import ForSyDeIR (prettyIRJSON, prettyIRSystem)
 import Options.Applicative
+import Utilities (compileToCore)
 
 {-
 
@@ -43,7 +42,7 @@ import Options.Applicative
 
 write_output :: Output -> OutputFormat -> [Char] -> IO ()
 write_output StdOut _ s =
-  putStrLn s
+  putStr s
 write_output (OutputFile (output_file, WithFileExtension)) _ s =
   writeFile output_file s
 write_output (OutputFile (output_file, NoFileExtension)) extension s =
@@ -74,9 +73,9 @@ run (Arguments (InputFile input_file) output_file OutputForSyDeIR) = do
 run (Arguments (InputFile input_file) output_file OutputForSyDeIRJSON) = do
   (core, dflags) <- compileToCore input_file
   let ir = translateCoreProgram dflags core
-  let ir_json = (BSC.unpack (encode ir)) :: String
+  let ir_json = prettyIRJSON ir
   write_output output_file OutputForSyDeIRJSON ir_json
-run (Arguments (InputFile _) _ OutputProceduralIR) =
+run (Arguments (InputFile _) _ OutputProceduralIR) = do
   putStrLn "To Procedural IR"
 -- What we have so far, take input file and write out core
 run (Arguments (InputFile input_file) output_file OutputCore) = do

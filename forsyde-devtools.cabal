@@ -15,17 +15,25 @@ common common-options
     ghc-options:      -Wall -threaded
     default-language: Haskell2010
     build-depends:
-        base >=4.6 && <6,
+        base >=4.11 && <4.21,
         ghc == 9.10.2,
         ghc-paths == 0.1.0.12,
         forsyde-shallow == 3.5.0.0,
         optparse-applicative >= 0.18.1.0,
-        filepath == 1.5.4.0,
+        filepath >=1 && <1.6,
         aeson == 2.2.3.0,
+        aeson-pretty == 0.8.10,
         text == 2.1.2,
         containers == 0.7,
-        bytestring == 0.12.2.0,
+        bytestring >=0.11 && <0.13,
+        process == 1.6.25.0,
         hmatrix == 0.20.2,
+        syb >= 0.7.2.4 && <= 0.7.3,
+        lsp == 2.7.0.1,
+        network == 3.2.7.0,
+        co-log-core == 0.3.2.5,
+        prettyprinter == 1.7.1,
+        unliftio-core == 0.2.1.0,
 
 library
     import:           common-options
@@ -34,6 +42,8 @@ library
         CoreIR
         ForSyDeIR
         SDFSchedule
+        ProceduralIR
+        ProceduralIRToC
 
 executable forsyde-devtools-exe
     import:           common-options
@@ -42,11 +52,29 @@ executable forsyde-devtools-exe
     ghc-options:      -rtsopts -with-rtsopts=-N
     build-depends:    forsyde-devtools
     other-modules:
-        Arguments
+        ArgumentsMain
         CoreIR
         ForSyDeIR
         CoreToForSyDeIR
         SDFSchedule
+        ProceduralIR
+        CoreIRToForSyDeIR
+        ProceduralIRToC
+        Utilities
+
+executable forsyde-lsp-exe
+    import:           common-options
+    hs-source-dirs:   src
+    main-is:          LSP.hs
+    ghc-options:      -rtsopts -with-rtsopts=-N
+    build-depends:    forsyde-devtools
+    other-modules:
+        ArgumentsLSP
+        CoreIR
+        ForSyDeIR
+        CoreIRToForSyDeIR
+        Utilities
+        SKGraphSchema
 
 test-suite forsyde-devtools-test
     import:           common-options
@@ -57,6 +85,9 @@ test-suite forsyde-devtools-test
     other-modules:
         ForSyDeIRSpec
         SDFScheduleSpec
+        ForSyDeIRSpec,
+        ProceduralIRSpec,
+        ProceduralIRToCSpec
     build-depends:
         forsyde-devtools,
         hspec,
