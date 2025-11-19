@@ -83,14 +83,14 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
             (NodeSizeMinimum [12, 12])
           ]
     -- \| Find all signals which the process is the source of
-    findSourceSignals signals proc =
+    findOutputSignals signals proc =
       foldr f [] signals
       where
         f s acc =
           let IRSignal n (p, rate) _ = s
            in if p == proc then (n, rate) : acc else acc
     -- \| Find all signals which the process is the target of
-    findTargetSignals signals proc =
+    findInputSignals signals proc =
       foldr f [] signals
       where
         f s acc =
@@ -100,10 +100,10 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
     createNode' name createPort l r p = node
       where
         nid = T.pack ("$root$N" ++ name)
-        insignals = findSourceSignals signals name
-        outsignals = findTargetSignals signals name
-        inports = map (createPort nid [] []) insignals
-        outports = map (createPort nid (maybe [] (\_l -> [KText "◆" []]) l) []) outsignals
+        insignals = findInputSignals signals name
+        outsignals = findOutputSignals signals name
+        inports = map (createPort nid (maybe [] (\_l -> [KText "◆" []]) l) []) insignals
+        outports = map (createPort nid [] []) outsignals
         nl = maybe [] (\l -> [KLabel {gid = T.concat [nid, "$L0"], label = T.pack l}]) l
         c = inports ++ outports ++ nl
         node =
