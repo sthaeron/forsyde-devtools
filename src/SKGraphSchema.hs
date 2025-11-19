@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
@@ -44,11 +45,11 @@ data GraphElement
 
 -- | ELK properties that influence layout, rendering, etc
 data KProperty
-  = NodeLabelsPlacement
-  | NodeSizeConstraints
-  | NodeSizeMinimum
-  | EdgeType
-  | JunctionPoints
+  = NodeLabelsPlacement [Int]
+  | NodeSizeConstraints [Int]
+  | NodeSizeMinimum [Int]
+  | EdgeType Int
+  | JunctionPoints [Int]
 
 data KPlacementData
   = KTopPosition Float Float -- absolute (Float), relative (Float)
@@ -68,15 +69,8 @@ kArrow =
       (KRightPosition 0.0 0.0, KBottomPosition 0.0 0.5)
     ]
 
-instance Show KProperty where
-  show NodeLabelsPlacement = "org.eclipse.elk.nodeLabels.placement"
-  show NodeSizeConstraints = "org.eclipse.elk.nodeSize.constraints"
-  show NodeSizeMinimum = "org.eclipse.elk.nodeSize.minimum"
-  show EdgeType = "org.eclipse.elk.edge.type"
-  show JunctionPoints = "org.eclipse.elk.junctionPoints"
-
 -- We might want to change this later if we add the symbolic enum names
-type KProperties = [(KProperty, [Int])]
+type KProperties = [KProperty]
 
 -- | Styles which change how an object is rendered
 data KStyle
@@ -286,7 +280,7 @@ instance A.ToJSON GraphElement where
           [ "data" .= Seq.fromList r,
             "type" .= T.pack "edge",
             "id" .= i,
-            "properties" .= (toProperties p),
+            "properties" .= (M.fromList $ map toKV p),
             "children"
               .= Seq.fromList c,
             "sourceId" .= s,
@@ -302,7 +296,7 @@ instance A.ToJSON GraphElement where
           [ "type" .= T.pack "graph",
             "revision" .= (0 :: Int),
             "id" .= i,
-            "properties" .= (toProperties p),
+            "properties" .= (M.fromList $ map toKV p),
             "children"
               .= Seq.fromList [c]
           ]
@@ -312,8 +306,14 @@ instance A.ToJSON GraphElement where
           [ "data" .= Seq.fromList r,
             "type" .= T.pack t,
             "id" .= i,
-            "properties" .= (toProperties p),
+            "properties" .= (M.fromList $ map toKV p),
             "children"
               .= Seq.fromList c
           ]
-      toProperties p = M.fromList $ map (\(a, b) -> (T.pack $ show a, Seq.fromList b)) p
+      toKV :: KProperty -> (T.Text, A.Value)
+      toKV = \case
+        NodeLabelsPlacement l -> ("org.eclipse.elk.nodeLabels.placement", A.toJSON $ Seq.fromList l)
+        NodeSizeConstraints l -> ("org.eclipse.elk.nodeSize.constraints", A.toJSON $ Seq.fromList l)
+        NodeSizeMinimum l -> ("org.eclipse.elk.nodeSize.minimum", A.toJSON $ Seq.fromList l)
+        EdgeType v -> ("org.eclipse.elk.edge.type", A.toJSON v)
+        JunctionPoints l -> ("org.eclipse.elk.junctionPoints", A.toJSON $ Seq.fromList l)

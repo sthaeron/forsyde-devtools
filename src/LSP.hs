@@ -68,9 +68,9 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
           (createPortWithRate)
           (Just name)
           [KEllipse [KBackgroundColor 160 160 240]]
-          [ (NodeLabelsPlacement, [1, 4, 6]),
-            (NodeSizeConstraints, [3]),
-            (NodeSizeMinimum, [64, 64])
+          [ (NodeLabelsPlacement [1, 4, 6]),
+            (NodeSizeConstraints [3]),
+            (NodeSizeMinimum [64, 64])
           ]
       (IRDelay name d _) ->
         createNode'
@@ -78,9 +78,9 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
           (createPortWithoutRate)
           Nothing
           [KEllipse [KBackgroundColor 0 0 0]]
-          [ (NodeLabelsPlacement, [1, 4, 6]),
-            (NodeSizeConstraints, [3]),
-            (NodeSizeMinimum, [12, 12])
+          [ (NodeLabelsPlacement [1, 4, 6]),
+            (NodeSizeConstraints [3]),
+            (NodeSizeMinimum [12, 12])
           ]
     -- \| Find all signals which the process is the source of
     findSourceSignals signals proc =
