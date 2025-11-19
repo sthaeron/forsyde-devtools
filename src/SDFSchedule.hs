@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-module SDF_schedule (computeScheduleAndBuffers, computeScheduleAndBuffersPrint) where
+module SDFSchedule (computeScheduleAndBuffers, computeScheduleAndBuffersPrint) where
 
 import Data.List (find, intercalate, nub)
 import Data.Ratio (approxRational, denominator, numerator)

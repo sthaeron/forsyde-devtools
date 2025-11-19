@@ -33,7 +33,7 @@ library
     exposed-modules:
         CoreIR
         ForSyDeIR
-        SDF_schedule
+        SDFSchedule
 
 executable forsyde-devtools-exe
     import:           common-options
@@ -46,7 +46,7 @@ executable forsyde-devtools-exe
         CoreIR
         ForSyDeIR
         CoreToForSyDeIR
-        SDF_schedule
+        SDFSchedule
 
 test-suite forsyde-devtools-test
     import:           common-options

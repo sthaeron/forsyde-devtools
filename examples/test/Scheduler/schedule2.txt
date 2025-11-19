@@ -1,6 +1,0 @@
-No internal edges found.
-
-Schedule (all actors fire once):
-actor
-
-Buffer sizes: no buffer needed.
