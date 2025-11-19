@@ -43,21 +43,21 @@ forSyDeIRToGraph :: FilePath -> IRSystem -> GraphElement
 forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
   where
     -- \| Create a port with a label for signal rate
-    createPortWithRate pid renderings (n, r) =
-      createPort' renderings [label] (id, r)
+    createPortWithRate pid renderings properties (n, r) =
+      createPort' renderings properties [label] (id, r)
       where
         id = T.concat [pid, "$P", T.pack n]
         label = KLabel {gid = T.concat [id, "$L0"], label = T.show r}
-    createPortWithoutRate pid renderings (n, r) =
-      createPort' renderings [] (id, r)
+    createPortWithoutRate pid renderings properties (n, r) =
+      createPort' renderings properties [] (id, r)
       where
         id = T.concat [pid, "$P", T.pack n]
     -- \| Create a port with the passed renderings and children
-    createPort' renderings children (gid, _) =
+    createPort' renderings properties children (gid, _) =
       KPort
         { children = children,
           renderings = renderings,
-          properties = [],
+          properties = properties,
           gid = gid
         }
     -- \| Create a node based on an IRActor
@@ -102,8 +102,8 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
         nid = T.pack ("$root$N" ++ name)
         insignals = findSourceSignals signals name
         outsignals = findTargetSignals signals name
-        inports = map (createPort nid []) insignals
-        outports = map (createPort nid (maybe [] (\_l -> [KText "◆" []]) l)) outsignals
+        inports = map (createPort nid [] []) insignals
+        outports = map (createPort nid (maybe [] (\_l -> [KText "◆" []]) l) []) outsignals
         nl = maybe [] (\l -> [KLabel {gid = T.concat [nid, "$L0"], label = T.pack l}]) l
         c = inports ++ outports ++ nl
         node =
