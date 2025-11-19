@@ -43,6 +43,8 @@ library
         ForSyDeIR
         SDFSchedule
         ProceduralIR
+        CoreIRToForSyDeIR
+        ForSyDeIRToProceduralIR
         ProceduralIRToC
 
 executable forsyde-devtools-exe
@@ -58,7 +60,7 @@ executable forsyde-devtools-exe
         SDFSchedule
         ProceduralIR
         CoreIRToForSyDeIR
-        CoreIRToProceduralIR
+        ForSyDeIRToProceduralIR
         ProceduralIRToC
         Utilities
 
