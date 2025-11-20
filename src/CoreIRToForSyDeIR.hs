@@ -5,7 +5,6 @@ import Data.List (elemIndex)
 import ForSyDeIR
 import GHC hiding (targetId)
 import GHC.Core
-import GHC.Driver.Ppr
 import GHC.Types.Literal
 import Prelude hiding (id)
 
@@ -63,7 +62,7 @@ translateCoreProgram dflags program =
 
 -- | Translates a top level `CoreBind`. Module information is currently ignored.
 translateCoreBind :: TranslationContext -> CoreBind -> TranslationContext
-translateCoreBind context (NonRec b e) = case (showPpr (flags context) b) of
+translateCoreBind context (NonRec b e) = case varToString b of
   "$trModule" -> context
   "system" -> translateSystem context e
   _ -> translateCoreExpr context b e
@@ -77,7 +76,7 @@ translateCoreBind _ (Rec _) = error "translateCoreBind - `Rec` used in top level
 translateSystem :: TranslationContext -> CoreExpr -> TranslationContext
 translateSystem initialContext expr = case expr of
   Lam b e ->
-    let newInput = showPpr (flags initialContext) b
+    let newInput = varToString b
         context1 = initialContext {systemInputs = newInput : (systemInputs initialContext)}
         context2 = translateSystem context1 e
      in context2
@@ -119,7 +118,7 @@ translateSystemOutputs initialContext expr = case expr of
 
 updateSystemOutput :: TranslationContext -> Id -> TranslationContext
 updateSystemOutput initialContext output =
-  let outputId = showPpr (flags initialContext) output
+  let outputId = varToString output
       (sourceId, sourceRate) = getSourceFromArgument initialContext outputId
       newSignal = IRSignal outputId (sourceId, sourceRate) (outputId, 1)
       context1 =
@@ -195,7 +194,7 @@ translateSystemBinds :: TranslationContext -> [(CoreBndr, CoreExpr)] -> (Transla
 translateSystemBinds initialContext binds = case binds of
   [] -> (initialContext)
   (b, e) : bindTail ->
-    let binderId = showPpr (flags initialContext) b
+    let binderId = varToString b
         (binder, context1) = translateSystemExpr initialContext e
         context2 = context1 {binders = (binderId, binder) : (binders context1)}
      in translateSystemBinds context2 bindTail
@@ -211,44 +210,44 @@ translateSystemExpr :: TranslationContext -> CoreExpr -> (Binder, TranslationCon
 translateSystemExpr initialContext expr = case expr of
   -- Application of process constructors with 1 input
   App (Var i) (Var a) ->
-    let pcId = showPpr (flags initialContext) i
-        aId = showPpr (flags initialContext) a
+    let pcId = varToString i
+        aId = varToString a
         arguments = [aId]
         context1 = createSignalsFromArguments initialContext pcId arguments
         binder = PcId pcId
      in (binder, context1)
   -- Application of process constructors with 2 input
   App (App (Var i) (Var a1)) (Var a2) ->
-    let pcId = showPpr (flags initialContext) i
-        a1Id = showPpr (flags initialContext) a1
-        a2Id = showPpr (flags initialContext) a2
+    let pcId = varToString i
+        a1Id = varToString a1
+        a2Id = varToString a2
         arguments = [a1Id, a2Id]
         context1 = createSignalsFromArguments initialContext pcId arguments
         binder = PcId pcId
      in (binder, context1)
   -- Application of process constructors with 3 input
   App (App (App (Var i) (Var a1)) (Var a2)) (Var a3) ->
-    let pcId = showPpr (flags initialContext) i
-        a1Id = showPpr (flags initialContext) a1
-        a2Id = showPpr (flags initialContext) a2
-        a3Id = showPpr (flags initialContext) a3
+    let pcId = varToString i
+        a1Id = varToString a1
+        a2Id = varToString a2
+        a3Id = varToString a3
         arguments = [a1Id, a2Id, a3Id]
         context1 = createSignalsFromArguments initialContext pcId arguments
         binder = PcId pcId
      in (binder, context1)
   -- Application of process constructors with 4 input
   App (App (App (App (Var i) (Var a1)) (Var a2)) (Var a3)) (Var a4) ->
-    let pcId = showPpr (flags initialContext) i
-        a1Id = showPpr (flags initialContext) a1
-        a2Id = showPpr (flags initialContext) a2
-        a3Id = showPpr (flags initialContext) a3
-        a4Id = showPpr (flags initialContext) a4
+    let pcId = varToString i
+        a1Id = varToString a1
+        a2Id = varToString a2
+        a3Id = varToString a3
+        a4Id = varToString a4
         arguments = [a1Id, a2Id, a3Id, a4Id]
         context1 = createSignalsFromArguments initialContext pcId arguments
         binder = PcId pcId
      in (binder, context1)
   Case (Var i) _ _ alts ->
-    let bindingId = showPpr (flags initialContext) i
+    let bindingId = varToString i
         index = getIndexFromAlts initialContext alts
         binder = Binding bindingId index
      in (binder, initialContext)
@@ -264,7 +263,7 @@ getIndexFromAlts context alts = case alts of
     let maybeIndex = elemIndex i ids
      in case maybeIndex of
           Just index -> index
-          Nothing -> error ("getIndexFromAlts - Unable to find: " ++ showPpr (flags context) i)
+          Nothing -> error ("getIndexFromAlts - Unable to find: " ++ varToString i)
   _ -> error ("getIndexFromAlts - More than one AltCon:\n" ++ prettyCoreAltList (flags context) alts)
 
 -- | Creates signals based on the arguments of a process constructor. All
@@ -350,45 +349,45 @@ getSourceFromArgument context argument =
 translateCoreExpr :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 translateCoreExpr context binder expr = case expr of
   Lam _ (App (App (App (Var i) _) _) _)
-    | showPpr (flags context) i == "delaySDF" -> createDelaySDF context binder expr
+    | varToString i == "delaySDF" -> createDelaySDF context binder expr
   Lam _ (App (App (App (App (App (App (Var i) _) _) _) _) _) _)
-    | showPpr (flags context) i == "actor11SDF" -> createActorSDF context Actor11 binder expr
+    | varToString i == "actor11SDF" -> createActorSDF context Actor11 binder expr
   Lam _ (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _)
-    | showPpr (flags context) i == "actor12SDF" -> createActorSDF context Actor12 binder expr
+    | varToString i == "actor12SDF" -> createActorSDF context Actor12 binder expr
   Lam _ (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _)
-    | showPpr (flags context) i == "actor13SDF" -> createActorSDF context Actor13 binder expr
+    | varToString i == "actor13SDF" -> createActorSDF context Actor13 binder expr
   Lam _ (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _)
-    | showPpr (flags context) i == "actor14SDF" -> createActorSDF context Actor14 binder expr
+    | varToString i == "actor14SDF" -> createActorSDF context Actor14 binder expr
   Lam _ (Lam _ (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _))
-    | showPpr (flags context) i == "actor21SDF" -> createActorSDF context Actor21 binder expr
+    | varToString i == "actor21SDF" -> createActorSDF context Actor21 binder expr
   Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _))
-    | showPpr (flags context) i == "actor22SDF" -> createActorSDF context Actor22 binder expr
+    | varToString i == "actor22SDF" -> createActorSDF context Actor22 binder expr
   Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _))
-    | showPpr (flags context) i == "actor23SDF" -> createActorSDF context Actor23 binder expr
+    | varToString i == "actor23SDF" -> createActorSDF context Actor23 binder expr
   Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _))
-    | showPpr (flags context) i == "actor24SDF" -> createActorSDF context Actor24 binder expr
+    | varToString i == "actor24SDF" -> createActorSDF context Actor24 binder expr
   Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _)))
-    | showPpr (flags context) i == "actor31SDF" -> createActorSDF context Actor31 binder expr
+    | varToString i == "actor31SDF" -> createActorSDF context Actor31 binder expr
   Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _)))
-    | showPpr (flags context) i == "actor32SDF" -> createActorSDF context Actor32 binder expr
+    | varToString i == "actor32SDF" -> createActorSDF context Actor32 binder expr
   Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _) _)))
-    | showPpr (flags context) i == "actor33SDF" -> createActorSDF context Actor33 binder expr
+    | varToString i == "actor33SDF" -> createActorSDF context Actor33 binder expr
   Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _) _) _)))
-    | showPpr (flags context) i == "actor34SDF" -> createActorSDF context Actor34 binder expr
+    | varToString i == "actor34SDF" -> createActorSDF context Actor34 binder expr
   Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _) _))))
-    | showPpr (flags context) i == "actor41SDF" -> createActorSDF context Actor41 binder expr
+    | varToString i == "actor41SDF" -> createActorSDF context Actor41 binder expr
   Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _) _) _))))
-    | showPpr (flags context) i == "actor42SDF" -> createActorSDF context Actor42 binder expr
+    | varToString i == "actor42SDF" -> createActorSDF context Actor42 binder expr
   Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _) _) _) _))))
-    | showPpr (flags context) i == "actor43SDF" -> createActorSDF context Actor43 binder expr
+    | varToString i == "actor43SDF" -> createActorSDF context Actor43 binder expr
   Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _) _) _) _) _))))
-    | showPpr (flags context) i == "actor44SDF" -> createActorSDF context Actor44 binder expr
+    | varToString i == "actor44SDF" -> createActorSDF context Actor44 binder expr
   _ -> createFunction context binder expr
 
 createDelaySDF :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 createDelaySDF context binder expr =
   let tokens = (getLits expr [])
-      delayId = showPpr (flags context) binder
+      delayId = varToString binder
       newDelay = IRDelay delayId tokens ("", "")
       newActorsList = (delayId, ([1], [1])) : (pcRates context)
    in context {constructors = (delayId, newDelay) : (constructors context), pcRates = newActorsList}
@@ -401,7 +400,7 @@ createActorSDF initialContext actorType binder expr =
         Nothing -> error "createActorSDF - No function found for actor"
         Just functionName ->
           let (inputRates, outputRates) = splitAt (getActorSplit actorType) lits
-              actorId = showPpr (flags initialContext) binder
+              actorId = varToString binder
               baseOutputs = replicate (length outputRates) ""
               newActor = IRActor actorId actorType functionName ([], baseOutputs)
               newActors = (actorId, (inputRates, outputRates)) : (pcRates initialContext)
@@ -442,7 +441,7 @@ getActorSplit actorType = case actorType of
 
 createFunction :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 createFunction context binder expr =
-  let functionId = showPpr (flags context) binder
+  let functionId = varToString binder
       newFunction = IRFunction functionId (Just expr)
    in context {functions = (functionId, newFunction) : (functions context)}
 
@@ -458,7 +457,7 @@ getFunctionName context expr = case expr of
   Lam _ e -> getFunctionName context e
   Let _ e -> getFunctionName context e
   Var v ->
-    let name = showPpr (flags context) v
+    let name = varToString v
      in if any (\x -> case x of IRFunction functionName _ -> functionName == name) (map snd (functions context))
           then
             Just name
