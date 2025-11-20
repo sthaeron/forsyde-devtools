@@ -23,12 +23,31 @@ get the file from the LSP client or specify a separate one which will be used fo
 regardless of what the LSP client sends.
 
 To run the visualizer:
+
 ```sh
 cabal run forsyde-lsp-exe
 # In a separate shell
 ./klighd-linux --ls_port 5007 <path/to/model.hs>
 ```
+
 This will open up a new tab in the browser with the visualizer.
+
+### LSP Client and Server
+
+LSP consists of 3 parts: the code editor, LSP client, and LSP server.
+LSP client in VS Code communicates via JSON RPC, with either stdio/stdin or sockets.
+
+For visualisation purposes, our LSP client also needs to notify the KIELER
+extension as in this snippet:
+
+```javascript
+// Inform the KLighD extension about the LS client and supported file endings
+await vscode.commands.executeCommand<string>(
+  "klighd-vscode.setLanguageClient",
+  lsClient,
+  ["model", "osgiviz"],
+);
+```
 
 ### SKGraphSchema
 
