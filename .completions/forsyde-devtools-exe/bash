@@ -1,0 +1,14 @@
+_forsyde-devtools-exe()
+{
+    local CMDLINE
+    local IFS=$'\n'
+    CMDLINE=(--bash-completion-index $COMP_CWORD)
+
+    for arg in ${COMP_WORDS[@]}; do
+        CMDLINE=(${CMDLINE[@]} --bash-completion-word $arg)
+    done
+
+    COMPREPLY=( $(/home/sam/Documents/IL2232/forsyde-devtools/dist-newstyle/build/x86_64-linux/ghc-9.10.2/forsyde-devtools-0.0.0.1/x/forsyde-devtools-exe/build/forsyde-devtools-exe/forsyde-devtools-exe "${CMDLINE[@]}") )
+}
+
+complete -o filenames -F _forsyde-devtools-exe forsyde-devtools-exe

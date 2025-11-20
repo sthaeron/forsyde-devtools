@@ -1,0 +1,14 @@
+_forsyde-lsp-exe()
+{
+    local CMDLINE
+    local IFS=$'\n'
+    CMDLINE=(--bash-completion-index $COMP_CWORD)
+
+    for arg in ${COMP_WORDS[@]}; do
+        CMDLINE=(${CMDLINE[@]} --bash-completion-word $arg)
+    done
+
+    COMPREPLY=( $(/home/sam/Documents/IL2232/forsyde-devtools/dist-newstyle/build/x86_64-linux/ghc-9.10.2/forsyde-devtools-0.0.0.1/x/forsyde-lsp-exe/build/forsyde-lsp-exe/forsyde-lsp-exe "${CMDLINE[@]}") )
+}
+
+complete -o filenames -F _forsyde-lsp-exe forsyde-lsp-exe

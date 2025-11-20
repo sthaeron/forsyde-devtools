@@ -43,6 +43,7 @@ inputFile =
     (InputFile <$> str)
     ( metavar "INPUT"
         <> value FromClient
+        <> action "file"
         <> help "Input filename (debug option), if unset get file from client"
     )
 

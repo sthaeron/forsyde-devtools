@@ -1,0 +1,19 @@
+ function _forsyde-devtools-exe
+    set -l cl (commandline --tokenize --current-process)
+    # Hack around fish issue #3934
+    set -l cn (commandline --tokenize --cut-at-cursor --current-process)
+    set -l cn (count $cn)
+    set -l tmpline --bash-completion-enriched --bash-completion-index $cn
+    for arg in $cl
+      set tmpline $tmpline --bash-completion-word $arg
+    end
+    for opt in (/home/sam/Documents/IL2232/forsyde-devtools/dist-newstyle/build/x86_64-linux/ghc-9.10.2/forsyde-devtools-0.0.0.1/x/forsyde-devtools-exe/build/forsyde-devtools-exe/forsyde-devtools-exe $tmpline)
+      if test -d $opt
+        echo -E "$opt/"
+      else
+        echo -E "$opt"
+      end
+    end
+end
+
+complete --no-files --command forsyde-devtools-exe --arguments '(_forsyde-devtools-exe)'

@@ -72,8 +72,16 @@
           ];
           nativeBuildInputs = [ hspkgs.ghc ];
           shellHook = ''
+            # Add compiler and LSP executable paths to PATH. Pre-requisite for completion to work, also just
+            # nice to be able to write forsyde-devtools-exe with completion instead of having cabal exec/run
+            export PATH=$PATH:$(pwd)/dist-newstyle/build/x86_64-linux/ghc-9.10.2/forsyde-devtools-0.0.0.1/x/forsyde-devtools-exe/build/forsyde-devtools-exe/ 
+            export PATH=$PATH:$(pwd)/dist-newstyle/build/x86_64-linux/ghc-9.10.2/forsyde-devtools-0.0.0.1/x/forsyde-lsp-exe/build/forsyde-lsp-exe/
+            # Add completion script
+            source .completions/forsyde-devtools-exe/$0
+            source .completions/forsyde-lsp-exe/$0
+            # Setup pre-commit hook
             cp .githooks/* .git/hooks/
-            chmod +x .git/hooks/*
+            chmod u+x .git/hooks/*
           '';
         };
         packages.default = pkgs.forsyde-devtools;

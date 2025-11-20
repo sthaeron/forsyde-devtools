@@ -45,6 +45,7 @@ inputFile =
   InputFile
     <$> strArgument
       ( metavar "INPUT"
+          <> action "file"
           <> help "Input filename"
       )
 
