@@ -19,7 +19,6 @@ import Data.Aeson ((.=))
 import qualified Data.Aeson as A
 import Data.Aeson.Encode.Pretty as AP
 import Data.Aeson.KeyMap ((!?))
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import qualified Data.List.NonEmpty as NE
 import Data.Proxy
@@ -49,12 +48,12 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
     createPortWithRate pid renderings properties (n, r) =
       createPort' renderings properties [label] (id, r)
       where
-        id = T.concat [pid, "$P", T.pack n]
-        label = KLabel {gid = T.concat [id, "$L0"], label = T.show r}
+        id = pid <> "$P" <> T.show n
+        label = KLabel {gid = id <> "$L0", label = T.show r}
     createPortWithoutRate pid renderings properties (n, r) =
       createPort' renderings properties [] (id, r)
       where
-        id = T.concat [pid, "$P", T.pack n]
+        id = pid <> "$P" <> T.show n
     -- \| Create a port with the passed renderings and children
     createPort' renderings properties children (gid, _) =
       KPort
@@ -75,11 +74,11 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
             (NodeSizeConstraints [0, 1, 2, 3]),
             (NodeSizeMinimum [64, 64])
           ]
-      (IRDelay name d _) ->
+      (IRDelay name _ _) ->
         createNode'
           name
           (createPortWithoutRate)
-          Nothing
+          (Nothing :: Maybe IRId)
           [KEllipse [KBackgroundColor 0 0 0]]
           [ (NodeLabelsPlacement [1, 4, 6]),
             (NodeSizeConstraints [3]),
@@ -102,12 +101,12 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
     -- \| Helper for createNode and global inputs / outputs
     createNode' name createPort l r p = node
       where
-        nid = T.pack ("$root$N" ++ name)
+        nid = "$root$N" <> T.show name
         insignals = findInputSignals signals name
         outsignals = findOutputSignals signals name
         inports = map (createPort nid (maybe [] (\_l -> [KText "◆" []]) l) []) insignals
         outports = map (createPort nid [] []) outsignals
-        nl = maybe [] (\l -> [KLabel {gid = T.concat [nid, "$L0"], label = T.pack l}]) l
+        nl = maybe [] (\l -> [KLabel {gid = nid <> "$L0", label = T.show l}]) l
         c = inports ++ outports ++ nl
         node =
           KNode
@@ -119,14 +118,14 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
     -- \| Create an edge from an IRSignal, depends on port id
     createEdge (IRSignal n (sname, _) (tname, _)) = edge
       where
-        sn = T.concat ["$root$N", T.pack sname, "$P", T.pack n]
-        tn = T.concat ["$root$N", T.pack tname, "$P", T.pack n]
-        name = T.concat [sn, "$E", T.pack n]
-        sigid = T.concat [name, "$L0"]
+        sn = "$root$N" <> T.show sname <> "$P" <> T.show n
+        tn = "$root$N" <> T.show tname <> "$P" <> T.show n
+        name = sn <> "$E" <> T.show n
+        sigid = name <> "$L0"
         children =
           if n == sname || n == tname
             then []
-            else [KLabel {gid = sigid, label = T.pack n}]
+            else [KLabel {gid = sigid, label = T.show n}]
         edge =
           KEdge
             { gid = name,
