@@ -197,9 +197,14 @@ translateGlobal global = case global of
       (id)
       (intercalate ",\n" (map translateParam fields))
 
-translateProgram :: Program -> String
-translateProgram (Prog globals) =
-  intercalate "\n" (map translateGlobal globals)
+translateProgram :: Program -> Bool -> String
+translateProgram (Prog globals) includes =
+  if includes
+    then
+      "typedef int token;\n#include <stdio.h>\n#include \"common.h\"\n"
+        ++ intercalate "\n" (map translateGlobal globals)
+    else
+      intercalate "\n" (map translateGlobal globals)
 
 formatWithClang :: String -> IO String
 formatWithClang code =
