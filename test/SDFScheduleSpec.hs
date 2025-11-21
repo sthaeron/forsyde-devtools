@@ -124,37 +124,37 @@ spec :: SpecWith ()
 spec = do
   describe "SDF scheduling examples" $ do
     it "exampleSystem1: System with single actor and self loop" $ do
-      let (actualSchedule, actualBuffers) = computeScheduleAndBuffers exampleSystem1
+      let (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem1
       let expectedSchedule = ["actor_1"]
       let expectedBuffers = [("s_in", 1), ("s_out", 1), ("s_1_s_2", 1)]
       (actualSchedule, actualBuffers) `shouldBe` (expectedSchedule, expectedBuffers)
 
     it "exampleSystem2: System with single actor and nothing else" $ do
-      let (actualSchedule, actualBuffers) = computeScheduleAndBuffers exampleSystem2
+      let (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem2
       let expectedSchedule = ["actor"]
       let expectedBuffers = [("s_in", 1), ("s_out", 1)]
       (actualSchedule, actualBuffers) `shouldBe` (expectedSchedule, expectedBuffers)
 
     it "exampleSystem3: System with two actors, one self loop" $ do
-      let (actualSchedule, actualBuffers) = computeScheduleAndBuffers exampleSystem3
+      let (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem3
       let expectedSchedule = ["actor_1", "actor_2"]
       let expectedBuffers = [("s_in", 1), ("s_out", 1), ("s_3", 1), ("s_1_s_2", 1)]
       (actualSchedule, actualBuffers) `shouldBe` (expectedSchedule, expectedBuffers)
 
     it "exampleSystem4: System with multiple inputs" $ do
-      let (actualSchedule, actualBuffers) = computeScheduleAndBuffers exampleSystem4
+      let (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem4
       let expectedSchedule = ["actor_a", "actor_a", "actor_b", "actor_c", "actor_d"]
       let expectedBuffers = [("s_ina", 4), ("s_inb", 1), ("s_out", 2), ("s_1", 2), ("s_2", 2), ("s_3", 1), ("s_4_delay_s_4", 1)]
       (actualSchedule, actualBuffers) `shouldBe` (expectedSchedule, expectedBuffers)
 
     it "exampleSystem5" $ do
-      let (actualSchedule, actualBuffers) = computeScheduleAndBuffers exampleSystem5
+      let (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem5
       let expectedSchedule = ["a", "a", "b", "c", "c", "c"]
       let expectedBuffers = [("s_in", 4), ("s_out", 3), ("s1", 2), ("s2", 3), ("s3_delay_s3", 6)]
       (actualSchedule, actualBuffers) `shouldBe` (expectedSchedule, expectedBuffers)
 
     it "exampleSystem6" $ do
-      let (actualSchedule, actualBuffers) = computeScheduleAndBuffers exampleSystem6
+      let (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem6
       let expectedSchedule = ["d", "c", "a", "a", "c", "a", "a", "b", "c", "a", "a", "c", "a", "a", "b"]
       let expectedBuffers = [("s_in", 16), ("s_out", 1), ("s1", 4), ("s3", 4), ("s4", 4), ("s2_delay_s2", 2)]
       (actualSchedule, actualBuffers) `shouldBe` (expectedSchedule, expectedBuffers)

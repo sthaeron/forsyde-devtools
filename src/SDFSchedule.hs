@@ -49,6 +49,7 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
             consRate
             False
             0
+            Nothing
         | IRSignal signalId (srcId, prodRate) (dstId, consRate) <- signals,
           srcId `notElem` inputNames,
           dstId `notElem` outputNames,
@@ -91,6 +92,7 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
                     consOut
                     True
                     (length delayConstructor)
+                    (Just [(inSignalId, inSignalId ++ "_" ++ outSignalId), (outSignalId, inSignalId ++ "_" ++ outSignalId)])
                 ]
               ([], _) ->
                 error $ "Delay node " ++ delayName ++ " has no input signal."
@@ -100,7 +102,7 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
                 error $ "Delay node " ++ delayName ++ " must have exactly one input and one output."
 
       -- 8. Normalize self-loops: ensure prod == cons, otherwise error
-      normalizeSelfLoop e@(Edge edgeNameValue srcActor dstActor prodRate consRate _ _)
+      normalizeSelfLoop e@(Edge edgeNameValue srcActor dstActor prodRate consRate _ _ _)
         | name srcActor == name dstActor =
             if prodRate /= consRate
               then
@@ -137,7 +139,8 @@ data Edge = Edge
     prod :: Int,
     cons :: Int,
     isDelay :: Bool,
-    initTokens :: Int -- Count of Init tokens for delay edges
+    initTokens :: Int, -- Count of Init tokens for delay edges
+    buffers :: Maybe [(String, String)]
   }
   deriving (Show, Eq, Generic)
 
@@ -467,7 +470,7 @@ verifySchedule actors edges initialTokens schedule _repetitionCounts =
 ----------------------------------------------------------
 
 -- | Returns schedule as actor names and buffer sizes
-computeScheduleAndBuffers :: IRSystem -> ([String], [(String, Int)])
+computeScheduleAndBuffers :: IRSystem -> ([String], [(String, Int)], [(String, String)])
 computeScheduleAndBuffers irSystem =
   let (actors, edges) = convertIRSystem irSystem
    in if null edges
@@ -477,7 +480,7 @@ computeScheduleAndBuffers irSystem =
               repsWithNames = zip (map name actors) (replicate (length actors) 1)
               internalBufSizes = zip (map edgeName edges) (replicate (length edges) 0)
               ioBufSizes = computeIOBufferSizes irSystem repsWithNames
-           in (schedNames, ioBufSizes ++ internalBufSizes)
+           in (schedNames, ioBufSizes ++ internalBufSizes, [])
         else
           let mat = buildTopologyMatrixEdgesRows actors edges
               rankMat = rank mat
@@ -502,10 +505,21 @@ computeScheduleAndBuffers irSystem =
                                 schedNames = map (name . (actors !!)) schedIdxs
                                 internalBufSizes = simulateBufferUsage actors edges (map initTokens edges) schedIdxs
                                 ioBufSizes = computeIOBufferSizes irSystem repsWithNames
-                             in (schedNames, ioBufSizes ++ internalBufSizes)
+                                delayBuffers = getBuffers edges
+                             in (schedNames, ioBufSizes ++ internalBufSizes, delayBuffers)
                    in finalResult
                 else
                   error "Matrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
+
+getBuffers :: [Edge] -> [(String, String)]
+getBuffers edges =
+  concatMap
+    ( \e ->
+        case buffers e of
+          Just bufList -> bufList
+          Nothing -> []
+    )
+    edges
 
 ----------------------------------------------------------
 -- Pretty-print version
