@@ -123,9 +123,6 @@ data Program = Prog [Global]
 parens :: String -> String
 parens s = "(" ++ s ++ ")"
 
-brackets :: String -> String
-brackets s = "[" ++ s ++ "]"
-
 braces :: String -> String
 braces s = "{" ++ s ++ "}"
 
@@ -185,8 +182,8 @@ prettyType currentType = case currentType of
 prettyExpression :: Expression -> String
 prettyExpression (EVar x) = "EVar" ++ parens (quotes x)
 prettyExpression (EInt i) = "EInt" ++ parens (show i)
-prettyExpression (EChar c) = "EChar " ++ show c
-prettyExpression (EString s) = "EString " ++ show s
+prettyExpression (EChar c) = "EChar" ++ parens (show c)
+prettyExpression (EString s) = "EString" ++ parens (show s)
 prettyExpression (EBinOp bop expressionA expressionB) =
   "EBinOp"
     ++ parens
@@ -208,14 +205,14 @@ prettyExpression (ECall name arguments) =
     ++ parens
       ( quotes name
           ++ ", "
-          ++ parens (commaSep (map prettyExpression arguments))
+          ++ braces (commaSep (map prettyExpression arguments))
       )
 prettyExpression (ECallExpr calleeExpression arguments) =
   "ECallExpr"
     ++ parens
       ( prettyExpression calleeExpression
           ++ ", "
-          ++ parens (commaSep (map prettyExpression arguments))
+          ++ braces (commaSep (map prettyExpression arguments))
       )
 prettyExpression (EArrayAccess arrayExpression indexExpression) =
   "EArrayAccess"
@@ -285,7 +282,7 @@ prettyStatement (SArrayDecl arrayType name expressions) =
           ++ ", "
           ++ quotes name
           ++ ", "
-          ++ parens (commaSep (map prettyExpression expressions))
+          ++ braces (commaSep (map prettyExpression expressions))
       )
 prettyStatement (SArrayAssign name index maybeLabel expression) =
   "SArrayAssign"
