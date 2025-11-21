@@ -212,13 +212,11 @@ updateConstructorsOutputs initialContext signalId pcId index =
 
 -- | Translates system binds and adds identified binders to `TranslationContext`
 translateSystemBinds :: TranslationContext -> [(CoreBndr, CoreExpr)] -> (TranslationContext)
-translateSystemBinds initialContext binds = case binds of
-  [] -> (initialContext)
-  (b, e) : bindTail ->
-    let binderId = IRVar b
-        (binder, context1) = translateSystemExpr initialContext e
-        context2 = context1 {binders = (binderId, binder) : (binders context1)}
-     in translateSystemBinds context2 bindTail
+translateSystemBinds initialcontext = foldl' translateSystemBind initialcontext
+  where
+    translateSystemBind initialContext (b, e) =
+      let (binder, context1) = translateSystemExpr initialContext e
+       in context1 {binders = (IRVar b, binder) : (binders context1)}
 
 -- | Translates system `CoreExpr`. Identifies if the expression represents an
 -- application of a process constructor or connection to a specific output of a
