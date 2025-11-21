@@ -16,7 +16,7 @@ This document provides a comprehensive overview of the ForSyDe DevTools project,
   - [Compiler](#compiler)
     - [Static Scheduling](#static-scheduling)
     - [Procedural IR](#procedural-ir)
-    - [C code](#c-code)
+    - [C Code](#c-code)
   - [Visualiser](#visualiser)
     - [KLighD](#klighd)
     - [Language Server Protocol](#language-server-protocol)
@@ -28,17 +28,17 @@ This document provides a comprehensive overview of the ForSyDe DevTools project,
 Create and document two development tools, one to compile, and one to visualise the SDF model subset of the ForSyDe modelling language framework. 
 This is done by implementing:
 - [SDF models](https://hackage.haskell.org/package/forsyde-shallow-3.5.0.0/docs/ForSyDe-Shallow-MoC-SDF.html) including: 16 general actors and a delay actor. 
-- Ineger arithmetic operations including: adding, subtracting, multiplying, and negation. 
-- Visualiser takes the form of a VScode extension using the [KIELER](https://github.com/kieler) library. 
+- Integer arithmetic operations including: adding, subtracting, multiplying, and negation. 
+- Visualiser takes the form of a VS Code extension using the [KIELER](https://github.com/kieler) library. 
 - Compiler generates C code that runs bare metal in a standard Linux PC environment and on a Pico 2 embedded board. 
   
 Optional Goals: 
 - Explore compiling to new hardware platform (Jetson Nano and Jetson Thor), other Model of Computations, and other languages. 
-- Static multicore scheduling with blocking read and blocking writes for buffers between cores. 
+- Static multicore scheduling with blocking read/write buffers between cores. 
 - Automatic multicore scheduling using Design Space Exploration tools. 
 
 # Project Structure
-The following picture represents the whole structure of the ForSyDe DevTool project. The rectangular shapes present an input or output component, while the spherical shapes present transitions between components.
+The following picture represents the whole structure of the ForSyDe DevTools project. The rectangular shapes represent an input or output component, while the elliptical shapes represent transitions between components.
 
 ![ForSyDe DevTools Structure](forsyde-devtools-structure.svg)
 
@@ -90,7 +90,7 @@ If a PASS exists for a SDF-graph, it is possible to give a repetitions vector, w
 
 With the repetitions vector and the token rates for the SDF-graph, the system can be simulated in order to figure out the exact buffer sizes.
 
-The documentation of static scheduling in ForSyDe DevTools can be found in [Scheduling documentation](scheduling.md). All theory presented in this section is derived from our clients [paper](https://www.icas.org/icas_archive/ICAS2022/data/papers/ICAS2022_0604_paper.pdf). In addition to the reference papers [1](https://ieeexplore.ieee.org/document/1458143), [2](https://ieeexplore.ieee.org/document/5009446), and [3](https://www.taylorfrancis.com/books/mono/10.1201/9781420048025/embedded-multiprocessors-sundararajan-sriram-shuvra-bhattacharyya).
+The documentation of static scheduling in ForSyDe DevTools can be found in [Scheduling documentation](scheduling.md). All theory presented in this section is derived from this [paper](https://www.icas.org/icas_archive/ICAS2022/data/papers/ICAS2022_0604_paper.pdf). In addition to the reference papers [1](https://ieeexplore.ieee.org/document/1458143), [2](https://ieeexplore.ieee.org/document/5009446), and [3](https://www.taylorfrancis.com/books/mono/10.1201/9781420048025/embedded-multiprocessors-sundararajan-sriram-shuvra-bhattacharyya).
 
 ### Procedural IR
 The Procedural IR is a custom intermediate representation built by the ForSyDe DevTools team. It serves as the basis for C code generation.
@@ -99,8 +99,8 @@ The IR is heavily inspired by the Cigrid Language Reference Manual created by Da
 
 The documentation of Procedural IR in ForSyDe DevTools can be found in [Procedural IR](procedural-ir.md) documentation.
 
-### C code
-C code generation is the last step in the compiler. The generated C code is a structural pretty printed from of Procedural IR. The generation also depends on the C code templates and libraries which are described in [C-code Templates](c-code-templates.md) documentation.
+### C Code
+C code generation is the last step in the compiler. The generated C code is a structural pretty printed from of Procedural IR. The generation also depends on the C code templates and libraries which are described in [c-code Templates](c-code-templates.md) documentation.
 
 ## Visualiser
 The Visualiser continues from the ForSyDe Intermediate Representation,

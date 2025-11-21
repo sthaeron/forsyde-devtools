@@ -3,9 +3,9 @@ Work-in-progress compiler and visualiser development tools for [ForSyDe Shallow]
 
 This work is conducted as part of the course [IL2232 Embedded Systems Design Project](https://www.kth.se/student/kurser/kurs/IL2232?l=en) at KTH Royal Institute of Technology, under the supervision of Professor [Ingo Sander](https://www.kth.se/profile/ingo), who serves as the project client.
 
-A pre-study related to this work was conducted in the course [II2211 Research Methodology and Scientific Writing for Embedded Systems](https://www.kth.se/student/kurser/kurs/II2211?l=en), where a literature review was carried out to investigate existing approaches to compiling ForSyDe models. Link to the [pre-study](ForSyDe-DevTools-PreStudy.pdf).
+A pre-study related to this work was conducted in the course [II2211 Research Methodology and Scientific Writing for Embedded Systems](https://www.kth.se/student/kurser/kurs/II2211?l=en), where a literature review was carried out to investigate existing approaches to compiling ForSyDe models. The pre-study can be found in [docs](forsyde-devtools/docs/ForSyDe-DevTools-PreStudy.pdf).
 
-The original algorithm for generating code from SDF (Synchronous Data Flow) models written in ForSyDe was developed by Professor Ingo Sander. Link to the paper can be found [here](https://www.icas.org/icas_archive/ICAS2022/data/papers/ICAS2022_0604_paper.pdf).
+The original algorithm for generating code from SDF (Synchronous Data Flow) models written in ForSyDe can be found in this [paper](https://www.icas.org/icas_archive/ICAS2022/data/papers/ICAS2022_0604_paper.pdf).
 
 ## Building and Running
 Currently, the project is only supported through a Nix flake. You can install Nix onto your system with the following instructions at [nixos.org](https://nixos.org/download/). With Nix installed, you can clone the repo and enter the development environment using the command `nix develop`. You can build the project with either `cabal build` or `nix build`. Use the following commands to try out the compiler:
