@@ -81,6 +81,17 @@ varToSpan v =
         RealSrcSpan loc _ -> Just loc
         _ -> Nothing
 
+prettyIRSpan :: IRSpan -> String
+prettyIRSpan (file, startline, startcol, stopline, stopcol)
+  | startline == stopline && startcol == stopcol =
+      printf "IRSpan(\"%s\", %d:%d)" file startline startcol
+  | startline == stopline =
+      printf "IRSpan(\"%s\", %d:(%d-%d))" file startline startcol stopcol
+  | startcol == stopcol =
+      printf "IRSpan(\"%s\", (%d-%d):%d)" file startline stopline stopcol
+  | otherwise =
+      printf "IRSpan(\"%s\", (%d-%d):(%d-%d))" file startline stopline startcol stopcol
+
 data ActorType
   = Actor11
   | Actor12
@@ -123,36 +134,40 @@ indent numberSpaces = unlines . map (replicate numberSpaces ' ' ++) . lines
 prettyIRSignal :: IRSignal -> String
 prettyIRSignal (IRSignal signalId (inputId, inputRate) (outputId, outputRate)) =
   printf
-    "IRSignal(\"%s\", (\"%s\", %d), (\"%s\", %d))"
+    "IRSignal(\"%s\", (\"%s\", %d), (\"%s\", %d), %s)"
     (show signalId)
     (show inputId)
     inputRate
     (show outputId)
     outputRate
+    (maybe "" prettyIRSpan $ varToSpan signalId)
 
 prettyIRConstructor :: IRConstructor -> String
 prettyIRConstructor (IRDelay delayId tokens (input, output)) =
   printf
-    "IRDelay(\"%s\", {%s}, %s, %s)"
+    "IRDelay(\"%s\", {%s}, %s, %s, %s)"
     (show delayId)
     (intercalate ", " (map show tokens))
     (prettyIRId input)
     (prettyIRId output)
+    (maybe "" prettyIRSpan $ varToSpan delayId)
 prettyIRConstructor (IRActor actorId actorType functionId (inputs, outputs)) =
   printf
-    "IRActor(\"%s\", %s, \"%s\", {%s}, {%s})"
+    "IRActor(\"%s\", %s, \"%s\", {%s}, {%s}, %s)"
     (show actorId)
     (show actorType)
     (show functionId)
     (intercalate ", " (map prettyIRId inputs))
     (intercalate ", " (map prettyIRId outputs))
+    (maybe "" prettyIRSpan $ varToSpan actorId)
 
 prettyIRFunction :: DynFlags -> IRFunction -> String
 prettyIRFunction dflags (IRFunction functionId function) =
   printf
-    "IRFunction(\"%s\", %s)"
+    "IRFunction(\"%s\", %s, %s)"
     (show functionId)
     (maybe "" (prettyFunction dflags) function)
+    (maybe "" prettyIRSpan $ varToSpan functionId)
 
 prettyFunction :: DynFlags -> CoreExpr -> String
 prettyFunction dflags function = printf "\n%s" (indent 2 (prettyCoreExpr dflags function))
