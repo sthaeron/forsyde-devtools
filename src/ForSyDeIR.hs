@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module ForSyDeIR
@@ -12,6 +13,8 @@ module ForSyDeIR
     prettyIRSystem,
     prettyIRJSON,
     IRId (..),
+    IRSpan,
+    varToSpan,
   )
 where
 
@@ -26,7 +29,9 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Builder as TLB
 import GHC (DynFlags)
 import GHC.Core
-import GHC.Plugins (Var, nameOccName, occNameString, varName, varUnique)
+import qualified GHC.Data.FastString as FS
+import GHC.Plugins (Var, nameOccName, nameSrcSpan, occNameString, varName, varUnique)
+import GHC.Types.SrcLoc
 import Text.Printf (printf)
 
 -- ForSyDe IR data types
@@ -52,6 +57,29 @@ instance Eq IRId where
 
 prettyIRId :: IRId -> String
 prettyIRId = show . show
+
+type IRSpan = (String, Int, Int, Int, Int)
+
+varToSpan :: IRId -> Maybe IRSpan
+varToSpan v =
+  irVarToVar v
+    >>= varToRealSrcSpan
+    >>= \l ->
+      Just
+        ( FS.unpackFS $ srcSpanFile l,
+          srcSpanStartLine l,
+          srcSpanStartCol l,
+          srcSpanEndLine l,
+          srcSpanEndCol l
+        )
+  where
+    irVarToVar = \case
+      IRVar i -> Just i
+      _ -> Nothing
+    varToRealSrcSpan i =
+      case nameSrcSpan $ varName i of
+        RealSrcSpan loc _ -> Just loc
+        _ -> Nothing
 
 data ActorType
   = Actor11
