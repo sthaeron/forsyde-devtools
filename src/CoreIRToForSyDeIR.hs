@@ -296,19 +296,15 @@ createSignalsFromArguments context pcId arguments =
   let inputRates = case (lookup pcId (pcRates context)) of
         Just (rates, _) -> rates
         Nothing -> error ("createSignalsFromArguments - No rates found for process constructor: " ++ show pcId)
-   in aux context (reverse arguments) (reverse inputRates)
+   in foldr aux context $ zip arguments inputRates
   where
-    aux :: TranslationContext -> [IRId] -> [Int] -> TranslationContext
-    aux currentContext currentArguments rates = case (currentArguments, rates) of
-      ([], _) -> currentContext
-      (_, []) -> currentContext
-      (argumentsHead : argumentsTail, ratesHead : ratesTail) ->
-        let (sourceId, sourceRate) = getSourceFromArgument currentContext argumentsHead
-            newSignal = IRSignal argumentsHead (sourceId, sourceRate) (pcId, ratesHead)
-            newSignals = (argumentsHead, newSignal) : (signals currentContext)
-            context1 = currentContext {signals = newSignals}
-            context2 = updateConstructorsInputs context1 pcId argumentsHead
-         in aux context2 argumentsTail ratesTail
+    aux :: (IRId, Int) -> TranslationContext -> TranslationContext
+    aux (argument, rate) currentContext =
+      let (sourceId, sourceRate) = getSourceFromArgument currentContext argument
+          newSignal = IRSignal argument (sourceId, sourceRate) (pcId, rate)
+          newSignals = (argument, newSignal) : (signals currentContext)
+          context1 = currentContext {signals = newSignals}
+       in updateConstructorsInputs context1 pcId argument
 
 -- | Updates the inputs of constructors within a `TranslationContext`. Adds a
 -- signal to the head of a process constructors input signals list.
