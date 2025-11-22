@@ -55,14 +55,14 @@ translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookup
       context2 = foldl translateBuffer context1 bufferList
       context3 = foldl translateIRFunctionToGlobals context2 functionList
       main = translateContextToMain context3 scheduleList
-   in Prog ((initFunctions context3) ++ [main] ++ (functions context3))
+   in Prog (reverse (initFunctions context3) ++ [main] ++ reverse (functions context3))
 
 -- | Translates the `TranslationContext` and Schedule into a main function.
 translateContextToMain :: TranslationContext -> [String] -> Global
 translateContextToMain context scheduleList =
   let scheduledStmts = scheduleActors context scheduleList
       whileStmt = SWhile (EInt 1) (SScope scheduledStmts)
-      mainInitStmts = [SExpr (ECall "init" [])] ++ reverse (initBuffers context) ++ reverse (ioTokens context) ++ (initDelay context)
+      mainInitStmts = [SExpr (ECall "init" []), SVarDecl TInt "status"] ++ reverse (initBuffers context) ++ reverse (ioTokens context) ++ (initDelay context)
       mainFreeStmts = reverse (freeBuffers context) ++ [SReturn (Just (EInt 0))]
       mainBody = SScope (mainInitStmts ++ [whileStmt] ++ mainFreeStmts)
    in GFuncDef Nothing TInt "main" [] mainBody
@@ -94,7 +94,7 @@ translateBuffer initialContext (id, bufferSize) =
       freeStmt = SExpr (ECall "buffer_nonblocking_free" [EVar id])
    in if (elem id (systemInputs initialContext))
         then
-          let ioTokenStmt = SVarDecl TInt ("input_" ++ id)
+          let ioTokenStmt = SArrayDecl TInt ("input_" ++ id) [EInt bufferSize]
            in initialContext {ioTokens = ioTokenStmt : ioTokens initialContext, initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
         else
           if (elem id (systemOutputs initialContext))
@@ -164,18 +164,20 @@ translateIRConstructor initialContext constructor = case constructor of
                 -- If actor has inputs which are system inputs the following
                 -- adds statements which relate to obtaining inputs from
                 -- standard in.
-                scopeStmt =
-                  SScope
-                    [ SExpr (ECall "scanf" [EString "%d", EReference (EVar ("input_" ++ id))]),
-                      SExpr (ECall "write_token" [EVar id, EVar ("input_" ++ id)])
-                    ]
-                forStmt =
+                scanForStmt =
                   SFor
                     (SVarDef TInt "i" (EInt 0))
                     (EBinOp Less (EVar "i") (EInt (bufferSize)))
                     (SExpr (EUnOp Increment (EVar "i")))
-                    scopeStmt
-             in auxActor context idsTail (forStmt : acc)
+                    (SScope [SVarAssign "status" (ECall "scanf" [EString "%d", EReference (EArrayAccess (EVar ("input_" ++ id)) (EVar "i"))])])
+                breakIfStmt = SIf (EBinOp Less (EVar "status") (EInt 1)) (SBreak) Nothing
+                writeForStmt =
+                  SFor
+                    (SVarDef TInt "i" (EInt 0))
+                    (EBinOp Less (EVar "i") (EInt (bufferSize)))
+                    (SExpr (EUnOp Increment (EVar "i")))
+                    (SScope [SExpr (ECall "write_token" [EVar id, EArrayAccess (EVar ("input_" ++ id)) (EVar "i")])])
+             in auxActor context idsTail (writeForStmt : breakIfStmt : scanForStmt : acc)
           else
             if (elem id (systemOutputs context))
               then
