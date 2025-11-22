@@ -3,7 +3,6 @@ typedef int token;
 #include <stdio.h>
 
 #include "common.h"
-
 /* Netlist */
 
 /*
@@ -58,8 +57,8 @@ int main() {
     init();
 
     // Temporary tokens for print/scan functions for input and output
-    int input_a;
-    int input_b;
+    int input_a[1];
+    int input_b[1];
     int output;
 
     // Create FIFO-Buffers for signals
@@ -84,17 +83,27 @@ int main() {
 
     // Repeating Schedule: a_a a_b
     while (1) {
+        int ret;
         // Read input tokens
         for (int i = 0; i < 1; i++) {
-            scanf("%d", &input_a);
-            write_token(s_in_x, input_a);
+            ret = scanf("%d", &input_a[i]);
+        }
+        if (ret < 1) {
+            break;
         }
         for (int i = 0; i < 1; i++) {
-            scanf("%d", &input_b);
-            write_token(s_in_y, input_b);
+            write_token(s_in_x, input_a[i]);
         }
 
-        // a_a
+        for (int i = 0; i < 1; i++) {
+            scanf("%d", &input_b[i]);
+        }
+        if (ret < 1) {
+            break;
+        }
+        for (int i = 0; i < 1; i++) {
+            write_token(s_in_y, input_b[i]);
+        }
         actor21SDF(1, 1, 1, s_in_x, s_in_y, s_1, add);
 
         // a_b
@@ -103,7 +112,7 @@ int main() {
         // Write output tokens
         for (int i = 0; i < 1; i++) {
             read_token(s_out, &output);
-            printf("%d ", output);
+            printf("%d", output);
         }
         printf("\n");
     }
