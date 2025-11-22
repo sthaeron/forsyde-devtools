@@ -125,7 +125,7 @@ translateStatement (SIf expression thenStmt maybeElseStmt) =
             ++ indent (translateStatement elseStmt)
             ++ "}"
 translateStatement (SWhile expression statement) =
-  "while (" ++ translateExpression expression ++ ")\n" ++ translateStatement statement
+  "while (" ++ translateExpression expression ++ ") " ++ translateStatement statement
 translateStatement (SFor initStmt condExpr updateStmt bodyStmt) =
   "for ("
     ++ stripSemicolon (translateStatement initStmt)
@@ -133,7 +133,7 @@ translateStatement (SFor initStmt condExpr updateStmt bodyStmt) =
     ++ translateExpression condExpr
     ++ "; "
     ++ stripSemicolon (translateStatement updateStmt)
-    ++ ")\n"
+    ++ ") "
     ++ translateStatement bodyStmt
 translateStatement SBreak =
   "break;"
@@ -167,7 +167,7 @@ translateGlobal global = case global of
       (intercalate ", " (map translateParam parameters))
   GFuncDef (Just storageClass) returnType id parameters body ->
     printf
-      "%s %s %s(%s)\n%s"
+      "%s %s %s(%s) %s"
       (prettyStorageClass storageClass)
       (translateType returnType)
       (id)
@@ -175,7 +175,7 @@ translateGlobal global = case global of
       (translateStatement body)
   GFuncDef Nothing returnType id parameters body ->
     printf
-      "%s %s(%s)\n%s"
+      "%s %s(%s) %s"
       (translateType returnType)
       (id)
       (intercalate ", " (map translateParam parameters))
