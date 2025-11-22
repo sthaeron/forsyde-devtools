@@ -67,9 +67,9 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
           name
           (createPortWithRate)
           (Just name)
-          [KEllipse [KBackgroundColor 160 160 240]]
+          [KRoundedRectangle [KBackgroundColor 160 160 240] 4 4]
           [ (NodeLabelsPlacement [1, 4, 6]),
-            (NodeSizeConstraints [3]),
+            (NodeSizeConstraints [0, 1, 2, 3]),
             (NodeSizeMinimum [64, 64])
           ]
       (IRDelay name d _) ->
