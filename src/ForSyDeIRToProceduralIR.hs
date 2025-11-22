@@ -62,8 +62,8 @@ translateContextToMain :: TranslationContext -> [String] -> Global
 translateContextToMain context scheduleList =
   let scheduledStmts = scheduleActors context scheduleList
       whileStmt = SWhile (EInt 1) (SScope scheduledStmts)
-      mainInitStmts = initBuffers context ++ ioTokens context ++ initDelay context
-      mainFreeStmts = freeBuffers context ++ [SReturn (Just (EInt 0))]
+      mainInitStmts = [SExpr (ECall "init" [])] ++ reverse (initBuffers context) ++ reverse (ioTokens context) ++ (initDelay context)
+      mainFreeStmts = reverse (freeBuffers context) ++ [SReturn (Just (EInt 0))]
       mainBody = SScope (mainInitStmts ++ [whileStmt] ++ mainFreeStmts)
    in GFuncDef Nothing TInt "main" [] mainBody
 
@@ -90,19 +90,19 @@ scheduleActors context scheduleList = aux scheduleList []
 -- inputs and outputs.
 translateBuffer :: TranslationContext -> (String, Int) -> TranslationContext
 translateBuffer initialContext (id, bufferSize) =
-  let init = SVarDef (TPointer (TIdent "buffer_nonblocking")) id (ECall "buffer_nonblocking_new" [EInt bufferSize])
-      free = SExpr (ECall "buffer_nonblocking_free" [EVar id])
+  let initStmt = SVarDef (TPointer (TIdent "buffer_nonblocking")) id (ECall "buffer_nonblocking_new" [EInt bufferSize])
+      freeStmt = SExpr (ECall "buffer_nonblocking_free" [EVar id])
    in if (elem id (systemInputs initialContext))
         then
-          let io_token = SVarDecl TInt ("input_" ++ id)
-           in initialContext {ioTokens = io_token : ioTokens initialContext, initBuffers = init : initBuffers initialContext, freeBuffers = free : freeBuffers initialContext}
+          let ioTokenStmt = SVarDecl TInt ("input_" ++ id)
+           in initialContext {ioTokens = ioTokenStmt : ioTokens initialContext, initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
         else
           if (elem id (systemOutputs initialContext))
             then
-              let io_token = SVarDecl TInt ("output_" ++ id)
-               in initialContext {ioTokens = io_token : ioTokens initialContext, initBuffers = init : initBuffers initialContext, freeBuffers = free : freeBuffers initialContext}
+              let ioTokenStmt = SVarDecl TInt ("output_" ++ id)
+               in initialContext {ioTokens = ioTokenStmt : ioTokens initialContext, initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
             else
-              initialContext {initBuffers = init : initBuffers initialContext, freeBuffers = free : freeBuffers initialContext}
+              initialContext {initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
 
 -- | Translates an `IRConstructor` into a set of statements which are used to
 -- update the `TranslationContext`.
