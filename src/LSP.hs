@@ -217,7 +217,7 @@ handlers f =
         sendNotification diagramAcceptMethod setSynthesis
         sendNotification diagramAcceptMethod (updateOptions file)
         (core, dflags) <- withRunInIO (\_u -> compileToCore file)
-        let ir = translateCoreProgram dflags core
+        let (ir, _) = translateCoreProgram dflags core
         let graphMessage = requestBounds file ir
         sendNotification diagramAcceptMethod graphMessage
         pure ()
