@@ -22,7 +22,9 @@ data TranslationContext = TranslationContext
     systemInputs :: [String], -- List of system inputs
     systemOutputs :: [String], -- List of system outputs
     delayBuffers :: [(String, String)], -- Associated list of signal ids and buffer name for delay signals
-    initDelay :: [Statement] -- List of statements for initialising delay tokens
+    initDelay :: [Statement], -- List of statements for initialising delay tokens
+    initFunctions :: [Global],
+    functions :: [Global]
   }
 
 initialTranslationContext :: DynFlags -> [(String, IRSignal)] -> [String] -> [String] -> [(String, String)] -> TranslationContext
@@ -38,20 +40,22 @@ initialTranslationContext dflags lookupSignalList inputList outputList delayBuff
       systemInputs = inputList,
       systemOutputs = outputList,
       delayBuffers = delayBufferList,
-      initDelay = []
+      initDelay = [],
+      initFunctions = [],
+      functions = []
     }
 
 -- | Translates a ForSyDe IR `IRSystem` into a Procedural IR `Program`. Requires
 -- the schedule, buffer, and delay buffer lists from the SDF scheduler as an
 -- input. Also requires an associated list of signals for lookups.
 translateIRSystemToProgram :: DynFlags -> [String] -> [(String, Int)] -> [(String, String)] -> [(String, IRSignal)] -> IRSystem -> Program
-translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookupSignalList (IRSystem (inputList, outputList) constructors _signalList functions) =
+translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookupSignalList (IRSystem (inputList, outputList) constructors _signalList functionList) =
   let initialContext = initialTranslationContext dflags lookupSignalList inputList outputList delayBufferList
       context1 = foldl translateIRConstructor initialContext constructors
       context2 = foldl translateBuffer context1 bufferList
-      globals = concatMap (translateIRFunctionToGlobals context2) functions
-      main = translateContextToMain context2 scheduleList
-   in Prog (globals ++ [main])
+      context3 = foldl translateIRFunctionToGlobals context2 functionList
+      main = translateContextToMain context3 scheduleList
+   in Prog ((initFunctions context3) ++ [main] ++ (functions context3))
 
 -- | Translates the `TranslationContext` and Schedule into a main function.
 translateContextToMain :: TranslationContext -> [String] -> Global
@@ -236,25 +240,28 @@ getSignalById signalId signalList = case signalList of
       then s
       else getSignalById signalId tailSignals
 
-translateIRFunctionToGlobals :: TranslationContext -> IRFunction -> [Global]
-translateIRFunctionToGlobals context (IRFunction id maybeFunction) = case maybeFunction of
-  Just function -> translateCoreExprToGlobals context id function
-  Nothing -> []
+translateIRFunctionToGlobals :: TranslationContext -> IRFunction -> TranslationContext
+translateIRFunctionToGlobals currentContext (IRFunction id maybeFunction) = case maybeFunction of
+  Just function ->
+    let (initFunctionGlobal, functionGlobal) = translateCoreExprToGlobals currentContext id function
+        context1 = currentContext {initFunctions = initFunctionGlobal : (initFunctions currentContext), functions = functionGlobal : (functions currentContext)}
+     in context1
+  Nothing -> currentContext
 
 -- The following is a temporary hard coded solution that translates the inputs
 -- of the `add` and `accummulate` functions from SDF example 8.
-translateCoreExprToGlobals :: TranslationContext -> String -> CoreExpr -> [Global]
+translateCoreExprToGlobals :: TranslationContext -> String -> CoreExpr -> (Global, Global)
 translateCoreExprToGlobals context binder expr = case (binder, expr) of
   ("accumulate", Lam _ (Lam _ e)) ->
-    let s = translateCoreExprToStatement context e
-        g1 = GFuncDeclare (Just Static) TVoid (binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output_1"), (TPointer TInt, "output_2")]
-        g2 = GFuncDef (Just Static) TVoid (binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output_1"), (TPointer TInt, "output_2")] s
-     in [g1, g2]
+    let functionScopeStmt = translateCoreExprToStatement context e
+        initFunctionGlobal = GFuncDeclare (Just Static) TVoid (binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output_1"), (TPointer TInt, "output_2")]
+        functionGlobal = GFuncDef (Just Static) TVoid (binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output_1"), (TPointer TInt, "output_2")] functionScopeStmt
+     in (initFunctionGlobal, functionGlobal)
   ("add", Lam _ (Lam _ e)) ->
-    let s = translateCoreExprToStatement context e
-        g1 = GFuncDeclare (Just Static) TVoid (binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output")]
-        g2 = GFuncDef (Just Static) TVoid (binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output")] s
-     in [g1, g2]
+    let functionScopeStmt = translateCoreExprToStatement context e
+        initFunctionGlobal = GFuncDeclare (Just Static) TVoid (binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output")]
+        functionGlobal = GFuncDef (Just Static) TVoid (binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output")] functionScopeStmt
+     in (initFunctionGlobal, functionGlobal)
   _ -> error ("translateCoreExprToGlobals - unsupported expression:\n" ++ showPpr (flags context) expr)
 
 -- The following is a temporary hard coded solution that translates the
@@ -265,12 +272,12 @@ translateCoreExprToStatement context expr = case expr of
   Var id -> SExpr (EVar (showPpr (flags context) id))
   Lit (LitNumber LitNumInt i) -> SExpr (EInt (fromIntegral i))
   App (App (App (Var _) (Type _)) (App (App (App (App (Var _op1) (Type _)) (Var _)) (Var _a1)) (Var _a2))) (App (Var _) (Type _)) ->
-    let s1 = SArrayAssign "output" (EInt 0) Nothing (EBinOp Plus (EArrayAccess (EVar "input_1") (EInt 0)) (EArrayAccess (EVar "input_2") (EInt 0)))
-     in SScope ([s1])
+    let stmt = SArrayAssign "output" (EInt 0) Nothing (EBinOp Plus (EArrayAccess (EVar "input_1") (EInt 0)) (EArrayAccess (EVar "input_2") (EInt 0)))
+     in SScope ([stmt])
   App (App (App (App (Var _) (Type _)) (Type _)) (App (App (App (Var _) (Type _)) (App (App (App (App (Var _op1) (Type _)) (Var _)) (Var _a1)) (Var _a2))) (App (Var _) (Type _)))) (App (App (App (Var _) (Type _)) (App (App (App (App (Var _op2) (Type _)) (Var _)) (Var _b1)) (Var _b2))) (App (Var _) (Type _))) ->
-    let s1 = SArrayAssign "output_1" (EInt 0) Nothing (EBinOp Plus (EArrayAccess (EVar "input_1") (EInt 0)) (EArrayAccess (EVar "input_2") (EInt 0)))
-        s2 = SArrayAssign "output_2" (EInt 0) Nothing (EBinOp Plus (EArrayAccess (EVar "input_1") (EInt 0)) (EArrayAccess (EVar "input_2") (EInt 0)))
-     in SScope ([s1, s2])
+    let stmt1 = SArrayAssign "output_1" (EInt 0) Nothing (EBinOp Plus (EArrayAccess (EVar "input_1") (EInt 0)) (EArrayAccess (EVar "input_2") (EInt 0)))
+        stmt2 = SArrayAssign "output_2" (EInt 0) Nothing (EBinOp Plus (EArrayAccess (EVar "input_1") (EInt 0)) (EArrayAccess (EVar "input_2") (EInt 0)))
+     in SScope ([stmt1, stmt2])
   Let _ e -> translateCoreExprToStatement context e
   Case _ _ _ alts -> translateAltsToStatements context alts
   Lam _ e -> translateCoreExprToStatement context e
