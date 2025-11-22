@@ -62,9 +62,6 @@ int main() {
     int input_b;
     int output;
 
-    // C99 array iteration variable
-    int i;
-
     // Create FIFO-Buffers for signals
 
     // Buffer s_in_x: Size: 1
@@ -80,10 +77,10 @@ int main() {
     buffer_nonblocking *s_1 = buffer_nonblocking_new(1);
 
     // Buffer d : Size 1
-    buffer_nonblocking *d_1 = buffer_nonblocking_new(1);
+    buffer_nonblocking *s_2 = buffer_nonblocking_new(1);
 
-    // Put initial token in channel d_1
-    write_token(d_1, 0);
+    // Put initial token in channel s_2
+    write_token(s_2, 0);
 
     // Repeating Schedule: a_a a_b
     while (1) {
@@ -101,7 +98,7 @@ int main() {
         actor21SDF(1, 1, 1, s_in_x, s_in_y, s_1, add);
 
         // a_b
-        actor22SDF(1, 1, 1, 1, s_1, d_1, d_1, s_out, accumulate);
+        actor22SDF(1, 1, 1, 1, s_1, s_2, s_out, s_2, accumulate);
 
         // Write output tokens
         for (int i = 0; i < 1; i++) {
@@ -116,6 +113,6 @@ int main() {
     buffer_nonblocking_free(s_in_y);
     buffer_nonblocking_free(s_out);
     buffer_nonblocking_free(s_1);
-    buffer_nonblocking_free(d_1);
+    buffer_nonblocking_free(s_2);
     return 0;
 }
