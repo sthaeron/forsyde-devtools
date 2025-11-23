@@ -157,33 +157,29 @@ updateSystemOutput initialContext output =
 updateConstructorsAndSignals :: TranslationContext -> TranslationContext
 updateConstructorsAndSignals initialContext =
   let initialSignals = map snd (signals initialContext)
-      context1 = aux initialContext initialSignals []
-   in context1
+      (context1, sigs) = foldl' aux (initialContext, []) initialSignals
+   in context1 {signals = sigs}
   where
-    aux :: TranslationContext -> [IRSignal] -> [(IRId, IRSignal)] -> TranslationContext
-    aux currentContext currentSignals acc = case currentSignals of
-      [] ->
-        let context1 = currentContext {signals = acc}
-         in context1
-      currentSignal@(IRSignal signalId (sourceId, sourceRate) (targetId, targetRate)) : signalsTail ->
-        let maybebinder = lookup sourceId (binders currentContext)
-         in case maybebinder of
-              Just associatedbinder -> case associatedbinder of
-                PcId pcId ->
-                  -- Signal source was a temporary binder, sourceRate represents
-                  -- the index of the output rather than a rate
-                  let outputRates = case (lookup pcId (pcRates currentContext)) of
-                        Just (_, rates) -> rates
-                        Nothing -> error ("updateConstructorsAndSignals - No rates found for process constructor: " ++ show pcId)
-                      newSignal = IRSignal signalId (pcId, outputRates !! sourceRate) (targetId, targetRate)
-                      context1 = updateConstructorsOutputs currentContext signalId pcId sourceRate
-                   in aux context1 signalsTail ((signalId, newSignal) : acc)
-                _ -> error ("updateConstructorsAndSignals - Binder is not associated with any process constructors")
-              Nothing ->
-                -- Signal source was already a process constructor meaning it
-                -- only had 1 output, thus passing index zero
-                let context1 = updateConstructorsOutputs currentContext signalId sourceId 0
-                 in aux context1 signalsTail ((signalId, currentSignal) : acc)
+    aux :: (TranslationContext, [(IRId, IRSignal)]) -> IRSignal -> (TranslationContext, [(IRId, IRSignal)])
+    aux (currentContext, acc) currentSignal@(IRSignal signalId (sourceId, sourceRate) (targetId, targetRate)) =
+      let maybebinder = lookup sourceId (binders currentContext)
+       in case maybebinder of
+            Just associatedbinder -> case associatedbinder of
+              PcId pcId ->
+                -- Signal source was a temporary binder, sourceRate represents
+                -- the index of the output rather than a rate
+                let outputRates = case (lookup pcId (pcRates currentContext)) of
+                      Just (_, rates) -> rates
+                      Nothing -> error ("updateConstructorsAndSignals - No rates found for process constructor: " ++ show pcId)
+                    newSignal = IRSignal signalId (pcId, outputRates !! sourceRate) (targetId, targetRate)
+                    context1 = updateConstructorsOutputs currentContext signalId pcId sourceRate
+                 in (context1, (signalId, newSignal) : acc)
+              _ -> error ("updateConstructorsAndSignals - Binder is not associated with any process constructors")
+            Nothing ->
+              -- Signal source was already a process constructor meaning it
+              -- only had 1 output, thus passing index zero
+              let context1 = updateConstructorsOutputs currentContext signalId sourceId 0
+               in (context1, (signalId, currentSignal) : acc)
 
 -- | Updates the outputs constructors within `TranslationContext`. It adds a
 -- signal to the output list of a specific process constructor at the specified
