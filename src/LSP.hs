@@ -29,6 +29,7 @@ import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import ForSyDeIR
 import Language.LSP.Protocol.Message
+import Language.LSP.Protocol.Types
 import Language.LSP.Server
 import Network.Socket
 import Options.Applicative
@@ -239,6 +240,36 @@ handlers f =
         if update then sendNotification diagramAcceptMethod (updateOptions file) else pure ()
         let graphMessage = requestBounds file forsydeIR
         if update then sendNotification diagramAcceptMethod graphMessage else pure ()
+
+        -- When an element is selcted, only that one seems to be sent.
+        -- Therefore, just use the first one
+        _ <- case spans of
+          sspan : _ ->
+            let (fname, sl, sc, el, ec) = sspan
+             in sendRequest
+                  SMethod_WindowShowDocument
+                  ShowDocumentParams
+                    { _uri = Uri $ T.pack ("file://" ++ fname),
+                      _external = Just False,
+                      _takeFocus = Just True,
+                      _selection =
+                        Just
+                          Range
+                            { _start =
+                                Position
+                                  { _line = fromIntegral (sl - 1),
+                                    _character = fromIntegral (sc - 1)
+                                  },
+                              _end =
+                                Position
+                                  { _line = fromIntegral (el - 1),
+                                    _character = fromIntegral (ec - 1)
+                                  }
+                            }
+                    }
+                  (\_f -> pure ())
+          _ -> pure $ IdString "no-operation"
+
         pure ()
     ]
   where
