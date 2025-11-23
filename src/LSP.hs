@@ -216,20 +216,29 @@ handlers f =
         c <- getConfig
         let file = maybe (getFile p) id c
         _ <- setConfig (Just file)
+
+        -- Decode elementSelected
         let sel = getSelected p & map (T.split (\_c -> _c == '$')) & map last & map T.unpack
-        _ <- withRunInIO (\_u -> putStrLn $ show $ sel)
-        sendNotification diagramAcceptMethod setSynthesis
-        sendNotification diagramAcceptMethod (updateOptions file)
+
+        -- Does the client want a diagram?
+        let update = shouldUpdate p
+
+        -- TODO: maybe only recompute on TextDocumentDidSave
         (core, dflags) <- withRunInIO (\_u -> compileToCore file)
         let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
+
+        -- Get location information on selected object
         let IRSystem _ procs sigs _ = forsydeIR
         let s = map findSignalSpan (map IRString sel) <*> [sigs] & mconcat
         let a = map findProcessSpan (map IRString sel) <*> [procs] & mconcat
         let spans = s ++ a
         _ <- if length spans > 0 then withRunInIO (\_u -> putStrLn $ show spans) else pure ()
 
+        -- Send the diagram if the client wants it
+        if update then sendNotification diagramAcceptMethod setSynthesis else pure ()
+        if update then sendNotification diagramAcceptMethod (updateOptions file) else pure ()
         let graphMessage = requestBounds file forsydeIR
-        sendNotification diagramAcceptMethod graphMessage
+        if update then sendNotification diagramAcceptMethod graphMessage else pure ()
         pure ()
     ]
   where
@@ -267,6 +276,18 @@ handlers f =
     getKey key = \case
       A.Object o -> o !? key
       _ -> Nothing
+    getKind params =
+      Just params
+        >>= getKey "action"
+        >>= getKey "kind"
+        >>= \case
+          A.String _a -> Just $ T.unpack _a
+          _ -> Nothing
+    shouldUpdate params =
+      case getKind params of
+        Just "requestModel" -> True
+        Just "refreshDiagram" -> True
+        _ -> False
     getSelected params =
       Just params
         >>= getKey "action"
