@@ -14,7 +14,7 @@ import qualified Control.Exception as E
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class
 import Control.Monad.IO.Unlift
-import CoreIRToForSyDeIR
+import qualified CoreIRToForSyDeIR
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
 import Data.Aeson.Encode.Pretty as AP
@@ -49,22 +49,22 @@ forSyDeIRToGraph :: FilePath -> IRSystem -> GraphElement
 forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
   where
     -- \| Create a port with a label for signal rate
-    createPortWithRate pid renderings properties (n, r) =
-      createPort' renderings properties [label] (id, r)
+    createPortWithRate parent rends props (n, r) =
+      createPort' rends props [l] (pid, r)
       where
-        id = pid <> "$P$" <> T.show n
-        label = KLabel {gid = id <> "$L$" <> T.show n, label = T.show r}
-    createPortWithoutRate pid renderings properties (n, r) =
-      createPort' renderings properties [] (id, r)
+        pid = parent <> "$P$" <> T.show n
+        l = KLabel {gid = pid <> "$L$" <> T.show n, label = T.show r}
+    createPortWithoutRate parent rends props (n, r) =
+      createPort' rends props [] (pid, r)
       where
-        id = pid <> "$P$" <> T.show n
+        pid = parent <> "$P$" <> T.show n
     -- \| Create a port with the passed renderings and children
-    createPort' renderings properties children (gid, _) =
+    createPort' rends props c (pid, _) =
       KPort
-        { children = children,
-          renderings = renderings,
-          properties = properties,
-          gid = gid
+        { children = c,
+          renderings = rends,
+          properties = props,
+          gid = pid
         }
     -- \| Create a node based on an IRActor
     createNode = \case
@@ -89,15 +89,15 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
             (NodeSizeMinimum [12, 12])
           ]
     -- \| Find all signals which the process is the source of
-    findOutputSignals signals proc =
-      foldr f [] signals
+    findOutputSignals sigs proc =
+      foldr f [] sigs
       where
         f s acc =
           let IRSignal n (p, rate) _ = s
            in if p == proc then (n, rate) : acc else acc
     -- \| Find all signals which the process is the target of
-    findInputSignals signals proc =
-      foldr f [] signals
+    findInputSignals sigs proc =
+      foldr f [] sigs
       where
         f s acc =
           let IRSignal n _ (p, rate) = s
@@ -110,7 +110,7 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
         outsignals = findOutputSignals signals name
         inports = map (createPort nid (maybe [] (\_l -> [KText "◆" []]) l) []) insignals
         outports = map (createPort nid [] []) outsignals
-        nl = maybe [] (\l -> [KLabel {gid = nid <> "$L$" <> T.show name, label = T.show l}]) l
+        nl = maybe [] (\lc -> [KLabel {gid = nid <> "$L$" <> T.show name, label = T.show lc}]) l
         c = inports ++ outports ++ nl
         node =
           KNode
@@ -126,14 +126,14 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
         tn = "$root$N$" <> T.show tname <> "$P$" <> T.show n
         name = sn <> "$E$" <> T.show n
         sigid = name <> "$L$" <> T.show n
-        children =
+        c =
           if n == sname || n == tname
             then []
             else [KLabel {gid = sigid, label = T.show n}]
         edge =
           KEdge
             { gid = name,
-              children = children,
+              children = c,
               renderings = [KRoundedBendsPolyline [] 4],
               properties = [],
               source = sn,
@@ -226,7 +226,7 @@ handlers f =
 
         -- TODO: maybe only recompute on TextDocumentDidSave
         (core, dflags) <- withRunInIO (\_u -> compileToCore file)
-        let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
+        let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
 
         -- Get location information on selected object
         let IRSystem _ procs sigs _ = forsydeIR
@@ -388,7 +388,7 @@ run (Arguments (Host ip) (TCP p) i_f) =
           pure ()
     InputFile f -> do
       (core, dflags) <- withRunInIO (\_u -> compileToCore f)
-      let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
+      let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
       let graphMessage = requestBounds f forsydeIR
       BSL8.putStrLn $ AP.encodePretty graphMessage
 
