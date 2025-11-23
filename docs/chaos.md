@@ -33,3 +33,4 @@ Provide a suggestion of when the chaos issue should be worked on. Make sure it f
 - Compiler improvement tasks #121
 - Add newer visualization issues #113
 - Remove issues relating to OCaml #111
+- Adding location info to ForSyDe IR #199
