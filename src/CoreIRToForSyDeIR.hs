@@ -115,6 +115,26 @@ translateSystemOutputs initialContext expr = case expr of
             }
         context3 = updateConstructorsAndSignals context2
      in context3
+  -- System has 3 outputs
+  App (App (App (App (App (App (Var _) (Type _)) (Type _)) (Type _)) (Var out1)) (Var out2)) (Var out3) ->
+    let context1 = foldl updateSystemOutput initialContext [out1, out2, out3]
+        context2 =
+          context1
+            { systemInputs = reverse (systemInputs context1),
+              systemOutputs = reverse (systemOutputs context1)
+            }
+        context3 = updateConstructorsAndSignals context2
+     in context3
+  -- System has 4 outputs
+  App (App (App (App (App (App (App (App (Var _) (Type _)) (Type _)) (Type _)) (Type _)) (Var out1)) (Var out2)) (Var out3)) (Var out4) ->
+    let context1 = foldl updateSystemOutput initialContext [out1, out2, out3, out4]
+        context2 =
+          context1
+            { systemInputs = reverse (systemInputs context1),
+              systemOutputs = reverse (systemOutputs context1)
+            }
+        context3 = updateConstructorsAndSignals context2
+     in context3
   _ -> error ("translateSystemOutputs - Unsupported expression\n" ++ prettyCoreExpr (flags initialContext) expr)
 
 updateSystemOutput :: TranslationContext -> Id -> TranslationContext
