@@ -236,7 +236,7 @@ handlers f =
         >>= getKey "options"
         >>= getKey "sourceUri"
         >>= \case
-          A.String _a -> Just $ T.unpack $ snd $ T.splitAt 6 _a
+          A.String _a -> Just $ T.unpack $ snd $ T.splitAt 7 _a
           _ -> Nothing
 
 runServerC :: Handle -> Handle -> ServerDefinition config -> IO Int
