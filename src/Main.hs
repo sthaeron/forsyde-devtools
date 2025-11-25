@@ -7,7 +7,7 @@ import ForSyDeIR (prettyIRJSON, prettyIRSystem)
 import ForSyDeIRToProceduralIR (translateIRSystemToProgram)
 import Options.Applicative
 import ProceduralIR (prettyProgram)
-import ProceduralIRToC (translateProgram)
+import ProceduralIRToC (formatWithClang, translateProgram)
 import SDFSchedule (computeScheduleAndBuffers)
 import Utilities (compileToCore)
 
@@ -73,7 +73,9 @@ run (Arguments (InputFile input_file) output_file OutputC) = do
   let (forsydeIR, lookupSignals) = translateCoreProgram dflags core
   let (schedule, buffers, delayBuffers) = computeScheduleAndBuffers forsydeIR
   let proceduralIR = translateIRSystemToProgram dflags schedule buffers delayBuffers lookupSignals forsydeIR
-  write_output output_file OutputC (translateProgram proceduralIR True)
+  let c = translateProgram proceduralIR True
+  cFormated <- formatWithClang c
+  write_output output_file OutputC cFormated
 run (Arguments (InputFile input_file) output_file OutputForSyDeIR) = do
   (core, dflags) <- compileToCore input_file
   let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core

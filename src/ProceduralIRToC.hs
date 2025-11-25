@@ -201,11 +201,11 @@ translateProgram :: Program -> Bool -> String
 translateProgram (Prog globals) includes =
   if includes
     then
-      "typedef int token;\n#include <stdio.h>\n#include \"common.h\"\n"
+      "typedef int token;\n#include <stdio.h>\n#include \"include/common.h\"\n"
         ++ intercalate "\n" (map translateGlobal globals)
     else
       intercalate "\n" (map translateGlobal globals)
 
 formatWithClang :: String -> IO String
 formatWithClang code =
-  readProcess "clang-format" ["--style=LLVM"] code
+  readProcess "clang-format" ["--style={BasedOnStyle: llvm, IndentWidth: 4}"] code
