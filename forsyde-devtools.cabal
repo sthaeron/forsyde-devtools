@@ -41,11 +41,12 @@ library
     exposed-modules:
         CoreIR
         ForSyDeIR
-        SDFSchedule
         ProceduralIR
         CoreIRToForSyDeIR
         ForSyDeIRToProceduralIR
         ProceduralIRToC
+        SDFSchedule
+        Utilities
 
 executable forsyde-devtools-exe
     import:           common-options
@@ -57,11 +58,11 @@ executable forsyde-devtools-exe
         ArgumentsMain
         CoreIR
         ForSyDeIR
-        SDFSchedule
         ProceduralIR
         CoreIRToForSyDeIR
         ForSyDeIRToProceduralIR
         ProceduralIRToC
+        SDFSchedule
         Utilities
 
 executable forsyde-lsp-exe
@@ -74,7 +75,10 @@ executable forsyde-lsp-exe
         ArgumentsLSP
         CoreIR
         ForSyDeIR
+        ProceduralIR
         CoreIRToForSyDeIR
+        ForSyDeIRToProceduralIR
+        ProceduralIRToC
         Utilities
         SKGraphSchema
 
@@ -86,10 +90,9 @@ test-suite forsyde-devtools-test
     ghc-options:      -rtsopts -with-rtsopts=-N
     other-modules:
         ForSyDeIRSpec
-        SDFScheduleSpec
-        ForSyDeIRSpec,
-        ProceduralIRSpec,
+        ProceduralIRSpec
         ProceduralIRToCSpec
+        SDFScheduleSpec
     build-depends:
         forsyde-devtools,
         hspec,
