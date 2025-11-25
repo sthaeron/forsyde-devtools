@@ -39,4 +39,6 @@ result-*
 # Ignore automatically generated direnv output
 .direnv
 
-tests/
+# Ignore temporary testing directories
+tmp/
+examples/implementation/platform_independent/test/

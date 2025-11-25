@@ -1,8 +1,8 @@
 typedef int token;
 
+#include "include/common.h"
 #include <stdio.h>
 
-#include "common.h"
 /* Netlist */
 
 /*

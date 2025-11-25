@@ -1,7 +1,7 @@
 typedef int token;
 
 #include <stdio.h>
-#include "common.h"
+#include "include/common.h"
 
 /* Netlist */
 
