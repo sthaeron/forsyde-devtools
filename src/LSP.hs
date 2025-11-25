@@ -211,6 +211,8 @@ handlers f =
         pure (),
       notificationHandler setPreferencesMethod $ \_not -> do
         pure (),
+      notificationHandler SMethod_WorkspaceDidChangeConfiguration $ \_not -> do
+        pure (),
       requestHandler SMethod_Initialize $ \_req _resp -> do
         _resp
           ( Right $
