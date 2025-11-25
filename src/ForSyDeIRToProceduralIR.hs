@@ -51,9 +51,9 @@ initialTranslationContext dflags lookupSignalList inputList outputList delayBuff
 translateIRSystemToProgram :: DynFlags -> [String] -> [(String, Int)] -> [(String, String)] -> [(String, IRSignal)] -> IRSystem -> Program
 translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookupSignalList (IRSystem (inputList, outputList) constructors _signalList functionList) =
   let initialContext = initialTranslationContext dflags lookupSignalList inputList outputList delayBufferList
-      context1 = foldl translateIRConstructor initialContext constructors
-      context2 = foldl translateBuffer context1 bufferList
-      context3 = foldl translateIRFunctionToGlobals context2 functionList
+      context1 = foldl' translateIRConstructor initialContext constructors
+      context2 = foldl' translateBuffer context1 bufferList
+      context3 = foldl' translateIRFunctionToGlobals context2 functionList
       main = translateContextToMain context3 scheduleList
    in Prog (reverse (initFunctions context3) ++ [main] ++ reverse (functions context3))
 
@@ -62,7 +62,7 @@ translateContextToMain :: TranslationContext -> [String] -> Global
 translateContextToMain context scheduleList =
   let scheduledStmts = scheduleActors context scheduleList
       whileStmt = SWhile (EInt 1) (SScope scheduledStmts)
-      mainInitStmts = [SExpr (ECall "init" []), SVarDecl TInt "status"] ++ reverse (initBuffers context) ++ reverse (ioTokens context) ++ (initDelay context)
+      mainInitStmts = [SExpr (ECall "init" []), SVarDecl TInt "status"] ++ reverse (initBuffers context) ++ reverse (ioTokens context) ++ reverse (initDelay context)
       mainFreeStmts = reverse (freeBuffers context) ++ [SReturn (Just (EInt 0))]
       mainBody = SScope (mainInitStmts ++ [whileStmt] ++ mainFreeStmts)
    in GFuncDef Nothing TInt "main" [] mainBody
@@ -72,16 +72,14 @@ translateContextToMain context scheduleList =
 -- the associated minimum runtime enviorment statements for interacting with
 -- standard in and out.
 scheduleActors :: TranslationContext -> [String] -> [Statement]
-scheduleActors context scheduleList = aux scheduleList []
+scheduleActors context scheduleList = foldl' foldSchedule [] scheduleList
   where
-    aux :: [String] -> [Statement] -> [Statement]
-    aux schedule acc = case schedule of
-      [] -> acc
-      id : idTail ->
-        let actorStmts = case lookup id (actors context) of
-              Just stmts -> stmts
-              Nothing -> error ("schedule - actor not found: " ++ id)
-         in aux idTail (acc ++ actorStmts)
+    foldSchedule :: [Statement] -> String -> [Statement]
+    foldSchedule acc id =
+      let actorStmts = case lookup id (actors context) of
+            Just stmts -> stmts
+            Nothing -> error ("schedule - actor not found: " ++ id)
+       in (acc ++ actorStmts)
 
 -- | Translates a component of the buffer size list provided by the SDF
 -- scheduler into an io token statment, initialisation statement, and freeing
@@ -111,9 +109,15 @@ translateIRConstructor initialContext constructor = case constructor of
   IRDelay _ tokens (inputSignal, outputSignal) ->
     -- `IRDelay` results in a list of statements adding initial delay tokens
     -- into a signal buffer.
-    let maybeBufferName = lookup outputSignal (delayBuffers initialContext)
-     in case maybeBufferName of
-          Just bufferName -> let delayStmts = auxDelay initialContext bufferName tokens [] in initialContext {initDelay = delayStmts ++ initDelay initialContext}
+    let maybeBufferId = lookup outputSignal (delayBuffers initialContext)
+     in case maybeBufferId of
+          Just bufferId ->
+            let foldDelayTokens :: [Statement] -> Int -> [Statement]
+                foldDelayTokens acc token =
+                  let stmt = SExpr (ECall "write_token" [EVar bufferId, EInt token])
+                   in (stmt : acc)
+                delayStmts = (foldl' foldDelayTokens [] tokens)
+             in initialContext {initDelay = delayStmts ++ initDelay initialContext}
           Nothing -> error ("translateIRConstructor - delay buffer not found for signals: " ++ inputSignal ++ ", " ++ outputSignal)
   IRActor actorId actorType functionId (inputSignals, outputSignals) ->
     -- `IRActor` results in a statement calling an SDF actor function within
@@ -134,9 +138,9 @@ translateIRConstructor initialContext constructor = case constructor of
                     ++ [EVar functionId]
                 )
             )
-        inputStmts = auxActor initialContext inputSignals []
-        outputStmts = auxActor initialContext outputSignals []
-        stmts = inputStmts ++ [actorCallStmt] ++ outputStmts
+        inputStmts = foldl' foldActorSignals [] inputSignals
+        outputStmts = foldl' foldActorSignals [] outputSignals
+        stmts = reverse inputStmts ++ [actorCallStmt] ++ reverse outputStmts
         context1 = initialContext {actors = (actorId, stmts) : actors initialContext}
      in context1
   where
@@ -148,58 +152,50 @@ translateIRConstructor initialContext constructor = case constructor of
       case lookup signalId (delayBuffers context) of
         Just bufferName -> bufferName
         Nothing -> signalId
-    auxDelay :: TranslationContext -> String -> [Int] -> [Statement] -> [Statement]
-    auxDelay context id tokens acc = case tokens of
-      [] -> reverse acc
-      token : tokensTail ->
-        let stmt = SExpr (ECall "write_token" [EVar id, EInt token])
-         in auxDelay context id tokensTail (stmt : acc)
-    auxActor :: TranslationContext -> [String] -> [Statement] -> [Statement]
-    auxActor context signalList acc = case signalList of
-      [] -> reverse acc
-      id : idsTail ->
-        if (elem id (systemInputs context))
-          then
-            let bufferSize = getSourceRate context id
-                -- If actor has inputs which are system inputs the following
-                -- adds statements which relate to obtaining inputs from
-                -- standard in.
-                scanForStmt =
-                  SFor
-                    (SVarDef TInt "i" (EInt 0))
-                    (EBinOp Less (EVar "i") (EInt (bufferSize)))
-                    (SExpr (EUnOp Increment (EVar "i")))
-                    (SScope [SVarAssign "status" (ECall "scanf" [EString "%d", EReference (EArrayAccess (EVar ("input_" ++ id)) (EVar "i"))])])
-                breakIfStmt = SIf (EBinOp Less (EVar "status") (EInt 1)) (SBreak) Nothing
-                writeForStmt =
-                  SFor
-                    (SVarDef TInt "i" (EInt 0))
-                    (EBinOp Less (EVar "i") (EInt (bufferSize)))
-                    (SExpr (EUnOp Increment (EVar "i")))
-                    (SScope [SExpr (ECall "write_token" [EVar id, EArrayAccess (EVar ("input_" ++ id)) (EVar "i")])])
-             in auxActor context idsTail (writeForStmt : breakIfStmt : scanForStmt : acc)
-          else
-            if (elem id (systemOutputs context))
-              then
-                let bufferSize = getTargetRate context id
-                    -- If actor has outputs which are system outputs the
-                    -- following adds statements which relate to printing
-                    -- outputs to standard out.
-                    scopeStmt =
-                      SScope
-                        [ SExpr (ECall "read_token" [EVar id, EReference (EVar ("output_" ++ id))]),
-                          SExpr (ECall "printf" [EString "%d", EVar ("output_" ++ id)])
-                        ]
-                    forStmt =
-                      SFor
-                        (SVarDef TInt "i" (EInt 0))
-                        (EBinOp Less (EVar "i") (EInt (bufferSize)))
-                        (SExpr (EUnOp Increment (EVar "i")))
-                        scopeStmt
-                    newLineStmt = SExpr (ECall "printf" [EString "\n"])
-                 in auxActor context idsTail (newLineStmt : forStmt : acc)
-              else
-                auxActor context idsTail acc
+    foldActorSignals :: [Statement] -> String -> [Statement]
+    foldActorSignals acc id =
+      if (elem id (systemInputs initialContext))
+        then
+          let bufferSize = getSourceRate initialContext id
+              -- If actor has inputs which are system inputs the following
+              -- adds statements which relate to obtaining inputs from
+              -- standard in.
+              scanForStmt =
+                SFor
+                  (SVarDef TInt "i" (EInt 0))
+                  (EBinOp Less (EVar "i") (EInt (bufferSize)))
+                  (SExpr (EUnOp Increment (EVar "i")))
+                  (SScope [SVarAssign "status" (ECall "scanf" [EString "%d", EReference (EArrayAccess (EVar ("input_" ++ id)) (EVar "i"))])])
+              breakIfStmt = SIf (EBinOp Less (EVar "status") (EInt 1)) (SBreak) Nothing
+              writeForStmt =
+                SFor
+                  (SVarDef TInt "i" (EInt 0))
+                  (EBinOp Less (EVar "i") (EInt (bufferSize)))
+                  (SExpr (EUnOp Increment (EVar "i")))
+                  (SScope [SExpr (ECall "write_token" [EVar id, EArrayAccess (EVar ("input_" ++ id)) (EVar "i")])])
+           in (writeForStmt : breakIfStmt : scanForStmt : acc)
+        else
+          if (elem id (systemOutputs initialContext))
+            then
+              let bufferSize = getTargetRate initialContext id
+                  -- If actor has outputs which are system outputs the
+                  -- following adds statements which relate to printing
+                  -- outputs to standard out.
+                  scopeStmt =
+                    SScope
+                      [ SExpr (ECall "read_token" [EVar id, EReference (EVar ("output_" ++ id))]),
+                        SExpr (ECall "printf" [EString "%d", EVar ("output_" ++ id)])
+                      ]
+                  forStmt =
+                    SFor
+                      (SVarDef TInt "i" (EInt 0))
+                      (EBinOp Less (EVar "i") (EInt (bufferSize)))
+                      (SExpr (EUnOp Increment (EVar "i")))
+                      scopeStmt
+                  newLineStmt = SExpr (ECall "printf" [EString "\n"])
+               in (newLineStmt : forStmt : acc)
+            else
+              acc
 
 translateActorType :: ActorType -> String
 translateActorType actorType = case actorType of
