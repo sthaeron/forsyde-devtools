@@ -211,6 +211,52 @@ handlers f =
         pure (),
       notificationHandler setPreferencesMethod $ \_not -> do
         pure (),
+      requestHandler SMethod_Initialize $ \_req _resp -> do
+        _resp
+          ( Right $
+              InitializeResult
+                { _capabilities =
+                    ServerCapabilities
+                      { _positionEncoding = Nothing,
+                        _textDocumentSync = Nothing,
+                        _notebookDocumentSync = Nothing,
+                        _completionProvider = Nothing,
+                        _hoverProvider = Nothing,
+                        _signatureHelpProvider = Nothing,
+                        _declarationProvider = Nothing,
+                        _definitionProvider = Nothing,
+                        _typeDefinitionProvider = Nothing,
+                        _implementationProvider = Nothing,
+                        _referencesProvider = Nothing,
+                        _documentHighlightProvider = Nothing,
+                        _documentSymbolProvider = Nothing,
+                        _codeActionProvider = Nothing,
+                        _codeLensProvider = Nothing,
+                        _documentLinkProvider = Nothing,
+                        _colorProvider = Nothing,
+                        _workspaceSymbolProvider = Nothing,
+                        _documentFormattingProvider = Nothing,
+                        _documentRangeFormattingProvider = Nothing,
+                        _documentOnTypeFormattingProvider = Nothing,
+                        _renameProvider = Nothing,
+                        _foldingRangeProvider = Nothing,
+                        _selectionRangeProvider = Nothing,
+                        _executeCommandProvider = Nothing,
+                        _callHierarchyProvider = Nothing,
+                        _linkedEditingRangeProvider = Nothing,
+                        _semanticTokensProvider = Nothing,
+                        _monikerProvider = Nothing,
+                        _typeHierarchyProvider = Nothing,
+                        _inlineValueProvider = Nothing,
+                        _inlayHintProvider = Nothing,
+                        _diagnosticProvider = Nothing,
+                        _workspace = Nothing,
+                        _experimental = Nothing
+                      },
+                  _serverInfo = Nothing
+                }
+          )
+        pure (),
       notificationHandler diagramAcceptMethod $ \TNotificationMessage {_params = p} -> do
         -- In the case where the client does not provide a sourceUri, use the
         -- old one. This is the case for e.g. the refreshDiagram action
