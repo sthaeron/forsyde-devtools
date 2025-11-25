@@ -158,10 +158,10 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
         }
 
 -- | Send our supported syntheses to the LSP client (KLighD-VSCode)
-setSynthesis :: A.Value
-setSynthesis =
+setSynthesis :: T.Text -> A.Value
+setSynthesis clientId =
   A.object
-    [ "clientId" .= T.pack "sprotty",
+    [ "clientId" .= clientId,
       "action"
         .= A.object
           [ "kind" .= T.pack "setSyntheses",
@@ -176,10 +176,10 @@ setSynthesis =
     ]
 
 -- | Send the supported options for the file
-updateOptions :: FilePath -> A.Value
-updateOptions f =
+updateOptions :: FilePath -> T.Text -> A.Value
+updateOptions f clientId =
   A.object
-    [ "clientId" .= T.pack "sprotty",
+    [ "clientId" .= clientId,
       "action"
         .= A.object
           [ "kind" .= T.pack "updateOptions",
@@ -191,10 +191,10 @@ updateOptions f =
     ]
 
 -- | Send the graph for layout and display to the LSP client (KLighD-VSCode)
-requestBounds :: FilePath -> IRSystem -> A.Value
-requestBounds f ir =
+requestBounds :: FilePath -> T.Text -> IRSystem -> A.Value
+requestBounds f clientId ir =
   A.object
-    [ "clientId" .= T.pack "sprotty",
+    [ "clientId" .= clientId,
       "action"
         .= A.object
           [ "kind" .= T.pack "requestBounds",
@@ -266,6 +266,9 @@ handlers f =
         let file = maybe (getFile p) id c
         _ <- setConfig (Just file)
 
+        -- What clientId should we use?
+        let clientId = maybe ("sprotty" :: T.Text) id (getClientId p)
+
         -- Decode elementSelected
         let sel = getSelected p & map (T.split (\_c -> _c == '$')) & map last & map T.unpack
 
@@ -284,9 +287,9 @@ handlers f =
         _ <- if length spans > 0 then withRunInIO (\_u -> putStrLn $ show spans) else pure ()
 
         -- Send the diagram if the client wants it
-        if update then sendNotification diagramAcceptMethod setSynthesis else pure ()
-        if update then sendNotification diagramAcceptMethod (updateOptions file) else pure ()
-        let graphMessage = requestBounds file forsydeIR
+        if update then sendNotification diagramAcceptMethod (setSynthesis clientId) else pure ()
+        if update then sendNotification diagramAcceptMethod (updateOptions file clientId) else pure ()
+        let graphMessage = requestBounds file clientId forsydeIR
         if update then sendNotification diagramAcceptMethod graphMessage else pure ()
 
         -- When an element is selcted, only that one seems to be sent.
@@ -391,6 +394,12 @@ handlers f =
         >>= \case
           A.String _a -> Just $ T.unpack $ snd $ T.splitAt 7 _a
           _ -> Nothing
+    getClientId params =
+      Just params
+        >>= getKey "clientId"
+        >>= \case
+          A.String _a -> Just _a
+          _ -> Nothing
 
 runServerC :: Handle -> Handle -> ServerDefinition config -> IO Int
 runServerC =
@@ -437,7 +446,7 @@ run (Arguments (Host ip) (TCP p) i_f) =
     InputFile f -> do
       (core, dflags) <- withRunInIO (\_u -> compileToCore f)
       let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
-      let graphMessage = requestBounds f forsydeIR
+      let graphMessage = requestBounds f "sprotty" forsydeIR
       BSL8.putStrLn $ AP.encodePretty graphMessage
 
 -- | Listen on host and port, as well as accept and fork off connections
