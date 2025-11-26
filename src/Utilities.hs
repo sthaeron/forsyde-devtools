@@ -1,5 +1,6 @@
-module Utilities (noInlineTypecheck, compileToCore) where
+module Utilities (compileToCore, noInlineTypecheck, scheduleAndBuffer) where
 
+import CoreIRToForSyDeIR (translateCoreProgram)
 import Data.Data (Data, gmapT)
 import Data.Generics (extT)
 import GHC
@@ -7,6 +8,7 @@ import GHC.Driver.Main
 import GHC.Paths (libdir)
 import GHC.Plugins
 import GHC.Tc.Types
+import SDFSchedule (computeScheduleAndBuffers)
 import System.FilePath (takeBaseName)
 
 -- | Custom `compileToCore` function which compiles a haskell module at a
@@ -83,3 +85,11 @@ noInlineTypecheck tcg = tcg {tcg_binds = applySystemBinds (tcg_binds tcg)}
         noInlineABE :: ABExport -> ABExport
         noInlineABE abe@ABE {abe_poly = poly, abe_mono = mono} =
           abe {abe_poly = noInlineId poly, abe_mono = noInlineId mono}
+
+-- | Utility function to obtain output of SDF Scheduler. Meant for testing to be
+-- used in a repl.
+scheduleAndBuffer :: FilePath -> IO ([String], [(String, Int)], [(String, String)])
+scheduleAndBuffer filePath = do
+  (core, dflags) <- (compileToCore filePath)
+  let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
+  return $ computeScheduleAndBuffers forsydeIR
