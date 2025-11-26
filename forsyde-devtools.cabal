@@ -1,98 +1,111 @@
-cabal-version:      2.4
-name:               forsyde-devtools
-version:            0.0.0.1
+cabal-version: 2.4
+name: forsyde-devtools
+version: 0.0.0.1
 -- synopsis:
 -- description:
-license:            MIT
-license-file:       LICENSE
+license: MIT
+license-file: LICENSE
 -- author:
 -- maintainer:
 -- copyright:
-build-type:         Simple
-extra-doc-files:    README.md
+build-type: Simple
+extra-doc-files: README.md
 
 common common-options
-    ghc-options:      -Wall -threaded
-    default-language: Haskell2010
-    build-depends:
-        base >=4.11 && <4.21,
-        ghc == 9.10.2,
-        ghc-paths == 0.1.0.12,
-        forsyde-shallow == 3.5.0.0,
-        optparse-applicative >= 0.18.1.0,
-        filepath >=1 && <1.6,
-        aeson == 2.2.3.0,
-        aeson-pretty == 0.8.10,
-        text == 2.1.2,
-        containers == 0.7,
-        bytestring >=0.11 && <0.13,
-        process == 1.6.25.0,
-        hmatrix == 0.20.2,
-        syb >= 0.7.2.4 && <= 0.7.3,
-        lsp == 2.7.0.1,
-        network == 3.2.7.0,
-        co-log-core == 0.3.2.5,
-        prettyprinter == 1.7.1,
-        unliftio-core == 0.2.1.0,
+  ghc-options:
+    -Wall
+    -threaded
+
+  default-language: Haskell2010
+  build-depends:
+    aeson ==2.2.3.0,
+    aeson-pretty ==0.8.10,
+    base >=4.11 && <4.21,
+    bytestring >=0.11 && <0.13,
+    co-log-core ==0.3.2.5,
+    containers ==0.7,
+    filepath >=1 && <1.6,
+    forsyde-shallow ==3.5.0.0,
+    ghc ==9.10.2,
+    ghc-paths ==0.1.0.12,
+    hmatrix ==0.20.2,
+    lsp ==2.7.0.1,
+    network ==3.2.7.0,
+    optparse-applicative >=0.18.1.0,
+    prettyprinter ==1.7.1,
+    process ==1.6.25.0,
+    syb >=0.7.2.4 && <=0.7.3,
+    text ==2.1.2,
+    unliftio-core ==0.2.1.0,
 
 library
-    import:           common-options
-    hs-source-dirs:   src
-    exposed-modules:
-        CoreIR
-        ForSyDeIR
-        ProceduralIR
-        CoreIRToForSyDeIR
-        ForSyDeIRToProceduralIR
-        ProceduralIRToC
-        SDFSchedule
-        Utilities
+  import: common-options
+  hs-source-dirs: src
+  exposed-modules:
+    CoreIR
+    CoreIRToForSyDeIR
+    ForSyDeIR
+    ForSyDeIRToProceduralIR
+    ProceduralIR
+    ProceduralIRToC
+    SDFSchedule
+    Utilities
 
 executable forsyde-devtools-exe
-    import:           common-options
-    hs-source-dirs:   src
-    main-is:          Main.hs
-    ghc-options:      -rtsopts -with-rtsopts=-N
-    build-depends:    forsyde-devtools
-    other-modules:
-        ArgumentsMain
-        CoreIR
-        ForSyDeIR
-        ProceduralIR
-        CoreIRToForSyDeIR
-        ForSyDeIRToProceduralIR
-        ProceduralIRToC
-        SDFSchedule
-        Utilities
+  import: common-options
+  hs-source-dirs: src
+  main-is: Main.hs
+  ghc-options:
+    -rtsopts
+    -with-rtsopts=-N
+
+  build-depends: forsyde-devtools
+  other-modules:
+    ArgumentsMain
+    CoreIR
+    CoreIRToForSyDeIR
+    ForSyDeIR
+    ForSyDeIRToProceduralIR
+    ProceduralIR
+    ProceduralIRToC
+    SDFSchedule
+    Utilities
 
 executable forsyde-lsp-exe
-    import:           common-options
-    hs-source-dirs:   src
-    main-is:          LSP.hs
-    ghc-options:      -rtsopts -with-rtsopts=-N
-    build-depends:    forsyde-devtools
-    other-modules:
-        ArgumentsLSP
-        CoreIR
-        ForSyDeIR
-        ProceduralIR
-        CoreIRToForSyDeIR
-        ForSyDeIRToProceduralIR
-        ProceduralIRToC
-        Utilities
-        SKGraphSchema
+  import: common-options
+  hs-source-dirs: src
+  main-is: LSP.hs
+  ghc-options:
+    -rtsopts
+    -with-rtsopts=-N
+
+  build-depends: forsyde-devtools
+  other-modules:
+    ArgumentsLSP
+    CoreIR
+    CoreIRToForSyDeIR
+    ForSyDeIR
+    ForSyDeIRToProceduralIR
+    ProceduralIR
+    ProceduralIRToC
+    SKGraphSchema
+    Utilities
 
 test-suite forsyde-devtools-test
-    import:           common-options
-    type:             exitcode-stdio-1.0
-    hs-source-dirs:   test
-    main-is:          Spec.hs
-    ghc-options:      -rtsopts -with-rtsopts=-N
-    other-modules:
-        ForSyDeIRSpec
-        ProceduralIRSpec
-        ProceduralIRToCSpec
-        SDFScheduleSpec
-    build-depends:
-        forsyde-devtools,
-        hspec,
+  import: common-options
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  ghc-options:
+    -rtsopts
+    -with-rtsopts=-N
+
+  other-modules:
+    ForSyDeIRSpec
+    ProceduralIRSpec
+    ProceduralIRToCSpec
+    SDFScheduleSpec
+
+  build-depends:
+    forsyde-devtools,
+    hspec,
