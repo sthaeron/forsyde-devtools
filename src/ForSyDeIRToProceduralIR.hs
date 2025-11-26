@@ -122,8 +122,8 @@ translateIRConstructor initialContext constructor = case constructor of
   IRActor actorId actorType functionId (inputSignals, outputSignals) ->
     -- `IRActor` results in a statement calling an SDF actor function within
     -- source rates, target rates, and a function as arguments.
-    let sourceRates = map (getSourceRate initialContext) inputSignals
-        targetRates = map (getTargetRate initialContext) outputSignals
+    let inputRates = map (getTargetRate initialContext) inputSignals
+        outputRates = map (getSourceRate initialContext) outputSignals
         actorName = translateActorType actorType
         translatedInputSignals = map (translateSignalId initialContext) inputSignals
         translatedOutputSignals = map (translateSignalId initialContext) outputSignals
@@ -131,8 +131,8 @@ translateIRConstructor initialContext constructor = case constructor of
           SExpr
             ( ECall
                 actorName
-                ( (map (\rate -> EInt (fromIntegral rate)) sourceRates)
-                    ++ (map (\rate -> EInt (fromIntegral rate)) targetRates)
+                ( (map (\rate -> EInt (fromIntegral rate)) inputRates)
+                    ++ (map (\rate -> EInt (fromIntegral rate)) outputRates)
                     ++ (map (\id -> EVar id) translatedInputSignals)
                     ++ (map (\id -> EVar id) translatedOutputSignals)
                     ++ [EVar functionId]
@@ -156,7 +156,7 @@ translateIRConstructor initialContext constructor = case constructor of
     foldActorSignals acc id =
       if (elem id (systemInputs initialContext))
         then
-          let bufferSize = getSourceRate initialContext id
+          let bufferSize = getTargetRate initialContext id
               -- If actor has inputs which are system inputs the following
               -- adds statements which relate to obtaining inputs from
               -- standard in.
@@ -177,7 +177,7 @@ translateIRConstructor initialContext constructor = case constructor of
         else
           if (elem id (systemOutputs initialContext))
             then
-              let bufferSize = getTargetRate initialContext id
+              let bufferSize = getSourceRate initialContext id
                   -- If actor has outputs which are system outputs the
                   -- following adds statements which relate to printing
                   -- outputs to standard out.
