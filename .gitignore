@@ -39,6 +39,9 @@ result-*
 # Ignore automatically generated direnv output
 .direnv
 
+# Ignore mac specific directory file
+.DS_Store
+
 # Ignore temporary testing directories
 tmp/
 examples/implementation/platform_independent/test/
