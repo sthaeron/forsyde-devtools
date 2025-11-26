@@ -82,8 +82,8 @@ run (Arguments (InputFile input_file) output_file OutputForSyDeIR) = do
   write_output output_file OutputForSyDeIR (prettyIRSystem dflags forsydeIR)
 run (Arguments (InputFile input_file) output_file OutputForSyDeIRJSON) = do
   (core, dflags) <- compileToCore input_file
-  let ir = translateCoreProgram dflags core
-  let ir_json = prettyIRJSON ir
+  let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
+  let ir_json = prettyIRJSON forsydeIR
   write_output output_file OutputForSyDeIRJSON ir_json
 run (Arguments (InputFile input_file) output_file OutputProceduralIR) = do
   (core, dflags) <- compileToCore input_file
