@@ -6,7 +6,7 @@ Videos introducing Core can be found in [GHC Hackathon](https://www.youtube.com/
 ## Core algebraic data type
 The top level of our Core IR translation starts from a `CoreProgram` which is a type synonym of a list of `CoreBind`. Each `CoreBind` is a type synonym of a `Bind CoreBndr`. A `Bind CoreBndr` is a specific type synonym of the `Bind` data type used by GHC Core. Core algebraic data types are defined in the code snippet below. 
 
-``` Haskell
+```Haskell
 type CoreExpr = Expr Var
 
 data Expr b	-- "b" for the type of binders, 
