@@ -26,7 +26,6 @@ import qualified Data.Text.Lazy.Builder as TLB
 import GHC (DynFlags)
 import GHC.Core
 import Text.Printf (printf)
-import Prelude hiding (id)
 
 -- ForSyDe IR data types
 
@@ -95,10 +94,10 @@ prettyIRFunction dflags (IRFunction functionId function) =
   printf
     "IRFunction(\"%s\", %s)"
     functionId
-    (maybe "" (prettyFunction dflags functionId) function)
+    (maybe "" (prettyFunction dflags) function)
 
-prettyFunction :: DynFlags -> String -> CoreExpr -> String
-prettyFunction dflags _id function = printf "\n%s" (indent 2 (prettyCoreExpr dflags function))
+prettyFunction :: DynFlags -> CoreExpr -> String
+prettyFunction dflags function = printf "\n%s" (indent 2 (prettyCoreExpr dflags function))
 
 prettyIRSystem :: DynFlags -> IRSystem -> String
 prettyIRSystem dflags (IRSystem (inputs, outputs) constructors signals functions) =

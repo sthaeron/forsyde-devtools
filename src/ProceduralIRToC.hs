@@ -4,7 +4,6 @@ import Data.List (intercalate)
 import ProceduralIR
 import System.Process (readProcess)
 import Text.Printf (printf)
-import Prelude hiding (id)
 
 indent :: String -> String
 indent = unlines . map ("  " ++) . lines
@@ -152,49 +151,49 @@ translateParam (paramType, paramName) =
 
 translateGlobal :: Global -> String
 translateGlobal global = case global of
-  GFuncDeclare (Just storageClass) returnType id parameters ->
+  GFuncDeclare (Just storageClass) returnType funcId parameters ->
     printf
       "%s %s %s(%s);"
       (prettyStorageClass storageClass)
       (translateType returnType)
-      (id)
+      (funcId)
       (intercalate ", " (map translateParam parameters))
-  GFuncDeclare Nothing returnType id parameters ->
+  GFuncDeclare Nothing returnType funcId parameters ->
     printf
       "%s %s(%s);"
       (translateType returnType)
-      (id)
+      (funcId)
       (intercalate ", " (map translateParam parameters))
-  GFuncDef (Just storageClass) returnType id parameters body ->
+  GFuncDef (Just storageClass) returnType funcId parameters body ->
     printf
       "%s %s %s(%s) %s"
       (prettyStorageClass storageClass)
       (translateType returnType)
-      (id)
+      (funcId)
       (intercalate ", " (map translateParam parameters))
       (translateStatement body)
-  GFuncDef Nothing returnType id parameters body ->
+  GFuncDef Nothing returnType funcId parameters body ->
     printf
       "%s %s(%s) %s"
       (translateType returnType)
-      (id)
+      (funcId)
       (intercalate ", " (map translateParam parameters))
       (translateStatement body)
-  GVarDeclare varType id ->
+  GVarDeclare varType varId ->
     printf
       "%s %s;"
       (translateType varType)
-      (id)
-  GVarDef varType id expression ->
+      (varId)
+  GVarDef varType varId expression ->
     printf
       "%s %s = %s;"
       (translateType varType)
-      (id)
+      (varId)
       (translateExpression expression)
-  GStruct id fields ->
+  GStruct structId fields ->
     printf
       "%s {\n%s};"
-      (id)
+      (structId)
       (intercalate ",\n" (map translateParam fields))
 
 translateProgram :: Program -> Bool -> String

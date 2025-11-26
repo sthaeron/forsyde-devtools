@@ -6,7 +6,6 @@ import GHC.Core
 import GHC.Driver.Ppr
 import GHC.Types.Literal
 import ProceduralIR
-import Prelude hiding (id, init)
 
 -- | The `TranslationContext` is a data type which is used to pass around
 -- context required to complete the translation of ForSyDeIR to
@@ -75,10 +74,10 @@ scheduleActors :: TranslationContext -> [String] -> [Statement]
 scheduleActors context scheduleList = foldl' foldSchedule [] scheduleList
   where
     foldSchedule :: [Statement] -> String -> [Statement]
-    foldSchedule acc id =
-      let actorStmts = case lookup id (actors context) of
+    foldSchedule acc actorId =
+      let actorStmts = case lookup actorId (actors context) of
             Just stmts -> stmts
-            Nothing -> error ("schedule - actor not found: " ++ id)
+            Nothing -> error ("schedule - actor not found: " ++ actorId)
        in (acc ++ actorStmts)
 
 -- | Translates a component of the buffer size list provided by the SDF
@@ -87,17 +86,17 @@ scheduleActors context scheduleList = foldl' foldSchedule [] scheduleList
 -- token statements are only created for buffers which relate to with system
 -- inputs and outputs.
 translateBuffer :: TranslationContext -> (String, Int) -> TranslationContext
-translateBuffer initialContext (id, bufferSize) =
-  let initStmt = SVarDef (TPointer (TIdent "buffer_nonblocking")) id (ECall "buffer_nonblocking_new" [EInt bufferSize])
-      freeStmt = SExpr (ECall "buffer_nonblocking_free" [EVar id])
-   in if (elem id (systemInputs initialContext))
+translateBuffer initialContext (bufferId, bufferSize) =
+  let initStmt = SVarDef (TPointer (TIdent "buffer_nonblocking")) bufferId (ECall "buffer_nonblocking_new" [EInt bufferSize])
+      freeStmt = SExpr (ECall "buffer_nonblocking_free" [EVar bufferId])
+   in if (elem bufferId (systemInputs initialContext))
         then
-          let ioTokenStmt = SArrayDecl TInt ("input_" ++ id) [EInt bufferSize]
+          let ioTokenStmt = SArrayDecl TInt ("input_" ++ bufferId) [EInt bufferSize]
            in initialContext {ioTokens = ioTokenStmt : ioTokens initialContext, initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
         else
-          if (elem id (systemOutputs initialContext))
+          if (elem bufferId (systemOutputs initialContext))
             then
-              let ioTokenStmt = SVarDecl TInt ("output_" ++ id)
+              let ioTokenStmt = SVarDecl TInt ("output_" ++ bufferId)
                in initialContext {ioTokens = ioTokenStmt : ioTokens initialContext, initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
             else
               initialContext {initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
@@ -133,8 +132,8 @@ translateIRConstructor initialContext constructor = case constructor of
                 actorName
                 ( (map (\rate -> EInt (fromIntegral rate)) inputRates)
                     ++ (map (\rate -> EInt (fromIntegral rate)) outputRates)
-                    ++ (map (\id -> EVar id) translatedInputSignals)
-                    ++ (map (\id -> EVar id) translatedOutputSignals)
+                    ++ (map (\bufferId -> EVar bufferId) translatedInputSignals)
+                    ++ (map (\bufferId -> EVar bufferId) translatedOutputSignals)
                     ++ [EVar functionId]
                 )
             )
@@ -150,13 +149,13 @@ translateIRConstructor initialContext constructor = case constructor of
     translateSignalId :: TranslationContext -> String -> String
     translateSignalId context signalId =
       case lookup signalId (delayBuffers context) of
-        Just bufferName -> bufferName
+        Just bufferId -> bufferId
         Nothing -> signalId
     foldActorSignals :: [Statement] -> String -> [Statement]
-    foldActorSignals acc id =
-      if (elem id (systemInputs initialContext))
+    foldActorSignals acc signalId =
+      if (elem signalId (systemInputs initialContext))
         then
-          let bufferSize = getTargetRate initialContext id
+          let bufferSize = getTargetRate initialContext signalId
               -- If actor has inputs which are system inputs the following
               -- adds statements which relate to obtaining inputs from
               -- standard in.
@@ -165,26 +164,26 @@ translateIRConstructor initialContext constructor = case constructor of
                   (SVarDef TInt "i" (EInt 0))
                   (EBinOp Less (EVar "i") (EInt (bufferSize)))
                   (SExpr (EUnOp Increment (EVar "i")))
-                  (SScope [SVarAssign "status" (ECall "scanf" [EString "%d", EReference (EArrayAccess (EVar ("input_" ++ id)) (EVar "i"))])])
+                  (SScope [SVarAssign "status" (ECall "scanf" [EString "%d", EReference (EArrayAccess (EVar ("input_" ++ signalId)) (EVar "i"))])])
               breakIfStmt = SIf (EBinOp Less (EVar "status") (EInt 1)) (SBreak) Nothing
               writeForStmt =
                 SFor
                   (SVarDef TInt "i" (EInt 0))
                   (EBinOp Less (EVar "i") (EInt (bufferSize)))
                   (SExpr (EUnOp Increment (EVar "i")))
-                  (SScope [SExpr (ECall "write_token" [EVar id, EArrayAccess (EVar ("input_" ++ id)) (EVar "i")])])
+                  (SScope [SExpr (ECall "write_token" [EVar signalId, EArrayAccess (EVar ("input_" ++ signalId)) (EVar "i")])])
            in (writeForStmt : breakIfStmt : scanForStmt : acc)
         else
-          if (elem id (systemOutputs initialContext))
+          if (elem signalId (systemOutputs initialContext))
             then
-              let bufferSize = getSourceRate initialContext id
+              let bufferSize = getSourceRate initialContext signalId
                   -- If actor has outputs which are system outputs the
                   -- following adds statements which relate to printing
                   -- outputs to standard out.
                   scopeStmt =
                     SScope
-                      [ SExpr (ECall "read_token" [EVar id, EReference (EVar ("output_" ++ id))]),
-                        SExpr (ECall "printf" [EString "%d", EVar ("output_" ++ id)])
+                      [ SExpr (ECall "read_token" [EVar signalId, EReference (EVar ("output_" ++ signalId))]),
+                        SExpr (ECall "printf" [EString "%d", EVar ("output_" ++ signalId)])
                       ]
                   forStmt =
                     SFor
@@ -217,31 +216,31 @@ translateActorType actorType = case actorType of
   Actor44 -> "actor44SDF"
 
 getSourceRate :: TranslationContext -> String -> Int
-getSourceRate context id =
-  let signal = lookup id (lookupSignals context)
+getSourceRate context signalId =
+  let signal = lookup signalId (lookupSignals context)
    in case signal of
         Just (IRSignal _ (_, rate) _) -> rate
-        Nothing -> error ("getSourceRate - signal not found: " ++ id)
+        Nothing -> error ("getSourceRate - signal not found: " ++ signalId)
 
 getTargetRate :: TranslationContext -> String -> Int
-getTargetRate context id =
-  let signal = lookup id (lookupSignals context)
+getTargetRate context signalId =
+  let signal = lookup signalId (lookupSignals context)
    in case signal of
         Just (IRSignal _ _ (_, rate)) -> rate
-        Nothing -> error ("getTargetRate - signal not found: " ++ id)
+        Nothing -> error ("getTargetRate - signal not found: " ++ signalId)
 
 getSignalById :: String -> [IRSignal] -> IRSignal
 getSignalById signalId signalList = case signalList of
   [] -> error ("getSignalById - signal not found: " ++ signalId)
-  (s@(IRSignal id _ _)) : tailSignals ->
-    if id == signalId
-      then s
+  (signalStmt@(IRSignal currentSignalId _ _)) : tailSignals ->
+    if currentSignalId == signalId
+      then signalStmt
       else getSignalById signalId tailSignals
 
 translateIRFunctionToGlobals :: TranslationContext -> IRFunction -> TranslationContext
-translateIRFunctionToGlobals currentContext (IRFunction id maybeFunction) = case maybeFunction of
+translateIRFunctionToGlobals currentContext (IRFunction functionId maybeFunction) = case maybeFunction of
   Just function ->
-    let (initFunctionGlobal, functionGlobal) = translateCoreExprToGlobals currentContext id function
+    let (initFunctionGlobal, functionGlobal) = translateCoreExprToGlobals currentContext functionId function
         context1 = currentContext {initFunctions = initFunctionGlobal : (initFunctions currentContext), functions = functionGlobal : (functions currentContext)}
      in context1
   Nothing -> currentContext
@@ -267,7 +266,7 @@ translateCoreExprToGlobals context binder expr = case (binder, expr) of
 -- example 8.
 translateCoreExprToStatement :: TranslationContext -> CoreExpr -> Statement
 translateCoreExprToStatement context expr = case expr of
-  Var id -> SExpr (EVar (showPpr (flags context) id))
+  Var varId -> SExpr (EVar (showPpr (flags context) varId))
   Lit (LitNumber LitNumInt i) -> SExpr (EInt (fromIntegral i))
   App (App (App (Var _) (Type _)) (App (App (App (App (Var _op1) (Type _)) (Var _)) (Var _a1)) (Var _a2))) (App (Var _) (Type _)) ->
     let stmt = SArrayAssign "output" (EInt 0) Nothing (EBinOp Plus (EArrayAccess (EVar "input_1") (EInt 0)) (EArrayAccess (EVar "input_2") (EInt 0)))

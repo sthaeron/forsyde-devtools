@@ -21,7 +21,6 @@ module ProceduralIR
 where
 
 import Text.Printf (printf)
-import Prelude hiding (id)
 
 data StorageClass
   = Auto
@@ -173,7 +172,7 @@ prettyType currentType = case currentType of
   TInt -> "TInt"
   TFloat -> "TFloat"
   TChar -> "TChar"
-  TIdent id -> printf "TIdent(%s)" (quotes id)
+  TIdent tyId -> printf "TIdent(%s)" (quotes tyId)
   TPointer ty -> printf "TPointer(%s)" (prettyType ty)
   TReference ty -> printf "TReference(%s)" (prettyType ty)
   TFunctionPointer ty typeParameters -> printf "TFunctionPointer(%s, {%s})" (prettyType ty) (intercalate ", " (map prettyType typeParameters))
@@ -363,49 +362,49 @@ prettyStorageClass storageClass = case storageClass of
 
 prettyGlobal :: Global -> String
 prettyGlobal global = case global of
-  GFuncDeclare (Just storageClass) returnType id parameters ->
+  GFuncDeclare (Just storageClass) returnType fundId parameters ->
     printf
       "GFuncDeclare(%s, %s, %s, {%s})"
       (prettyStorageClass storageClass)
       (prettyType returnType)
-      (quotes id)
+      (quotes fundId)
       (intercalate ", " (map prettyParam parameters))
-  GFuncDeclare Nothing returnType id parameters ->
+  GFuncDeclare Nothing returnType funcId parameters ->
     printf
       "GFuncDeclare(%s, %s, {%s})"
       (prettyType returnType)
-      (quotes id)
+      (quotes funcId)
       (intercalate ", " (map prettyParam parameters))
-  GFuncDef (Just storageClass) returnType id parameters body ->
+  GFuncDef (Just storageClass) returnType funcId parameters body ->
     printf
       "GFuncDef(%s, %s, %s, {%s}, %s)"
       (prettyStorageClass storageClass)
       (prettyType returnType)
-      (quotes id)
+      (quotes funcId)
       (intercalate ", " (map prettyParam parameters))
       (prettyStatement body)
-  GFuncDef Nothing returnType id parameters body ->
+  GFuncDef Nothing returnType funcId parameters body ->
     printf
       "GFuncDef(%s, %s, {%s}, %s)"
       (prettyType returnType)
-      (quotes id)
+      (quotes funcId)
       (intercalate ", " (map prettyParam parameters))
       (prettyStatement body)
-  GVarDeclare varType id ->
+  GVarDeclare varType varId ->
     printf
       "GVarDeclare(%s, %s)"
       (prettyType varType)
-      (quotes id)
-  GVarDef varType id expression ->
+      (quotes varId)
+  GVarDef varType varId expression ->
     printf
       "GVarDef(%s, %s, %s)"
       (prettyType varType)
-      (quotes id)
+      (quotes varId)
       (prettyExpression expression)
-  GStruct id fields ->
+  GStruct structId fields ->
     printf
       "GStruct(%s {\n%s})"
-      (quotes id)
+      (quotes structId)
       (intercalate ",\n" (map prettyParam fields))
 
 prettyProgram :: Program -> String

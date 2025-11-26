@@ -7,7 +7,6 @@ import GHC hiding (targetId)
 import GHC.Core
 import GHC.Driver.Ppr
 import GHC.Types.Literal
-import Prelude hiding (id)
 
 -- | The `TranslationContext` is a data type which is used to pass around
 -- context required to complete the translation of Core IR to ForSyDe IR.
