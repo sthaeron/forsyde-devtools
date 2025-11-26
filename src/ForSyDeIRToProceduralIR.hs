@@ -229,14 +229,6 @@ getTargetRate context signalId =
         Just (IRSignal _ _ (_, rate)) -> rate
         Nothing -> error ("getTargetRate - signal not found: " ++ signalId)
 
-getSignalById :: String -> [IRSignal] -> IRSignal
-getSignalById signalId signalList = case signalList of
-  [] -> error ("getSignalById - signal not found: " ++ signalId)
-  (signalStmt@(IRSignal currentSignalId _ _)) : tailSignals ->
-    if currentSignalId == signalId
-      then signalStmt
-      else getSignalById signalId tailSignals
-
 translateIRFunctionToGlobals :: TranslationContext -> IRFunction -> TranslationContext
 translateIRFunctionToGlobals currentContext (IRFunction functionId maybeFunction) = case maybeFunction of
   Just function ->
