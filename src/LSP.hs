@@ -204,8 +204,8 @@ requestBounds f clientId ir =
     ]
 
 -- | The static notification and request handlers we support
-handlers :: Input -> Handlers (LspM (Maybe FilePath))
-handlers f =
+handlers :: Handlers (LspM (Maybe FilePath))
+handlers =
   mconcat
     [ notificationHandler SMethod_Initialized $ \_not -> do
         pure (),
@@ -262,8 +262,8 @@ handlers f =
       notificationHandler diagramAcceptMethod $ \TNotificationMessage {_params = p} -> do
         -- In the case where the client does not provide a sourceUri, use the
         -- old one. This is the case for e.g. the refreshDiagram action
-        c <- getConfig
-        let file = maybe (getFile p) id c
+        oldFile <- getConfig
+        let file = maybe (maybe "" id oldFile) id (getFilePathFromClient p)
         _ <- setConfig (Just file)
 
         -- What clientId should we use?
@@ -350,11 +350,6 @@ handlers f =
         transform = \case
           IRDelay n _ _ -> varToSpan n
           IRActor n _ _ _ -> varToSpan n
-    getFile params = case f of
-      FromClient -> case getFilePathFromClient params of
-        Just _file -> _file
-        Nothing -> ""
-      InputFile fn -> fn
     getKey key = \case
       A.Object o -> o !? key
       _ -> Nothing
@@ -438,7 +433,7 @@ run (Arguments (Host ip) (TCP p) i_f) =
                   defaultConfig = Nothing,
                   configSection = "demo",
                   doInitialize = \env _req -> pure $ Right env,
-                  staticHandlers = \_caps -> (handlers FromClient),
+                  staticHandlers = \_caps -> handlers,
                   interpretHandler = \env -> Iso (runLspT env) liftIO,
                   options = defaultOptions
                 }
