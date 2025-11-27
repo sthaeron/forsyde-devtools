@@ -164,12 +164,12 @@ setSynthesis clientId =
     [ "clientId" .= clientId,
       "action"
         .= A.object
-          [ "kind" .= T.pack "setSyntheses",
+          [ "kind" .= ("setSyntheses" :: T.Text),
             "syntheses"
               .= Seq.fromList
                 [ A.object
-                    [ "id" .= T.pack "se.kth.forsyde-devtools.dummyid",
-                      "displayName" .= T.pack "ForSyDe Shallow"
+                    [ "id" .= ("se.kth.forsyde-devtools.dummyid" :: T.Text),
+                      "displayName" .= ("ForSyDe Shallow" :: T.Text)
                     ]
                 ]
           ]
@@ -182,7 +182,7 @@ updateOptions f clientId =
     [ "clientId" .= clientId,
       "action"
         .= A.object
-          [ "kind" .= T.pack "updateOptions",
+          [ "kind" .= ("updateOptions" :: T.Text),
             "valuedSynthesisOptions" .= (Seq.empty :: Seq.Seq A.Object),
             "layoutOptions" .= (Seq.empty :: Seq.Seq A.Object),
             "actions" .= (Seq.empty :: Seq.Seq A.Object),
@@ -197,7 +197,7 @@ requestBounds f clientId ir =
     [ "clientId" .= clientId,
       "action"
         .= A.object
-          [ "kind" .= T.pack "requestBounds",
+          [ "kind" .= ("requestBounds" :: T.Text),
             "newRoot"
               .= forSyDeIRToGraph f ir
           ]
@@ -300,7 +300,7 @@ handlers f =
              in sendRequest
                   SMethod_WindowShowDocument
                   ShowDocumentParams
-                    { _uri = Uri $ T.pack ("file://" ++ fname),
+                    { _uri = Uri $ "file://" <> T.pack fname,
                       _external = Just False,
                       _takeFocus = Just True,
                       _selection =
