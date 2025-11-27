@@ -1,7 +1,7 @@
 typedef int token;
 
+#include "include/common.h"
 #include <stdio.h>
-#include "common.h"
 
 /* Netlist */
 
@@ -14,7 +14,6 @@ system s_ina s_inb = s_out where
 (s_4, s_out) = actor_d s_2 s_3
  s_4_delayed = delaySDF [0] s_4
 */
-
 
 /* Process specification: */
 
@@ -36,12 +35,9 @@ actor_d = actor22SDF (2,1) (1,2) f_4 where
     f_4 [x, y] [z] = ([x + y + z], [x + y, x + y + z])
 */
 
-
 // A = actor11SDF 2 1 f_a where
 //  f_a [x, y] = [x + y]
-static void f_a(token *in, token *out) {
-    out[0] = in[0] + in[1];
-}
+static void f_a(token *in, token *out) { out[0] = in[0] + in[1]; }
 
 // B = actor11SDF 1 2 f_a where
 //  f_b [x] = [x, x+1]
@@ -56,7 +52,6 @@ static void f_c(token *in1, token *in2, token *out) {
     out[0] = in1[0] + in1[1] + in2[0];
 }
 
-
 // D = actor22SDF (2,1) (1,2) f_c where
 //  f_d [x,y] [z] = ([x + y + z], [x + y, x + y + z])
 static void f_d(token *in1, token *in2, token *out1, token *out2) {
@@ -64,7 +59,6 @@ static void f_d(token *in1, token *in2, token *out1, token *out2) {
     out2[0] = in1[0] + in1[1];
     out2[1] = in1[0] + in1[1] + in2[0];
 }
-
 
 /* Main Program */
 
@@ -80,7 +74,7 @@ int main() {
     // C99 array iteration variable
     int i;
 
-    //Create FIFO-Buffers for signals
+    // Create FIFO-Buffers for signals
 
     // Buffer s_in_a: Size: 4
     buffer_nonblocking *s_in_a = buffer_nonblocking_new(4);
@@ -102,23 +96,28 @@ int main() {
     write_token(a_4, 0);
 
     // Repeating Schedule: A A B C D
-    while(1) {
+    while (1) {
         int ret;
-        // Read input tokens
         printf("Read 5 input tokens: ");
-        for(i = 0; i < 4; i++)
+        for (i = 0; i < 4; i++) {
             ret = scanf("%d", &input_a[i]);
-        for(i = 0; i < 1; i++)
-            ret = scanf("%d", &input_b[i]);
-
-        if (ret < 1)
+        }
+        if (ret < 1) {
             break;
-
-        // Write inputs to buffer(s)
-        for(i = 0; i < 4; i++)
+        }
+        for (i = 0; i < 4; i++) {
             write_token(s_in_a, input_a[i]);
-        for(i = 0; i < 1; i++)
+        }
+
+        for (i = 0; i < 1; i++) {
+            ret = scanf("%d", &input_b[i]);
+        }
+        if (ret < 1) {
+            break;
+        }
+        for (i = 0; i < 1; i++) {
             write_token(s_in_b, input_b[i]);
+        }
 
         // A
         actor11SDF(2, 1, s_in_a, a_1, f_a);
@@ -137,7 +136,7 @@ int main() {
 
         // Write output tokens
         printf("Output: ");
-        for(i = 0; i < 2; i++) {
+        for (i = 0; i < 2; i++) {
             read_token(s_out, &output);
             printf("%d ", output);
         }

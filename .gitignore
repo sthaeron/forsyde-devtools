@@ -22,6 +22,7 @@ cabal.project.local
 cabal.project.local~
 .HTF/
 .ghc.environment.*
+*.out
 
 # ForSyDe DevTools Specific
 *.hcr
@@ -38,4 +39,9 @@ result-*
 # Ignore automatically generated direnv output
 .direnv
 
-tests/
+# Ignore mac specific directory file
+.DS_Store
+
+# Ignore temporary testing directories
+tmp/
+examples/implementation/platform_independent/test/

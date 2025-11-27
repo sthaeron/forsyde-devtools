@@ -4,7 +4,6 @@ import Data.List (intercalate)
 import ProceduralIR
 import System.Process (readProcess)
 import Text.Printf (printf)
-import Prelude hiding (id)
 
 indent :: String -> String
 indent = unlines . map ("  " ++) . lines
@@ -125,7 +124,7 @@ translateStatement (SIf expression thenStmt maybeElseStmt) =
             ++ indent (translateStatement elseStmt)
             ++ "}"
 translateStatement (SWhile expression statement) =
-  "while (" ++ translateExpression expression ++ ")\n" ++ translateStatement statement
+  "while (" ++ translateExpression expression ++ ") " ++ translateStatement statement
 translateStatement (SFor initStmt condExpr updateStmt bodyStmt) =
   "for ("
     ++ stripSemicolon (translateStatement initStmt)
@@ -133,7 +132,7 @@ translateStatement (SFor initStmt condExpr updateStmt bodyStmt) =
     ++ translateExpression condExpr
     ++ "; "
     ++ stripSemicolon (translateStatement updateStmt)
-    ++ ")\n"
+    ++ ") "
     ++ translateStatement bodyStmt
 translateStatement SBreak =
   "break;"
@@ -152,55 +151,60 @@ translateParam (paramType, paramName) =
 
 translateGlobal :: Global -> String
 translateGlobal global = case global of
-  GFuncDeclare (Just storageClass) returnType id parameters ->
+  GFuncDeclare (Just storageClass) returnType funcId parameters ->
     printf
-      "%s %s %s(%s)"
+      "%s %s %s(%s);"
       (prettyStorageClass storageClass)
       (translateType returnType)
-      (id)
+      (funcId)
       (intercalate ", " (map translateParam parameters))
-  GFuncDeclare Nothing returnType id parameters ->
+  GFuncDeclare Nothing returnType funcId parameters ->
     printf
-      "%s %s(%s)"
+      "%s %s(%s);"
       (translateType returnType)
-      (id)
+      (funcId)
       (intercalate ", " (map translateParam parameters))
-  GFuncDef (Just storageClass) returnType id parameters body ->
+  GFuncDef (Just storageClass) returnType funcId parameters body ->
     printf
-      "%s %s %s(%s)\n%s"
+      "%s %s %s(%s) %s"
       (prettyStorageClass storageClass)
       (translateType returnType)
-      (id)
+      (funcId)
       (intercalate ", " (map translateParam parameters))
       (translateStatement body)
-  GFuncDef Nothing returnType id parameters body ->
+  GFuncDef Nothing returnType funcId parameters body ->
     printf
-      "%s %s(%s)\n%s"
+      "%s %s(%s) %s"
       (translateType returnType)
-      (id)
+      (funcId)
       (intercalate ", " (map translateParam parameters))
       (translateStatement body)
-  GVarDeclare varType id ->
+  GVarDeclare varType varId ->
     printf
       "%s %s;"
       (translateType varType)
-      (id)
-  GVarDef varType id expression ->
+      (varId)
+  GVarDef varType varId expression ->
     printf
       "%s %s = %s;"
       (translateType varType)
-      (id)
+      (varId)
       (translateExpression expression)
-  GStruct id fields ->
+  GStruct structId fields ->
     printf
       "%s {\n%s};"
-      (id)
+      (structId)
       (intercalate ",\n" (map translateParam fields))
 
-translateProgram :: Program -> String
-translateProgram (Prog globals) =
-  intercalate "\n" (map translateGlobal globals)
+translateProgram :: Program -> Bool -> String
+translateProgram (Prog globals) includes =
+  if includes
+    then
+      "typedef int token;\n#include <stdio.h>\n#include \"include/common.h\"\n"
+        ++ intercalate "\n" (map translateGlobal globals)
+    else
+      intercalate "\n" (map translateGlobal globals)
 
 formatWithClang :: String -> IO String
 formatWithClang code =
-  readProcess "clang-format" ["--style=LLVM"] code
+  readProcess "clang-format" ["--style={BasedOnStyle: llvm, IndentWidth: 4}"] code

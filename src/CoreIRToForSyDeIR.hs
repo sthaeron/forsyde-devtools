@@ -7,7 +7,6 @@ import GHC hiding (targetId)
 import GHC.Core
 import GHC.Driver.Ppr
 import GHC.Types.Literal
-import Prelude hiding (id)
 
 -- | The `TranslationContext` is a data type which is used to pass around
 -- context required to complete the translation of Core IR to ForSyDe IR.
@@ -52,14 +51,16 @@ initialTranslationContext dflags =
 -- | Translates a `CoreProgram` into an `IRSystem` requires `DynFlags` to
 -- safely convert GHC Core elements into strings. Starts with an empty
 -- `TranslationContext`.
-translateCoreProgram :: DynFlags -> CoreProgram -> IRSystem
+translateCoreProgram :: DynFlags -> CoreProgram -> (IRSystem, [(String, IRSignal)])
 translateCoreProgram dflags program =
   let finalContext = foldl translateCoreBind (initialTranslationContext dflags) program
-   in IRSystem
-        (systemInputs finalContext, systemOutputs finalContext)
-        (map snd (constructors finalContext))
-        (map snd (signals finalContext))
-        (map snd (functions finalContext))
+   in ( IRSystem
+          (systemInputs finalContext, systemOutputs finalContext)
+          (map snd (constructors finalContext))
+          (map snd (signals finalContext))
+          (map snd (functions finalContext)),
+        signals finalContext
+      )
 
 -- | Translates a top level `CoreBind`. Module information is currently ignored.
 translateCoreBind :: TranslationContext -> CoreBind -> TranslationContext

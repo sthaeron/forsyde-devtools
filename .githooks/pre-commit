@@ -7,19 +7,35 @@ set -e
 # Check if ormolu is installed
 if ! command -v ormolu >/dev/null 2>&1; then
     echo "Error: ormolu not found. Please install it first."
-    echo "Run: cabal install ormolu or stack install ormolu"
+    exit 1
+fi
+
+# Check if cabal-gild is installed
+if ! command -v cabal-gild >/dev/null 2>&1; then
+    echo "Error: cabal-gild not found. Please install it first."
     exit 1
 fi
 
 # Get list of staged .hs and .lhs files
-FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(hs|lhs)$' || true)
+HASKELL_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(hs|lhs)$' || true)
 
-if [ -n "$FILES" ]; then
+if [ -n "$HASKELL_FILES" ]; then
     echo "Formatting Haskell files with Ormolu..."
-    echo "$FILES" | xargs ormolu --mode inplace
+    echo "$HASKELL_FILES" | xargs ormolu --mode inplace
     
     # Add formatted files back to staging area
-    echo "$FILES" | xargs git add
+    echo "$HASKELL_FILES" | xargs git add
+fi
+
+# Get list of staged .cabal files
+CABAL_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.cabal$' || true)
+
+if [ -n "$CABAL_FILES" ]; then
+    echo "Formatting Cabal files with Gild..."
+	echo "$CABAL_FILES" | xargs -I {} sh -c 'cabal-gild --io {} --mode format'
+    
+    # Add formatted files back to staging area
+    echo "$CABAL_FILES" | xargs git add
 fi
 
 echo "Pre-commit hook completed successfully"

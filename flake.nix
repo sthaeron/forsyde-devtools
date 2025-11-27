@@ -63,6 +63,7 @@
             hspkgs.cabal-install
             hspkgs.haskell-language-server
             hspkgs.ormolu
+            hspkgs.cabal-gild
             # For making mkkdocs site
             pypkgs.mkdocs-material
             pypkgs.mkdocs-mermaid2-plugin

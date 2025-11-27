@@ -217,8 +217,8 @@ handlers f =
         sendNotification diagramAcceptMethod setSynthesis
         sendNotification diagramAcceptMethod (updateOptions file)
         (core, dflags) <- withRunInIO (\_u -> compileToCore file)
-        let ir = translateCoreProgram dflags core
-        let graphMessage = requestBounds file ir
+        let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
+        let graphMessage = requestBounds file forsydeIR
         sendNotification diagramAcceptMethod graphMessage
         pure ()
     ]
@@ -284,8 +284,8 @@ run (Arguments (Host ip) (TCP p) i_f) =
           pure ()
     InputFile f -> do
       (core, dflags) <- withRunInIO (\_u -> compileToCore f)
-      let ir = translateCoreProgram dflags core
-      let graphMessage = requestBounds f ir
+      let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
+      let graphMessage = requestBounds f forsydeIR
       BSL8.putStrLn $ AP.encodePretty graphMessage
 
 -- | Listen on host and port, as well as accept and fork off connections
