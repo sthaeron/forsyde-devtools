@@ -408,4 +408,4 @@ prettyGlobal global = case global of
       (intercalate ",\n" (map prettyParam fields))
 
 prettyProgram :: Program -> String
-prettyProgram (Prog globals) = intercalate "\n\n" (map prettyGlobal globals)
+prettyProgram (Prog globals) = intercalate "\n\n" (map prettyGlobal globals) <> "\n"
