@@ -126,8 +126,35 @@ It is described through JSON Schema [in the repository](https://github.com/kiele
 though that is not yet complete with all features KLighD-VSCode supports.
 
 ### Graphical Representation 
-- TODO
+![Diagram of SDF_example_002.hs](./example_model.svg)
 
+The design-choices and implementation of ELK and KLighD have influenced
+the representation we chose for the models.
+
+The [Layered layout](https://eclipse.dev/elk/reference/algorithms/org-eclipse-elk-layered.html)
+is the one with best support in ELK and KLighD. It tries to place edges left to right as
+much as possible and by default only on the east and west port of nodes.
+This lends itself more to rectangular shapes, where the edge ports can have
+equal distance to the node boundary. If there are many edge ports on a node,
+a rectangular shape can be resized as needed in any direction while still looking good.
+
+In summary:
+- Actors/processes
+    - Shape is a rectangle with rounded edges, width and height of the rounded corner is 4.
+    - Size is initially 64 by 64, but can become larger if e.g. there are many edge ports.
+    - Background color is RGB (160, 160, 240).
+    - Labels are centered inside the shape
+- Delay elements are filled circles (ellipses) with a radius of 12
+- Edges
+    - Shape is a rounded polyline with a bendradius of 4.
+    - Labels are placed along the middle of the edge, except for
+        for global input and output edges which have none.
+    - The Client layout version of KLighD-VSCode currently does not have a built-in
+        rendering for directed edges. Edge direction is indicated by a Unicode
+        diamond symbol on the edge port.
+    - Edges terminating in delay element have no diamond, as they are technically the same edge that
+        continues after the delay element.
+- Global input and output have no shape, just the label
 
 ## Testing
 Testing is crucial to check the correctness and the integrity of the work. Tests are manually written and exposed to a test suite in order to execute them. The documentation of the testing in ForSyDe DevTools can be found in [Testing](testing.md) documentation.
