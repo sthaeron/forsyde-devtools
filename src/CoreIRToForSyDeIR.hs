@@ -157,33 +157,29 @@ updateSystemOutput initialContext output =
 updateConstructorsAndSignals :: TranslationContext -> TranslationContext
 updateConstructorsAndSignals initialContext =
   let initialSignals = map snd (signals initialContext)
-      context1 = aux initialContext initialSignals []
-   in context1
+      (context1, sigs) = foldl' aux (initialContext, []) initialSignals
+   in context1 {signals = sigs}
   where
-    aux :: TranslationContext -> [IRSignal] -> [(IRId, IRSignal)] -> TranslationContext
-    aux currentContext currentSignals acc = case currentSignals of
-      [] ->
-        let context1 = currentContext {signals = acc}
-         in context1
-      currentSignal@(IRSignal signalId (sourceId, sourceRate) (targetId, targetRate)) : signalsTail ->
-        let maybebinder = lookup sourceId (binders currentContext)
-         in case maybebinder of
-              Just associatedbinder -> case associatedbinder of
-                PcId pcId ->
-                  -- Signal source was a temporary binder, sourceRate represents
-                  -- the index of the output rather than a rate
-                  let outputRates = case (lookup pcId (pcRates currentContext)) of
-                        Just (_, rates) -> rates
-                        Nothing -> error ("updateConstructorsAndSignals - No rates found for process constructor: " ++ show pcId)
-                      newSignal = IRSignal signalId (pcId, outputRates !! sourceRate) (targetId, targetRate)
-                      context1 = updateConstructorsOutputs currentContext signalId pcId sourceRate
-                   in aux context1 signalsTail ((signalId, newSignal) : acc)
-                _ -> error ("updateConstructorsAndSignals - Binder is not associated with any process constructors")
-              Nothing ->
-                -- Signal source was already a process constructor meaning it
-                -- only had 1 output, thus passing index zero
-                let context1 = updateConstructorsOutputs currentContext signalId sourceId 0
-                 in aux context1 signalsTail ((signalId, currentSignal) : acc)
+    aux :: (TranslationContext, [(IRId, IRSignal)]) -> IRSignal -> (TranslationContext, [(IRId, IRSignal)])
+    aux (currentContext, acc) currentSignal@(IRSignal signalId (sourceId, sourceRate) (targetId, targetRate)) =
+      let maybebinder = lookup sourceId (binders currentContext)
+       in case maybebinder of
+            Just associatedbinder -> case associatedbinder of
+              PcId pcId ->
+                -- Signal source was a temporary binder, sourceRate represents
+                -- the index of the output rather than a rate
+                let outputRates = case (lookup pcId (pcRates currentContext)) of
+                      Just (_, rates) -> rates
+                      Nothing -> error ("updateConstructorsAndSignals - No rates found for process constructor: " ++ show pcId)
+                    newSignal = IRSignal signalId (pcId, outputRates !! sourceRate) (targetId, targetRate)
+                    context1 = updateConstructorsOutputs currentContext signalId pcId sourceRate
+                 in (context1, (signalId, newSignal) : acc)
+              _ -> error ("updateConstructorsAndSignals - Binder is not associated with any process constructors")
+            Nothing ->
+              -- Signal source was already a process constructor meaning it
+              -- only had 1 output, thus passing index zero
+              let context1 = updateConstructorsOutputs currentContext signalId sourceId 0
+               in (context1, (signalId, currentSignal) : acc)
 
 -- | Updates the outputs constructors within `TranslationContext`. It adds a
 -- signal to the output list of a specific process constructor at the specified
@@ -212,13 +208,11 @@ updateConstructorsOutputs initialContext signalId pcId index =
 
 -- | Translates system binds and adds identified binders to `TranslationContext`
 translateSystemBinds :: TranslationContext -> [(CoreBndr, CoreExpr)] -> (TranslationContext)
-translateSystemBinds initialContext binds = case binds of
-  [] -> (initialContext)
-  (b, e) : bindTail ->
-    let binderId = IRVar b
-        (binder, context1) = translateSystemExpr initialContext e
-        context2 = context1 {binders = (binderId, binder) : (binders context1)}
-     in translateSystemBinds context2 bindTail
+translateSystemBinds initialcontext = foldl' translateSystemBind initialcontext
+  where
+    translateSystemBind initialContext (b, e) =
+      let (binder, context1) = translateSystemExpr initialContext e
+       in context1 {binders = (IRVar b, binder) : (binders context1)}
 
 -- | Translates system `CoreExpr`. Identifies if the expression represents an
 -- application of a process constructor or connection to a specific output of a
@@ -298,19 +292,15 @@ createSignalsFromArguments context pcId arguments =
   let inputRates = case (lookup pcId (pcRates context)) of
         Just (rates, _) -> rates
         Nothing -> error ("createSignalsFromArguments - No rates found for process constructor: " ++ show pcId)
-   in aux context (reverse arguments) (reverse inputRates)
+   in foldr aux context $ zip arguments inputRates
   where
-    aux :: TranslationContext -> [IRId] -> [Int] -> TranslationContext
-    aux currentContext currentArguments rates = case (currentArguments, rates) of
-      ([], _) -> currentContext
-      (_, []) -> currentContext
-      (argumentsHead : argumentsTail, ratesHead : ratesTail) ->
-        let (sourceId, sourceRate) = getSourceFromArgument currentContext argumentsHead
-            newSignal = IRSignal argumentsHead (sourceId, sourceRate) (pcId, ratesHead)
-            newSignals = (argumentsHead, newSignal) : (signals currentContext)
-            context1 = currentContext {signals = newSignals}
-            context2 = updateConstructorsInputs context1 pcId argumentsHead
-         in aux context2 argumentsTail ratesTail
+    aux :: (IRId, Int) -> TranslationContext -> TranslationContext
+    aux (argument, rate) currentContext =
+      let (sourceId, sourceRate) = getSourceFromArgument currentContext argument
+          newSignal = IRSignal argument (sourceId, sourceRate) (pcId, rate)
+          newSignals = (argument, newSignal) : (signals currentContext)
+          context1 = currentContext {signals = newSignals}
+       in updateConstructorsInputs context1 pcId argument
 
 -- | Updates the inputs of constructors within a `TranslationContext`. Adds a
 -- signal to the head of a process constructors input signals list.
