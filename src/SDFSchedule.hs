@@ -37,7 +37,7 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
       findActorByName n =
         case Data.List.find (\a -> name a == n) baseActors of
           Just a -> a
-          Nothing -> error ("Actor not found: " ++ n)
+          Nothing -> error ("Actor not found: " ++ show n)
 
       -- 6. Build normal edges (no delay, no input/output)
       normalEdges =
@@ -70,8 +70,8 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
                 constructors of
                 Just (IRDelay _ delayInitTokens (_, _)) -> delayInitTokens
                 Just (IRActor _ _ _ _) ->
-                  error $ "Expected delay node but found actor: " ++ delayName -- To eliminate pattern match warning
-                Nothing -> error $ "Delay node " ++ delayName ++ " not found in constructors"
+                  error $ "Expected delay node but found actor: " ++ show delayName -- To eliminate pattern match warning
+                Nothing -> error $ "Delay node " ++ show delayName ++ " not found in constructors"
             incoming =
               [ (signalId, srcId, prodRate)
               | IRSignal signalId (srcId, prodRate) (dstId, _) <- signals,
@@ -85,21 +85,21 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
          in case (incoming, outgoing) of
               ([(inSignalId, srcIn, prodIn)], [(outSignalId, dstOut, consOut)]) ->
                 [ Edge
-                    (inSignalId ++ "_" ++ outSignalId) -- delay edge names are combined
+                    (IRString $ show inSignalId ++ "_" ++ show outSignalId) -- delay edge names are combined
                     (findActorByName srcIn)
                     (findActorByName dstOut)
                     prodIn
                     consOut
                     True
                     (length delayConstructor)
-                    (Just [(inSignalId, inSignalId ++ "_" ++ outSignalId), (outSignalId, inSignalId ++ "_" ++ outSignalId)])
+                    (Just [(inSignalId, IRString $ show inSignalId ++ "_" ++ show outSignalId), (outSignalId, IRString $ show inSignalId ++ "_" ++ show outSignalId)])
                 ]
               ([], _) ->
-                error $ "Delay node " ++ delayName ++ " has no input signal."
+                error $ "Delay node " ++ show delayName ++ " has no input signal."
               (_, []) ->
-                error $ "Delay node " ++ delayName ++ " has no output signal."
+                error $ "Delay node " ++ show delayName ++ " has no output signal."
               _ ->
-                error $ "Delay node " ++ delayName ++ " must have exactly one input and one output."
+                error $ "Delay node " ++ show delayName ++ " must have exactly one input and one output."
 
       -- 8. Normalize self-loops: ensure prod == cons, otherwise error
       normalizeSelfLoop e@(Edge edgeNameValue srcActor dstActor prodRate consRate _ _ _)
@@ -108,9 +108,9 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
               then
                 error $
                   "Invalid self-loop on actor "
-                    ++ name srcActor
+                    ++ show (name srcActor)
                     ++ " (edge: "
-                    ++ edgeNameValue
+                    ++ show edgeNameValue
                     ++ ")"
                     ++ ": prod="
                     ++ show prodRate
@@ -127,20 +127,20 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
 ----------------------------------------------------------
 
 data Actor = Actor
-  { name :: String,
+  { name :: IRId,
     isInput :: Bool
   }
   deriving (Show, Eq, Generic)
 
 data Edge = Edge
-  { edgeName :: String,
+  { edgeName :: IRId,
     src :: Actor,
     dst :: Actor,
     prod :: Int,
     cons :: Int,
     isDelay :: Bool,
     initTokens :: Int, -- Count of Init tokens for delay edges
-    buffers :: Maybe [(String, String)]
+    buffers :: Maybe [(IRId, IRId)]
   }
   deriving (Show, Eq, Generic)
 
@@ -206,18 +206,18 @@ normalizeToInteger v =
 matrixEdgesRowsToString :: [Edge] -> [Actor] -> Matrix R -> String
 matrixEdgesRowsToString edges actors topoMatrix =
   let -- Calculate the maximum width of each column
-      actorNameWidths = map (length . name) actors
+      actorNameWidths = map (length . show . name) actors
       rowValueWidths = map (maximum . map (length . show)) (toLists topoMatrix)
       colWidths = zipWith max actorNameWidths rowValueWidths
       totalColWidths = map (+ 2) colWidths -- Add 2 to each column width for spacing
 
       -- Calculate the maximum width of the edge labels
-      edgeLabelWidth = maximum (map (length . edgeLabel) edges)
+      edgeLabelWidth = maximum (map (length . show . edgeLabel) edges)
 
       -- Build the header
       header =
         pad (edgeLabelWidth + 2) "Edge\\Actor"
-          ++ concatMap (\(actor, width) -> pad width (name actor)) (zip actors totalColWidths)
+          ++ concatMap (\(actor, width) -> pad width (show $ name actor)) (zip actors totalColWidths)
 
       -- Build the separator line
       totalWidth = edgeLabelWidth + 2 + sum totalColWidths
@@ -240,7 +240,7 @@ matrixEdgesRowsToString edges actors topoMatrix =
     edgeLabel edge = edgeName edge
 
     rowToString labelWidth colWidths (edge, rowValues) =
-      pad (labelWidth + 2) (edgeLabel edge)
+      pad (labelWidth + 2) (show $ edgeLabel edge)
         ++ concatMap
           (\(val, width) -> pad width (show val))
           (zip rowValues colWidths)
@@ -347,7 +347,7 @@ greedySchedule actors edges repetitionCounts =
                              [] ->
                                if isInput actor
                                  then True -- If is input actor and no incoming edges from other actors
-                                 else error $ "Invalid graph: actor " ++ name actor ++ " has no incoming edges but is not marked as input."
+                                 else error $ "Invalid graph: actor " ++ show (name actor) ++ " has no incoming edges but is not marked as input."
                              _ ->
                                all
                                  ( \edgeIdx ->
@@ -373,7 +373,7 @@ greedySchedule actors edges repetitionCounts =
 -- The buffer size of each edge is defined as the maximum token count observed
 ----------------------------------------------------------
 
-simulateBufferUsage :: [Actor] -> [Edge] -> [Int] -> [Int] -> [(String, Int)]
+simulateBufferUsage :: [Actor] -> [Edge] -> [Int] -> [Int] -> [(IRId, Int)]
 simulateBufferUsage actors edges initialTokens schedule =
   let -- Get all edge names
       edgeNames = map edgeName edges
@@ -401,7 +401,7 @@ simulateBufferUsage actors edges initialTokens schedule =
       let production = prod (edges !! edgeIdx)
        in updateAt edgeIdx (+ production) tokens
 
-computeIOBufferSizes :: IRSystem -> [(String, Int)] -> [(String, Int)]
+computeIOBufferSizes :: IRSystem -> [(IRId, Int)] -> [(IRId, Int)]
 computeIOBufferSizes (IRSystem (inputs, outputs) _ signals _) repsWithNames =
   let -- Find all external input edges
       inputEdges =
@@ -421,7 +421,7 @@ computeIOBufferSizes (IRSystem (inputs, outputs) _ signals _) repsWithNames =
       findActorRep actorName =
         case lookup actorName repsWithNames of
           Just rep -> rep
-          Nothing -> error $ "Actor " ++ actorName ++ " not found in repetition counts"
+          Nothing -> error $ "Actor " ++ show actorName ++ " not found in repetition counts"
 
       -- Calculate input buffer size：rate × dst actor rep count
       inputBuffers =
@@ -470,7 +470,7 @@ verifySchedule actors edges initialTokens schedule _repetitionCounts =
 ----------------------------------------------------------
 
 -- | Returns schedule as actor names and buffer sizes
-computeScheduleAndBuffers :: IRSystem -> ([String], [(String, Int)], [(String, String)])
+computeScheduleAndBuffers :: IRSystem -> ([IRId], [(IRId, Int)], [(IRId, IRId)])
 computeScheduleAndBuffers irSystem =
   let (actors, edges) = convertIRSystem irSystem
    in if null edges
@@ -511,7 +511,7 @@ computeScheduleAndBuffers irSystem =
                 else
                   error "Matrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
 
-getBuffers :: [Edge] -> [(String, String)]
+getBuffers :: [Edge] -> [(IRId, IRId)]
 getBuffers edges =
   concatMap
     ( \e ->
@@ -539,10 +539,10 @@ computeScheduleAndBuffersPrint irSystem =
               allBufSizes = ioBufSizes ++ internalBufSizes
            in "No internal edges found.\n\n"
                 ++ "Schedule (all actors fire once):\n"
-                ++ intercalate ", " schedNames
+                ++ intercalate ", " (map show schedNames)
                 ++ "\n\nI/O buffer sizes:"
                 ++ concatMap
-                  (\(edgeNameVal, sz) -> "\n  " ++ edgeNameVal ++ ": " ++ show sz)
+                  (\(edgeNameVal, sz) -> "\n  " ++ show edgeNameVal ++ ": " ++ show sz)
                   allBufSizes
         else
           let mat = buildTopologyMatrixEdgesRows actors edges
@@ -584,7 +584,7 @@ computeScheduleAndBuffersPrint irSystem =
 
                       repVecStr =
                         "\n\nNormalized repetition vector for ACTORS (integers):"
-                          ++ intercalate "\n" [label ++ "=" ++ show r | (label, r) <- zip (map name actors) repInt]
+                          ++ intercalate "\n" [show label ++ "=" ++ show r | (label, r) <- zip (map name actors) repInt]
 
                       repCounts = map fromIntegral repInt :: [Int]
                       repsWithNames = zip (map name actors) repCounts
@@ -593,13 +593,13 @@ computeScheduleAndBuffersPrint irSystem =
 
                       schedStr =
                         "\n\nGenerated schedule (actor firing order):\n"
-                          ++ intercalate ", " schedNames
+                          ++ intercalate ", " (map show schedNames)
 
                       initialTokensStr =
                         "\n\nInitial tokens (provided by IR):"
                           ++ concatMap
                             (\(ename, e) -> "\n " ++ ename ++ ": " ++ show (initTokens e))
-                            (zip (map edgeName edges) edges)
+                            (zip (map (show . edgeName) edges) edges)
 
                       ok = verifySchedule actors edges (map initTokens edges) schedIdxs repCounts
                       verificationSchedStr =
@@ -614,19 +614,19 @@ computeScheduleAndBuffersPrint irSystem =
                       internalBufStr =
                         "\n\nInternal buffer sizes (maximum tokens observed per edge):"
                           ++ concatMap
-                            (\(ename, sz) -> "\n  " ++ ename ++ ": " ++ show sz)
+                            (\(ename, sz) -> "\n  " ++ show ename ++ ": " ++ show sz)
                             internalBufSizes
 
                       ioBufStr =
                         "\n\nI/O buffer sizes (rate × repetition count):"
                           ++ concatMap
-                            (\(ename, sz) -> "\n  " ++ ename ++ ": " ++ show sz)
+                            (\(ename, sz) -> "\n  " ++ show ename ++ ": " ++ show sz)
                             ioBufSizes
 
                       allBufStr =
                         "\n\nAll buffer sizes (I/O + internal):"
                           ++ concatMap
-                            (\(ename, sz) -> "\n  " ++ ename ++ ": " ++ show sz)
+                            (\(ename, sz) -> "\n  " ++ show ename ++ ": " ++ show sz)
                             allBufSizes
                    in header
                         ++ nullSpaceStr

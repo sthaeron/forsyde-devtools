@@ -10,16 +10,16 @@ import Test.Hspec
 simpleIRSystem :: IRSystem
 simpleIRSystem =
   IRSystem
-    (["input"], ["output"])
-    [ IRActor "actor_1" Actor22 "add" (["s_in", "s_2"], ["s_out", "s_1"]),
-      IRDelay "delay_1" [0] ("s_1", "s_2")
+    ([IRString "input"], [IRString "output"])
+    [ IRActor (IRString "actor_1") Actor22 (IRString "add") ([IRString "s_in", IRString "s_2"], [IRString "s_out", IRString "s_1"]),
+      IRDelay (IRString "delay_1") [0] (IRString "s_1", IRString "s_2")
     ]
-    [ IRSignal "s_in" ("input", 1) ("actor_1", 1),
-      IRSignal "s_1" ("actor_1", 1) ("delay_1", 1),
-      IRSignal "s_2" ("delay_1", 1) ("actor_1", 1),
-      IRSignal "s_out" ("actor_1", 1) ("output", 1)
+    [ IRSignal (IRString "s_in") (IRString "input", 1) (IRString "actor_1", 1),
+      IRSignal (IRString "s_1") (IRString "actor_1", 1) (IRString "delay_1", 1),
+      IRSignal (IRString "s_2") (IRString "delay_1", 1) (IRString "actor_1", 1),
+      IRSignal (IRString "s_out") (IRString "actor_1", 1) (IRString "output", 1)
     ]
-    [ IRFunction "add" Nothing
+    [ IRFunction (IRString "add") Nothing
     ]
 
 customDflags :: IO DynFlags

@@ -3,6 +3,7 @@ module Utilities (compileToCore, noInlineTypecheck, scheduleAndBuffer) where
 import CoreIRToForSyDeIR (translateCoreProgram)
 import Data.Data (Data, gmapT)
 import Data.Generics (extT)
+import ForSyDeIR (IRId (..))
 import GHC
 import GHC.Driver.Main
 import GHC.Paths (libdir)
@@ -88,7 +89,7 @@ noInlineTypecheck tcg = tcg {tcg_binds = applySystemBinds (tcg_binds tcg)}
 
 -- | Utility function to obtain output of SDF Scheduler. Meant for testing to be
 -- used in a repl.
-scheduleAndBuffer :: FilePath -> IO ([String], [(String, Int)], [(String, String)])
+scheduleAndBuffer :: FilePath -> IO ([IRId], [(IRId, Int)], [(IRId, IRId)])
 scheduleAndBuffer filePath = do
   (core, dflags) <- (compileToCore filePath)
   let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core

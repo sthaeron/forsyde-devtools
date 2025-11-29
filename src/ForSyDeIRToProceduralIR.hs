@@ -12,21 +12,21 @@ import ProceduralIR
 -- ProceduralIR.
 data TranslationContext = TranslationContext
   { flags :: DynFlags, -- Stores `DynFlags` for safely obtaining strings
-    lookupSignals :: [(String, IRSignal)],
-    actors :: [(String, [Statement])], -- Associated list of actor ids and statements
-    signals :: [(String, Statement)], -- Associated list of signal ids and statement
+    lookupSignals :: [(IRId, IRSignal)],
+    actors :: [(IRId, [Statement])], -- Associated list of actor ids and statements
+    signals :: [(IRId, Statement)], -- Associated list of signal ids and statement
     ioTokens :: [Statement], -- List of statements for input/output tokens
     initBuffers :: [Statement], -- List of statements for initialising signal buffers
     freeBuffers :: [Statement], -- List of statements for freeing signal buffers
-    systemInputs :: [String], -- List of system inputs
-    systemOutputs :: [String], -- List of system outputs
-    delayBuffers :: [(String, String)], -- Associated list of signal ids and buffer name for delay signals
+    systemInputs :: [IRId], -- List of system inputs
+    systemOutputs :: [IRId], -- List of system outputs
+    delayBuffers :: [(IRId, IRId)], -- Associated list of signal ids and buffer name for delay signals
     initDelay :: [Statement], -- List of statements for initialising delay tokens
     initFunctions :: [Global],
     functions :: [Global]
   }
 
-initialTranslationContext :: DynFlags -> [(String, IRSignal)] -> [String] -> [String] -> [(String, String)] -> TranslationContext
+initialTranslationContext :: DynFlags -> [(IRId, IRSignal)] -> [IRId] -> [IRId] -> [(IRId, IRId)] -> TranslationContext
 initialTranslationContext dflags lookupSignalList inputList outputList delayBufferList =
   TranslationContext
     { flags = dflags,
@@ -47,7 +47,7 @@ initialTranslationContext dflags lookupSignalList inputList outputList delayBuff
 -- | Translates a ForSyDe IR `IRSystem` into a Procedural IR `Program`. Requires
 -- the schedule, buffer, and delay buffer lists from the SDF scheduler as an
 -- input. Also requires an associated list of signals for lookups.
-translateIRSystemToProgram :: DynFlags -> [String] -> [(String, Int)] -> [(String, String)] -> [(String, IRSignal)] -> IRSystem -> Program
+translateIRSystemToProgram :: DynFlags -> [IRId] -> [(IRId, Int)] -> [(IRId, IRId)] -> [(IRId, IRSignal)] -> IRSystem -> Program
 translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookupSignalList (IRSystem (inputList, outputList) constructors _signalList functionList) =
   let initialContext = initialTranslationContext dflags lookupSignalList inputList outputList delayBufferList
       context1 = foldl' translateIRConstructor initialContext constructors
@@ -57,7 +57,7 @@ translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookup
    in Prog (reverse (initFunctions context3) ++ [main] ++ reverse (functions context3))
 
 -- | Translates the `TranslationContext` and Schedule into a main function.
-translateContextToMain :: TranslationContext -> [String] -> Global
+translateContextToMain :: TranslationContext -> [IRId] -> Global
 translateContextToMain context scheduleList =
   let scheduledStmts = scheduleActors context scheduleList
       whileStmt = SWhile (EInt 1) (SScope scheduledStmts)
@@ -70,14 +70,14 @@ translateContextToMain context scheduleList =
 -- on a provided Schedule. Note that actor function call statements include
 -- the associated minimum runtime enviorment statements for interacting with
 -- standard in and out.
-scheduleActors :: TranslationContext -> [String] -> [Statement]
+scheduleActors :: TranslationContext -> [IRId] -> [Statement]
 scheduleActors context scheduleList = foldl' foldSchedule [] scheduleList
   where
-    foldSchedule :: [Statement] -> String -> [Statement]
+    foldSchedule :: [Statement] -> IRId -> [Statement]
     foldSchedule acc actorId =
       let actorStmts = case lookup actorId (actors context) of
             Just stmts -> stmts
-            Nothing -> error ("schedule - actor not found: " ++ actorId)
+            Nothing -> error ("schedule - actor not found: " ++ show actorId)
        in (acc ++ actorStmts)
 
 -- | Translates a component of the buffer size list provided by the SDF
@@ -85,18 +85,18 @@ scheduleActors context scheduleList = foldl' foldSchedule [] scheduleList
 -- statement which are used to update the `TranslationContext`. Note that io
 -- token statements are only created for buffers which relate to with system
 -- inputs and outputs.
-translateBuffer :: TranslationContext -> (String, Int) -> TranslationContext
+translateBuffer :: TranslationContext -> (IRId, Int) -> TranslationContext
 translateBuffer initialContext (bufferId, bufferSize) =
-  let initStmt = SVarDef (TPointer (TIdent "buffer_nonblocking")) bufferId (ECall "buffer_nonblocking_new" [EInt bufferSize])
-      freeStmt = SExpr (ECall "buffer_nonblocking_free" [EVar bufferId])
+  let initStmt = SVarDef (TPointer (TIdent "buffer_nonblocking")) (show bufferId) (ECall "buffer_nonblocking_new" [EInt bufferSize])
+      freeStmt = SExpr (ECall "buffer_nonblocking_free" [EVar $ show bufferId])
    in if (elem bufferId (systemInputs initialContext))
         then
-          let ioTokenStmt = SArrayDecl TInt ("input_" ++ bufferId) [EInt bufferSize]
+          let ioTokenStmt = SArrayDecl TInt ("input_" ++ show bufferId) [EInt bufferSize]
            in initialContext {ioTokens = ioTokenStmt : ioTokens initialContext, initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
         else
           if (elem bufferId (systemOutputs initialContext))
             then
-              let ioTokenStmt = SVarDecl TInt ("output_" ++ bufferId)
+              let ioTokenStmt = SVarDecl TInt ("output_" ++ show bufferId)
                in initialContext {ioTokens = ioTokenStmt : ioTokens initialContext, initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
             else
               initialContext {initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
@@ -113,11 +113,11 @@ translateIRConstructor initialContext constructor = case constructor of
           Just bufferId ->
             let foldDelayTokens :: [Statement] -> Int -> [Statement]
                 foldDelayTokens acc token =
-                  let stmt = SExpr (ECall "write_token" [EVar bufferId, EInt token])
+                  let stmt = SExpr (ECall "write_token" [EVar $ show bufferId, EInt token])
                    in (stmt : acc)
                 delayStmts = (foldl' foldDelayTokens [] tokens)
              in initialContext {initDelay = delayStmts ++ initDelay initialContext}
-          Nothing -> error ("translateIRConstructor - delay buffer not found for signals: " ++ inputSignal ++ ", " ++ outputSignal)
+          Nothing -> error ("translateIRConstructor - delay buffer not found for signals: " ++ show inputSignal ++ ", " ++ show outputSignal)
   IRActor actorId actorType functionId (inputSignals, outputSignals) ->
     -- `IRActor` results in a statement calling an SDF actor function within
     -- source rates, target rates, and a function as arguments.
@@ -132,9 +132,9 @@ translateIRConstructor initialContext constructor = case constructor of
                 actorName
                 ( (map (\rate -> EInt (fromIntegral rate)) inputRates)
                     ++ (map (\rate -> EInt (fromIntegral rate)) outputRates)
-                    ++ (map (\bufferId -> EVar bufferId) translatedInputSignals)
-                    ++ (map (\bufferId -> EVar bufferId) translatedOutputSignals)
-                    ++ [EVar functionId]
+                    ++ (map (\bufferId -> EVar $ show bufferId) translatedInputSignals)
+                    ++ (map (\bufferId -> EVar $ show bufferId) translatedOutputSignals)
+                    ++ [EVar $ show functionId]
                 )
             )
         inputStmts = foldl' foldActorSignals [] inputSignals
@@ -146,12 +146,12 @@ translateIRConstructor initialContext constructor = case constructor of
     -- Helper function used to update a signal id into its respecitve signal
     -- buffer id. There is only a difference in the translation for signals
     -- which are source and targets of delays.
-    translateSignalId :: TranslationContext -> String -> String
+    translateSignalId :: TranslationContext -> IRId -> IRId
     translateSignalId context signalId =
       case lookup signalId (delayBuffers context) of
         Just bufferId -> bufferId
         Nothing -> signalId
-    foldActorSignals :: [Statement] -> String -> [Statement]
+    foldActorSignals :: [Statement] -> IRId -> [Statement]
     foldActorSignals acc signalId =
       if (elem signalId (systemInputs initialContext))
         then
@@ -164,14 +164,14 @@ translateIRConstructor initialContext constructor = case constructor of
                   (SVarDef TInt "i" (EInt 0))
                   (EBinOp Less (EVar "i") (EInt (bufferSize)))
                   (SExpr (EUnOp Increment (EVar "i")))
-                  (SScope [SVarAssign "status" (ECall "scanf" [EString "%d", EReference (EArrayAccess (EVar ("input_" ++ signalId)) (EVar "i"))])])
+                  (SScope [SVarAssign "status" (ECall "scanf" [EString "%d", EReference (EArrayAccess (EVar ("input_" ++ show signalId)) (EVar "i"))])])
               breakIfStmt = SIf (EBinOp Less (EVar "status") (EInt 1)) (SBreak) Nothing
               writeForStmt =
                 SFor
                   (SVarDef TInt "i" (EInt 0))
                   (EBinOp Less (EVar "i") (EInt (bufferSize)))
                   (SExpr (EUnOp Increment (EVar "i")))
-                  (SScope [SExpr (ECall "write_token" [EVar signalId, EArrayAccess (EVar ("input_" ++ signalId)) (EVar "i")])])
+                  (SScope [SExpr (ECall "write_token" [EVar $ show signalId, EArrayAccess (EVar ("input_" ++ show signalId)) (EVar "i")])])
            in (writeForStmt : breakIfStmt : scanForStmt : acc)
         else
           if (elem signalId (systemOutputs initialContext))
@@ -182,8 +182,8 @@ translateIRConstructor initialContext constructor = case constructor of
                   -- outputs to standard out.
                   scopeStmt =
                     SScope
-                      [ SExpr (ECall "read_token" [EVar signalId, EReference (EVar ("output_" ++ signalId))]),
-                        SExpr (ECall "printf" [EString "%d", EVar ("output_" ++ signalId)])
+                      [ SExpr (ECall "read_token" [EVar $ show signalId, EReference (EVar ("output_" ++ show signalId))]),
+                        SExpr (ECall "printf" [EString "%d", EVar ("output_" ++ show signalId)])
                       ]
                   forStmt =
                     SFor
@@ -215,19 +215,19 @@ translateActorType actorType = case actorType of
   Actor43 -> "actor43SDF"
   Actor44 -> "actor44SDF"
 
-getSourceRate :: TranslationContext -> String -> Int
+getSourceRate :: TranslationContext -> IRId -> Int
 getSourceRate context signalId =
   let signal = lookup signalId (lookupSignals context)
    in case signal of
         Just (IRSignal _ (_, rate) _) -> rate
-        Nothing -> error ("getSourceRate - signal not found: " ++ signalId)
+        Nothing -> error ("getSourceRate - signal not found: " ++ show signalId)
 
-getTargetRate :: TranslationContext -> String -> Int
+getTargetRate :: TranslationContext -> IRId -> Int
 getTargetRate context signalId =
   let signal = lookup signalId (lookupSignals context)
    in case signal of
         Just (IRSignal _ _ (_, rate)) -> rate
-        Nothing -> error ("getTargetRate - signal not found: " ++ signalId)
+        Nothing -> error ("getTargetRate - signal not found: " ++ show signalId)
 
 translateIRFunctionToGlobals :: TranslationContext -> IRFunction -> TranslationContext
 translateIRFunctionToGlobals currentContext (IRFunction functionId maybeFunction) = case maybeFunction of
@@ -239,18 +239,20 @@ translateIRFunctionToGlobals currentContext (IRFunction functionId maybeFunction
 
 -- The following is a temporary hard coded solution that translates the inputs
 -- of the `add` and `accummulate` functions from SDF example 8.
-translateCoreExprToGlobals :: TranslationContext -> String -> CoreExpr -> (Global, Global)
+translateCoreExprToGlobals :: TranslationContext -> IRId -> CoreExpr -> (Global, Global)
 translateCoreExprToGlobals context binder expr = case (binder, expr) of
-  ("accumulate", Lam _ (Lam _ e)) ->
-    let functionScopeStmt = translateCoreExprToStatement context e
-        initFunctionGlobal = GFuncDeclare (Just Static) TVoid (binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output_1"), (TPointer TInt, "output_2")]
-        functionGlobal = GFuncDef (Just Static) TVoid (binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output_1"), (TPointer TInt, "output_2")] functionScopeStmt
-     in (initFunctionGlobal, functionGlobal)
-  ("add", Lam _ (Lam _ e)) ->
-    let functionScopeStmt = translateCoreExprToStatement context e
-        initFunctionGlobal = GFuncDeclare (Just Static) TVoid (binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output")]
-        functionGlobal = GFuncDef (Just Static) TVoid (binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output")] functionScopeStmt
-     in (initFunctionGlobal, functionGlobal)
+  (b, Lam _ (Lam _ e))
+    | b == IRString "accumulate" ->
+        let functionScopeStmt = translateCoreExprToStatement context e
+            initFunctionGlobal = GFuncDeclare (Just Static) TVoid (show binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output_1"), (TPointer TInt, "output_2")]
+            functionGlobal = GFuncDef (Just Static) TVoid (show binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output_1"), (TPointer TInt, "output_2")] functionScopeStmt
+         in (initFunctionGlobal, functionGlobal)
+  (b, Lam _ (Lam _ e))
+    | b == IRString "add" ->
+        let functionScopeStmt = translateCoreExprToStatement context e
+            initFunctionGlobal = GFuncDeclare (Just Static) TVoid (show binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output")]
+            functionGlobal = GFuncDef (Just Static) TVoid (show binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output")] functionScopeStmt
+         in (initFunctionGlobal, functionGlobal)
   _ -> error ("translateCoreExprToGlobals - unsupported expression:\n" ++ showPpr (flags context) expr)
 
 -- The following is a temporary hard coded solution that translates the
