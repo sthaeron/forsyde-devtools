@@ -3,7 +3,7 @@ Work-in-progress compiler and visualiser development tools for [ForSyDe Shallow]
 
 This work is conducted as part of the course [IL2232 Embedded Systems Design Project](https://www.kth.se/student/kurser/kurs/IL2232?l=en) at KTH Royal Institute of Technology, under the supervision of Professor [Ingo Sander](https://www.kth.se/profile/ingo), who serves as the project client.
 
-A pre-study related to this work was conducted in the course [II2211 Research Methodology and Scientific Writing for Embedded Systems](https://www.kth.se/student/kurser/kurs/II2211?l=en), where a literature review was carried out to investigate existing approaches to compiling ForSyDe models. The pre-study can be found in [docs](forsyde-devtools/docs/ForSyDe-DevTools-PreStudy.pdf).
+A pre-study related to this work was conducted in the course [II2211 Research Methodology and Scientific Writing for Embedded Systems](https://www.kth.se/student/kurser/kurs/II2211?l=en), where a literature review was carried out to investigate existing approaches to compiling ForSyDe models. The pre-study can be found in [docs](docs/ForSyDe-DevTools-PreStudy.pdf).
 
 The original algorithm for generating code from SDF (Synchronous Data Flow) models written in ForSyDe can be found in this [paper](https://www.icas.org/icas_archive/ICAS2022/data/papers/ICAS2022_0604_paper.pdf).
 
@@ -17,7 +17,7 @@ cabal run forsyde-devtools-exe -- examples/model/SDF_example_003.hs --output-for
 ```
 
 ## Documentation
-An overview of the project can be found in [project-overview.md](docs/project-overview.md). When in the development environment, the documentation can be built and served as a webpage using the commands:
+An overview of the project can be found in [project-overview.md](docs/README.md). When in the development environment, the documentation can be built and served as a webpage using the commands:
 ```shell
 mkdocs build
 mkdocs serve

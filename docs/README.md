@@ -142,5 +142,5 @@ The following is a set of programmer restrictions which limit what the compiler 
 - Type signatures should be written for all defined functions.
 - Current implementation support only "system" with one or two outputs.
 
-Accurate examples can be found in [examples/model](examples/model) folder. It is highly recommended to read through them and follow their style when using the ForSyDe DevTools.
+Accurate examples can be found in [examples/model](../examples/model) folder. It is highly recommended to read through them and follow their style when using the ForSyDe DevTools.
 
