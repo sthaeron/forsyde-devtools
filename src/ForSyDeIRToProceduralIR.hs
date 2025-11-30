@@ -1,10 +1,9 @@
 module ForSyDeIRToProceduralIR where
 
+import CoreIR (literalToInt, prettyCoreExpr, varToString)
 import ForSyDeIR
 import GHC hiding (targetId)
 import GHC.Core
-import GHC.Driver.Ppr
-import GHC.Types.Literal
 import ProceduralIR
 
 -- | The `TranslationContext` is a data type which is used to pass around
@@ -253,15 +252,15 @@ translateCoreExprToGlobals context binder expr = case (binder, expr) of
             initFunctionGlobal = GFuncDeclare (Just Static) TVoid (show binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output")]
             functionGlobal = GFuncDef (Just Static) TVoid (show binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output")] functionScopeStmt
          in (initFunctionGlobal, functionGlobal)
-  _ -> error ("translateCoreExprToGlobals - unsupported expression:\n" ++ showPpr (flags context) expr)
+  _ -> error ("translateCoreExprToGlobals - unsupported expression:\n" ++ prettyCoreExpr (flags context) expr)
 
 -- The following is a temporary hard coded solution that translates the
 -- contents and outputs of the `add` and `accumulate` functions from SDF
 -- example 8.
 translateCoreExprToStatement :: TranslationContext -> CoreExpr -> Statement
 translateCoreExprToStatement context expr = case expr of
-  Var varId -> SExpr (EVar (showPpr (flags context) varId))
-  Lit (LitNumber LitNumInt i) -> SExpr (EInt (fromIntegral i))
+  Var varId -> SExpr (EVar (varToString varId))
+  Lit i -> SExpr (EInt (literalToInt i))
   App (App (App (Var _) (Type _)) (App (App (App (App (Var _op1) (Type _)) (Var _)) (Var _a1)) (Var _a2))) (App (Var _) (Type _)) ->
     let stmt = SArrayAssign "output" (EInt 0) Nothing (EBinOp Plus (EArrayAccess (EVar "input_1") (EInt 0)) (EArrayAccess (EVar "input_2") (EInt 0)))
      in SScope ([stmt])
@@ -274,7 +273,7 @@ translateCoreExprToStatement context expr = case expr of
   Lam _ e -> translateCoreExprToStatement context e
   App _ e -> translateCoreExprToStatement context e
   Tick _ e -> translateCoreExprToStatement context e
-  _ -> error ("translateCoreExprToStatement - unsupported expression:\n" ++ showPpr (flags context) expr)
+  _ -> error ("translateCoreExprToStatement - unsupported expression:\n" ++ prettyCoreExpr (flags context) expr)
 
 translateAltsToStatements :: TranslationContext -> [Alt CoreBndr] -> Statement
 translateAltsToStatements context alts = case alts of
