@@ -30,6 +30,7 @@ data OutputFormat
   | OutputForSyDeIR
   | OutputForSyDeIRJSON
   | OutputProceduralIR
+  | OutputSchedule
 
 data Target
   = PC
@@ -128,6 +129,7 @@ outputFormatTop =
     <|> outputFormatForSyDeIR
     <|> outputFormatForSyDeIRJSON
     <|> outputFormatProceduralIR
+    <|> outputFormatSchedule
 
 -- Temporary implementation. Sets output to core as default functionality,
 outputFormatC :: Parser OutputFormat
@@ -169,6 +171,14 @@ outputFormatProceduralIR =
     OutputProceduralIR
     ( long "output-procedural-ir"
         <> help "Output file in Procedural-IR"
+    )
+
+outputFormatSchedule :: Parser OutputFormat
+outputFormatSchedule =
+  flag'
+    OutputSchedule
+    ( long "output-schedule"
+        <> help "Output the SDF schedule to file instead of code"
     )
 
 targetName :: ReadM Target

@@ -8,7 +8,7 @@ import ForSyDeIRToProceduralIR (translateIRSystemToProgram)
 import Options.Applicative
 import ProceduralIR (prettyProgram)
 import ProceduralIRToC (translateProgram)
-import SDFSchedule (computeScheduleAndBuffers)
+import SDFSchedule (computeScheduleAndBuffers, computeScheduleAndBuffersPrint)
 import Utilities (compileToCore)
 
 {-
@@ -59,6 +59,7 @@ generateDefaultFileName f OutputCore = f ++ ".hcr"
 generateDefaultFileName f OutputForSyDeIR = f ++ ".fir"
 generateDefaultFileName f OutputForSyDeIRJSON = f ++ ".json"
 generateDefaultFileName f OutputProceduralIR = f ++ ".pir"
+generateDefaultFileName f OutputSchedule = f ++ ".sched"
 
 -- Main function for running after arguments have been returned from main.
 -- Need to pattern match based on the arguments used. They are matched on
@@ -93,6 +94,10 @@ run (Arguments (InputFile input_file) output_file OutputProceduralIR _) = do
 run (Arguments (InputFile input_file) output_file OutputCore _) = do
   (core, dflags) <- compileToCore input_file
   write_output output_file OutputCore (prettyCoreProgram dflags core)
+run (Arguments (InputFile input_file) output_file OutputSchedule _) = do
+  (core, dflags) <- compileToCore input_file
+  let (forsydeIR, _) = translateCoreProgram dflags core
+  write_output output_file OutputSchedule (computeScheduleAndBuffersPrint forsydeIR)
 
 main :: IO ()
 main = run =<< execParser opts

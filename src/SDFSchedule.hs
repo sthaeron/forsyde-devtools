@@ -529,117 +529,119 @@ getBuffers edges =
 computeScheduleAndBuffersPrint :: IRSystem -> String
 computeScheduleAndBuffersPrint irSystem =
   let (actors, edges) = convertIRSystem irSystem
-   in if null edges
-        then
-          -- If there are no internal edges, fire all actor once, no buffer required
-          let schedNames = map name actors
-              repsWithNames = zip (map name actors) (replicate (length actors) 1)
-              internalBufSizes = zip (map edgeName edges) (replicate (length edges) 0)
-              ioBufSizes = computeIOBufferSizes irSystem repsWithNames
-              allBufSizes = ioBufSizes ++ internalBufSizes
-           in "No internal edges found.\n\n"
-                ++ "Schedule (all actors fire once):\n"
-                ++ intercalate ", " (map show schedNames)
-                ++ "\n\nI/O buffer sizes:"
-                ++ concatMap
-                  (\(edgeNameVal, sz) -> "\n  " ++ show edgeNameVal ++ ": " ++ show sz)
-                  allBufSizes
-        else
-          let mat = buildTopologyMatrixEdgesRows actors edges
-              matrixStr = matrixEdgesRowsToString edges actors mat
+   in let outputString =
+            if null edges
+              then
+                -- If there are no internal edges, fire all actor once, no buffer required
+                let schedNames = map name actors
+                    repsWithNames = zip (map name actors) (replicate (length actors) 1)
+                    internalBufSizes = zip (map edgeName edges) (replicate (length edges) 0)
+                    ioBufSizes = computeIOBufferSizes irSystem repsWithNames
+                    allBufSizes = ioBufSizes ++ internalBufSizes
+                 in "No internal edges found.\n\n"
+                      ++ "Schedule (all actors fire once):\n"
+                      ++ intercalate ", " (map show schedNames)
+                      ++ "\n\nI/O buffer sizes:"
+                      ++ concatMap
+                        (\(edgeNameVal, sz) -> "\n  " ++ show edgeNameVal ++ ": " ++ show sz)
+                        allBufSizes
+              else
+                let mat = buildTopologyMatrixEdgesRows actors edges
+                    matrixStr = matrixEdgesRowsToString edges actors mat
 
-              rankMat = rank mat
-              header =
-                matrixStr
-                  ++ "\n\nMatrix Rank: "
-                  ++ show rankMat
-                  ++ "\nNumber of actors: "
-                  ++ show (length actors)
-                  ++ "\nNumber of edges: "
-                  ++ show (length edges)
-           in if rankMat == length actors - 1
-                then
-                  let ns = computeNullSpace mat
-                      repVec = flatten (takeColumns 1 ns)
-                      repInt = normalizeToInteger repVec
+                    rankMat = rank mat
+                    header =
+                      matrixStr
+                        ++ "\n\nMatrix Rank: "
+                        ++ show rankMat
+                        ++ "\nNumber of actors: "
+                        ++ show (length actors)
+                        ++ "\nNumber of edges: "
+                        ++ show (length edges)
+                 in if rankMat == length actors - 1
+                      then
+                        let ns = computeNullSpace mat
+                            repVec = flatten (takeColumns 1 ns)
+                            repInt = normalizeToInteger repVec
 
-                      -- Verification: multiply the integer repetition vector back to the topology matrix
-                      repVector = fromIntegral <$> repInt :: [R]
-                      verificationResult = mat #> vector repVector
-                      isZeroVector = all (\x -> abs x < 1e-9) (LinearAlgebra.toList verificationResult)
+                            -- Verification: multiply the integer repetition vector back to the topology matrix
+                            repVector = fromIntegral <$> repInt :: [R]
+                            verificationResult = mat #> vector repVector
+                            isZeroVector = all (\x -> abs x < 1e-9) (LinearAlgebra.toList verificationResult)
 
-                      nullSpaceStr =
-                        "\n\nNull Space (fractional repetition vector for actors):\n"
-                          ++ dispToString 4 ns
+                            nullSpaceStr =
+                              "\n\nNull Space (fractional repetition vector for actors):\n"
+                                ++ dispToString 4 ns
 
-                      verificationStr =
-                        "\n\nVerification of null space vector:"
-                          ++ "\nTopology Matrix × Repetition Vector ≈ Zero Vector? "
-                          ++ show isZeroVector
-                          ++ if not isZeroVector
-                            then
-                              "\nWarning: Product is not zero!\nProduct vector:\n"
-                                ++ show verificationResult
-                            else ""
+                            verificationStr =
+                              "\n\nVerification of null space vector:"
+                                ++ "\nTopology Matrix × Repetition Vector ≈ Zero Vector? "
+                                ++ show isZeroVector
+                                ++ if not isZeroVector
+                                  then
+                                    "\nWarning: Product is not zero!\nProduct vector:\n"
+                                      ++ show verificationResult
+                                  else ""
 
-                      repVecStr =
-                        "\n\nNormalized repetition vector for ACTORS (integers):"
-                          ++ intercalate "\n" [show label ++ "=" ++ show r | (label, r) <- zip (map name actors) repInt]
+                            repVecStr =
+                              "\n\nNormalized repetition vector for ACTORS (integers):"
+                                ++ intercalate "\n" [show label ++ "=" ++ show r | (label, r) <- zip (map name actors) repInt]
 
-                      repCounts = map fromIntegral repInt :: [Int]
-                      repsWithNames = zip (map name actors) repCounts
-                      schedIdxs = greedySchedule actors edges repCounts
-                      schedNames = map (name . (actors !!)) schedIdxs
+                            repCounts = map fromIntegral repInt :: [Int]
+                            repsWithNames = zip (map name actors) repCounts
+                            schedIdxs = greedySchedule actors edges repCounts
+                            schedNames = map (name . (actors !!)) schedIdxs
 
-                      schedStr =
-                        "\n\nGenerated schedule (actor firing order):\n"
-                          ++ intercalate ", " (map show schedNames)
+                            schedStr =
+                              "\n\nGenerated schedule (actor firing order):\n"
+                                ++ intercalate ", " (map show schedNames)
 
-                      initialTokensStr =
-                        "\n\nInitial tokens (provided by IR):"
-                          ++ concatMap
-                            (\(ename, e) -> "\n " ++ ename ++ ": " ++ show (initTokens e))
-                            (zip (map (show . edgeName) edges) edges)
+                            initialTokensStr =
+                              "\n\nInitial tokens (provided by IR):"
+                                ++ concatMap
+                                  (\(ename, e) -> "\n " ++ ename ++ ": " ++ show (initTokens e))
+                                  (zip (map (show . edgeName) edges) edges)
 
-                      ok = verifySchedule actors edges (map initTokens edges) schedIdxs repCounts
-                      verificationSchedStr =
-                        "\n\nVerification of schedule with computed initial tokens: "
-                          ++ (if ok then "OK" else "FAILED")
+                            ok = verifySchedule actors edges (map initTokens edges) schedIdxs repCounts
+                            verificationSchedStr =
+                              "\n\nVerification of schedule with computed initial tokens: "
+                                ++ (if ok then "OK" else "FAILED")
 
-                      -- Simulate buffer usage for one period
-                      internalBufSizes = simulateBufferUsage actors edges (map initTokens edges) schedIdxs
-                      ioBufSizes = computeIOBufferSizes irSystem repsWithNames
-                      allBufSizes = ioBufSizes ++ internalBufSizes
+                            -- Simulate buffer usage for one period
+                            internalBufSizes = simulateBufferUsage actors edges (map initTokens edges) schedIdxs
+                            ioBufSizes = computeIOBufferSizes irSystem repsWithNames
+                            allBufSizes = ioBufSizes ++ internalBufSizes
 
-                      internalBufStr =
-                        "\n\nInternal buffer sizes (maximum tokens observed per edge):"
-                          ++ concatMap
-                            (\(ename, sz) -> "\n  " ++ show ename ++ ": " ++ show sz)
-                            internalBufSizes
+                            internalBufStr =
+                              "\n\nInternal buffer sizes (maximum tokens observed per edge):"
+                                ++ concatMap
+                                  (\(ename, sz) -> "\n  " ++ show ename ++ ": " ++ show sz)
+                                  internalBufSizes
 
-                      ioBufStr =
-                        "\n\nI/O buffer sizes (rate × repetition count):"
-                          ++ concatMap
-                            (\(ename, sz) -> "\n  " ++ show ename ++ ": " ++ show sz)
-                            ioBufSizes
+                            ioBufStr =
+                              "\n\nI/O buffer sizes (rate × repetition count):"
+                                ++ concatMap
+                                  (\(ename, sz) -> "\n  " ++ show ename ++ ": " ++ show sz)
+                                  ioBufSizes
 
-                      allBufStr =
-                        "\n\nAll buffer sizes (I/O + internal):"
-                          ++ concatMap
-                            (\(ename, sz) -> "\n  " ++ show ename ++ ": " ++ show sz)
-                            allBufSizes
-                   in header
-                        ++ nullSpaceStr
-                        ++ verificationStr
-                        ++ repVecStr
-                        ++ schedStr
-                        ++ initialTokensStr
-                        ++ verificationSchedStr
-                        ++ internalBufStr
-                        ++ ioBufStr
-                        ++ allBufStr
-                else
-                  header ++ "\n\nMatrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
+                            allBufStr =
+                              "\n\nAll buffer sizes (I/O + internal):"
+                                ++ concatMap
+                                  (\(ename, sz) -> "\n  " ++ show ename ++ ": " ++ show sz)
+                                  allBufSizes
+                         in header
+                              ++ nullSpaceStr
+                              ++ verificationStr
+                              ++ repVecStr
+                              ++ schedStr
+                              ++ initialTokensStr
+                              ++ verificationSchedStr
+                              ++ internalBufStr
+                              ++ ioBufStr
+                              ++ allBufStr
+                      else
+                        header ++ "\n\nMatrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
+       in outputString ++ "\n"
 
 -- Helper function to convert matrix display to string
 dispToString :: Int -> Matrix R -> String
