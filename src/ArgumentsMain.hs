@@ -31,12 +31,18 @@ data OutputFormat
   | OutputForSyDeIRJSON
   | OutputProceduralIR
 
+data Target
+  = PC
+  | PICO2
+
 data Arguments = Arguments
   { -- Files
     input :: Input,
     output :: Output,
     -- Formats
-    output_format :: OutputFormat
+    output_format :: OutputFormat,
+    -- Target
+    target :: Target
   }
 
 -- Handle file input, always need to define a file
@@ -165,6 +171,28 @@ outputFormatProceduralIR =
         <> help "Output file in Procedural-IR"
     )
 
+targetName :: ReadM Target
+targetName = str >>= returnTarget
+  where
+    returnTarget s = case s of
+      "PC" -> pure (PC)
+      "PICO2" -> pure (PICO2)
+      t -> error ("Unsupported target: " ++ t)
+
+-- Parse target platform. Uses pattern matching to handle raw strings which
+-- means it is used  like "--target={target}" as opposed to having --target-PC,
+-- target-PICO2, etc
+targetTop :: Parser Target
+targetTop =
+  option
+    (targetName)
+    ( short 't'
+        <> long "target"
+        <> metavar "TARGET"
+        <> value PC
+        <> help "Target platform for C code. (PC default, PC and PICO2 supported)"
+    )
+
 -- Top level argument parsing function, takes 4 flags.
 arguments :: Parser Arguments
 arguments =
@@ -172,3 +200,4 @@ arguments =
     <$> inputFile
     <*> outputFileTop
     <*> outputFormatTop
+    <*> targetTop

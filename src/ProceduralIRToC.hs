@@ -1,5 +1,6 @@
 module ProceduralIRToC where
 
+import ArgumentsMain (Target (PC, PICO2))
 import Data.List (intercalate)
 import ProceduralIR
 import Text.Printf (printf)
@@ -205,11 +206,17 @@ translateGlobal global = case global of
       (structId)
       (intercalate ",\n" (map translateParam fields))
 
-translateProgram :: Program -> Bool -> String
-translateProgram (Prog globals) includes =
-  if includes
-    then
-      "typedef int token;\n#include \"include/common.h\"\n#include <stdio.h>\n\n"
-        ++ intercalate "\n\n" (map translateGlobal globals)
-    else
-      intercalate "\n\n" (map translateGlobal globals)
+translateProgram :: Program -> Target -> Bool -> String
+translateProgram (Prog globals) target includes =
+  let targetText = case target of
+        PC -> "#define PLATFORM PC\n"
+        PICO2 -> "#define PLATFORM PICO2\n"
+  in let outputProgram =
+          if includes
+            then
+              targetText ++
+              "typedef int token;\n#include \"include/common.h\"\n#include <stdio.h>\n\n"
+                ++ intercalate "\n\n" (map translateGlobal globals)
+            else
+              intercalate "\n\n" (map translateGlobal globals)
+        in outputProgram ++ "\n"

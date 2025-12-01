@@ -42,6 +42,7 @@ library
   import: common-options
   hs-source-dirs: src
   exposed-modules:
+    ArgumentsMain
     CoreIR
     CoreIRToForSyDeIR
     ForSyDeIR

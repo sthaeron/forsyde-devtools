@@ -68,29 +68,29 @@ generateDefaultFileName f OutputProceduralIR = f ++ ".pir"
 
 run :: Arguments -> IO ()
 -- "Normal run"
-run (Arguments (InputFile input_file) output_file OutputC) = do
+run (Arguments (InputFile input_file) output_file OutputC t) = do
   (core, dflags) <- compileToCore input_file
   let (forsydeIR, lookupSignals) = translateCoreProgram dflags core
   let (schedule, buffers, delayBuffers) = computeScheduleAndBuffers forsydeIR
   let proceduralIR = translateIRSystemToProgram dflags schedule buffers delayBuffers lookupSignals forsydeIR
-  let c = translateProgram proceduralIR True
+  let c = translateProgram proceduralIR t True
   write_output output_file OutputC c
-run (Arguments (InputFile input_file) output_file OutputForSyDeIR) = do
+run (Arguments (InputFile input_file) output_file OutputForSyDeIR _) = do
   (core, dflags) <- compileToCore input_file
   let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
   write_output output_file OutputForSyDeIR (prettyIRSystem dflags forsydeIR)
-run (Arguments (InputFile input_file) output_file OutputForSyDeIRJSON) = do
+run (Arguments (InputFile input_file) output_file OutputForSyDeIRJSON _) = do
   (core, dflags) <- compileToCore input_file
   let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
   let ir_json = prettyIRJSON forsydeIR
   write_output output_file OutputForSyDeIRJSON ir_json
-run (Arguments (InputFile input_file) output_file OutputProceduralIR) = do
+run (Arguments (InputFile input_file) output_file OutputProceduralIR _) = do
   (core, dflags) <- compileToCore input_file
   let (forsydeIR, lookupSignals) = translateCoreProgram dflags core
   let (schedule, buffers, delayBuffers) = computeScheduleAndBuffers forsydeIR
   let proceduralIR = translateIRSystemToProgram dflags schedule buffers delayBuffers lookupSignals forsydeIR
   write_output output_file OutputProceduralIR (prettyProgram proceduralIR)
-run (Arguments (InputFile input_file) output_file OutputCore) = do
+run (Arguments (InputFile input_file) output_file OutputCore _) = do
   (core, dflags) <- compileToCore input_file
   write_output output_file OutputCore (prettyCoreProgram dflags core)
 
