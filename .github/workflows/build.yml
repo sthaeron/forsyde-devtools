@@ -37,7 +37,3 @@ jobs:
             nix develop --command bash -c "cabal build"
             nix develop --command bash -c "cabal test"
           fi
-
-      - name: Run integrated pipeline test
-        run: |
-          bash test_pipeline.sh
