@@ -1,0 +1,26 @@
+{
+  "name": "forsyde-vscode-client",
+  "description": "VSCode LSP Client for ForSyDe",
+  "author": "ForSyDe DevTools Authors",
+  "license": "MIT",
+  "version": "0.1.0",
+  "publisher": "forsyde-devtools",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sthaeron/forsyde-devtools"
+  },
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "dependencies": {
+    "glob": "^11.0.0",
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "@vscode/test-electron": "^2.3.9"
+  },
+  "extensionDependencies": [
+    "kieler.klighd-vscode"
+  ]
+}
