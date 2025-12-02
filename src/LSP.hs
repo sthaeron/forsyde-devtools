@@ -13,7 +13,6 @@ import Control.Concurrent (forkFinally)
 import qualified Control.Exception as E
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class
-import Control.Monad.IO.Unlift
 import qualified CoreIRToForSyDeIR
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
@@ -40,6 +39,9 @@ import Utilities
 
 diagramAcceptMethod :: SMethod (Method_CustomMethod "diagram/accept")
 diagramAcceptMethod = (SMethod_CustomMethod (Proxy @"diagram/accept"))
+
+diagramOpenInTextEditor :: SMethod (Method_CustomMethod "diagram/openInTextEditor")
+diagramOpenInTextEditor = (SMethod_CustomMethod (Proxy @"diagram/openInTextEditor"))
 
 setPreferencesMethod :: SMethod (Method_CustomMethod "keith/preferences/setPreferences")
 setPreferencesMethod = (SMethod_CustomMethod (Proxy @"keith/preferences/setPreferences"))
@@ -203,6 +205,29 @@ requestBounds f clientId ir =
           ]
     ]
 
+diagramOpenInTextEditorMessage :: String -> Int -> Int -> Int -> Int -> A.Value
+diagramOpenInTextEditorMessage uri sline scol eline ecol =
+  A.object
+    [ "location"
+        .= A.object
+          [ "uri" .= ("file://" <> uri),
+            "range"
+              .= A.object
+                [ "start"
+                    .= A.object
+                      [ "line" .= (sline - 1),
+                        "character" .= (scol - 1)
+                      ],
+                  "end"
+                    .= A.object
+                      [ "line" .= (eline - 1),
+                        "character" .= (ecol - 1)
+                      ]
+                ]
+          ],
+      "forceOpen" .= False
+    ]
+
 -- | The static notification and request handlers we support
 handlers :: Handlers (LspM (Maybe FilePath))
 handlers =
@@ -276,7 +301,7 @@ handlers =
         let update = shouldUpdate p
 
         -- TODO: maybe only recompute on TextDocumentDidSave
-        (core, dflags) <- withRunInIO (\_u -> compileToCore file)
+        (core, dflags) <- liftIO $ compileToCore file
         let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
 
         -- Get location information on selected object
@@ -284,7 +309,7 @@ handlers =
         let s = map findSignalSpan (map IRString sel) <*> [sigs] & mconcat
         let a = map findProcessSpan (map IRString sel) <*> [procs] & mconcat
         let spans = s ++ a
-        _ <- if length spans > 0 then withRunInIO (\_u -> putStrLn $ show spans) else pure ()
+        _ <- if length spans > 0 then liftIO $ putStrLn $ show spans else pure ()
 
         -- Send the diagram if the client wants it
         if update then sendNotification diagramAcceptMethod (setSynthesis clientId) else pure ()
@@ -297,29 +322,9 @@ handlers =
         _ <- case spans of
           sspan : _ ->
             let (fname, sl, sc, el, ec) = sspan
-             in sendRequest
-                  SMethod_WindowShowDocument
-                  ShowDocumentParams
-                    { _uri = Uri $ "file://" <> T.pack fname,
-                      _external = Just False,
-                      _takeFocus = Just True,
-                      _selection =
-                        Just
-                          Range
-                            { _start =
-                                Position
-                                  { _line = fromIntegral (sl - 1),
-                                    _character = fromIntegral (sc - 1)
-                                  },
-                              _end =
-                                Position
-                                  { _line = fromIntegral (el - 1),
-                                    _character = fromIntegral (ec - 1)
-                                  }
-                            }
-                    }
-                  (\_f -> pure ())
-          _ -> pure $ IdString "no-operation"
+             in sendNotification diagramOpenInTextEditor $
+                  diagramOpenInTextEditorMessage fname sl sc el ec
+          _ -> pure ()
 
         pure ()
     ]
@@ -439,7 +444,7 @@ run (Arguments (Host ip) (TCP p) i_f) =
                 }
           pure ()
     InputFile f -> do
-      (core, dflags) <- withRunInIO (\_u -> compileToCore f)
+      (core, dflags) <- liftIO $ compileToCore f
       let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
       let graphMessage = requestBounds f "sprotty" forsydeIR
       BSL8.putStrLn $ AP.encodePretty graphMessage
