@@ -13,7 +13,6 @@ import Control.Concurrent (forkFinally)
 import qualified Control.Exception as E
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class
-import Control.Monad.IO.Unlift
 import qualified CoreIRToForSyDeIR
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
@@ -276,7 +275,7 @@ handlers =
         let update = shouldUpdate p
 
         -- TODO: maybe only recompute on TextDocumentDidSave
-        (core, dflags) <- withRunInIO (\_u -> compileToCore file)
+        (core, dflags) <- liftIO $ compileToCore file
         let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
 
         -- Get location information on selected object
@@ -284,7 +283,7 @@ handlers =
         let s = map findSignalSpan (map IRString sel) <*> [sigs] & mconcat
         let a = map findProcessSpan (map IRString sel) <*> [procs] & mconcat
         let spans = s ++ a
-        _ <- if length spans > 0 then withRunInIO (\_u -> putStrLn $ show spans) else pure ()
+        _ <- if length spans > 0 then liftIO $ putStrLn $ show spans else pure ()
 
         -- Send the diagram if the client wants it
         if update then sendNotification diagramAcceptMethod (setSynthesis clientId) else pure ()
@@ -439,7 +438,7 @@ run (Arguments (Host ip) (TCP p) i_f) =
                 }
           pure ()
     InputFile f -> do
-      (core, dflags) <- withRunInIO (\_u -> compileToCore f)
+      (core, dflags) <- liftIO $ compileToCore f
       let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
       let graphMessage = requestBounds f "sprotty" forsydeIR
       BSL8.putStrLn $ AP.encodePretty graphMessage
