@@ -148,8 +148,8 @@ spec :: Spec
 spec = beforeAll readExpectedCode $ do
   describe "Procedural IR To C Codegen" $ do
     it "Test hand-crafted Procedural IR" $ \simpleCString -> do
-      formatted <- formatWithClang (translateProgram exampleProceduralIR False)
-      normalize formatted `shouldBe` normalize simpleCString
+      let cString = translateProgram exampleProceduralIR False
+      normalize cString `shouldBe` normalize simpleCString
   where
     normalize = filter (not . isSpace)
     readExpectedCode = readFile "examples/test/simple.c"
