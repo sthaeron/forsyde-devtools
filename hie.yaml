@@ -1,6 +1,8 @@
 cradle:
   multi:
     - path: "src"
-      config: {cradle: {cabal: {component: "forsyde-devtools:forsyde-devtools-exe"}}}
+      config: {cradle: {cabal: {component: "forsyde-devtools:forsyde-compiler-exe"}}}
+    - path: "src"
+      config: {cradle: {cabal: {component: "forsyde-devtools:forsyde-lsp-exe"}}}
     - path: "test"
       config: {cradle: {cabal: {component: "forsyde-devtools:forsyde-devtools-test"}}}
