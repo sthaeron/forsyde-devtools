@@ -30,6 +30,7 @@ common common-options
     ghc-paths ==0.1.0.12,
     hmatrix ==0.20.2,
     lsp ==2.7.0.1,
+    lsp-types ==2.3.0.1,
     network ==3.2.7.0,
     optparse-applicative >=0.18.1.0,
     prettyprinter ==1.7.1,

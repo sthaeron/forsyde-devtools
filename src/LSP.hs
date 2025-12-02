@@ -14,18 +14,22 @@ import qualified Control.Exception as E
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class
 import Control.Monad.IO.Unlift
-import CoreIRToForSyDeIR
+import qualified CoreIRToForSyDeIR
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
 import Data.Aeson.Encode.Pretty as AP
 import Data.Aeson.KeyMap ((!?))
 import qualified Data.ByteString.Lazy.Char8 as BSL8
+import qualified Data.Foldable as F
+import Data.Function
 import qualified Data.List.NonEmpty as NE
+import Data.Maybe
 import Data.Proxy
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import ForSyDeIR
 import Language.LSP.Protocol.Message
+import Language.LSP.Protocol.Types
 import Language.LSP.Server
 import Network.Socket
 import Options.Applicative
@@ -45,22 +49,22 @@ forSyDeIRToGraph :: FilePath -> IRSystem -> GraphElement
 forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
   where
     -- \| Create a port with a label for signal rate
-    createPortWithRate pid renderings properties (n, r) =
-      createPort' renderings properties [label] (id, r)
+    createPortWithRate parent rends props (n, r) =
+      createPort' rends props [l] (pid, r)
       where
-        id = pid <> "$P" <> T.show n
-        label = KLabel {gid = id <> "$L0", label = T.show r}
-    createPortWithoutRate pid renderings properties (n, r) =
-      createPort' renderings properties [] (id, r)
+        pid = parent <> "$P$" <> T.show n
+        l = KLabel {gid = pid <> "$L$" <> T.show n, label = T.show r}
+    createPortWithoutRate parent rends props (n, r) =
+      createPort' rends props [] (pid, r)
       where
-        id = pid <> "$P" <> T.show n
+        pid = parent <> "$P$" <> T.show n
     -- \| Create a port with the passed renderings and children
-    createPort' renderings properties children (gid, _) =
+    createPort' rends props c (pid, _) =
       KPort
-        { children = children,
-          renderings = renderings,
-          properties = properties,
-          gid = gid
+        { children = c,
+          renderings = rends,
+          properties = props,
+          gid = pid
         }
     -- \| Create a node based on an IRActor
     createNode = \case
@@ -85,15 +89,15 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
             (NodeSizeMinimum [12, 12])
           ]
     -- \| Find all signals which the process is the source of
-    findOutputSignals signals proc =
-      foldr f [] signals
+    findOutputSignals sigs proc =
+      foldr f [] sigs
       where
         f s acc =
           let IRSignal n (p, rate) _ = s
            in if p == proc then (n, rate) : acc else acc
     -- \| Find all signals which the process is the target of
-    findInputSignals signals proc =
-      foldr f [] signals
+    findInputSignals sigs proc =
+      foldr f [] sigs
       where
         f s acc =
           let IRSignal n _ (p, rate) = s
@@ -101,12 +105,12 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
     -- \| Helper for createNode and global inputs / outputs
     createNode' name createPort l r p = node
       where
-        nid = "$root$N" <> T.show name
+        nid = "$root$N$" <> T.show name
         insignals = findInputSignals signals name
         outsignals = findOutputSignals signals name
         inports = map (createPort nid (maybe [] (\_l -> [KText "◆" []]) l) []) insignals
         outports = map (createPort nid [] []) outsignals
-        nl = maybe [] (\l -> [KLabel {gid = nid <> "$L0", label = T.show l}]) l
+        nl = maybe [] (\lc -> [KLabel {gid = nid <> "$L$" <> T.show name, label = T.show lc}]) l
         c = inports ++ outports ++ nl
         node =
           KNode
@@ -118,18 +122,18 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
     -- \| Create an edge from an IRSignal, depends on port id
     createEdge (IRSignal n (sname, _) (tname, _)) = edge
       where
-        sn = "$root$N" <> T.show sname <> "$P" <> T.show n
-        tn = "$root$N" <> T.show tname <> "$P" <> T.show n
-        name = sn <> "$E" <> T.show n
-        sigid = name <> "$L0"
-        children =
+        sn = "$root$N$" <> T.show sname <> "$P$" <> T.show n
+        tn = "$root$N$" <> T.show tname <> "$P$" <> T.show n
+        name = sn <> "$E$" <> T.show n
+        sigid = name <> "$L$" <> T.show n
+        c =
           if n == sname || n == tname
             then []
             else [KLabel {gid = sigid, label = T.show n}]
         edge =
           KEdge
             { gid = name,
-              children = children,
+              children = c,
               renderings = [KRoundedBendsPolyline [] 4],
               properties = [],
               source = sn,
@@ -154,31 +158,31 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
         }
 
 -- | Send our supported syntheses to the LSP client (KLighD-VSCode)
-setSynthesis :: A.Value
-setSynthesis =
+setSynthesis :: T.Text -> A.Value
+setSynthesis clientId =
   A.object
-    [ "clientId" .= T.pack "sprotty",
+    [ "clientId" .= clientId,
       "action"
         .= A.object
-          [ "kind" .= T.pack "setSyntheses",
+          [ "kind" .= ("setSyntheses" :: T.Text),
             "syntheses"
               .= Seq.fromList
                 [ A.object
-                    [ "id" .= T.pack "se.kth.forsyde-devtools.dummyid",
-                      "displayName" .= T.pack "ForSyDe Shallow"
+                    [ "id" .= ("se.kth.forsyde-devtools.dummyid" :: T.Text),
+                      "displayName" .= ("ForSyDe Shallow" :: T.Text)
                     ]
                 ]
           ]
     ]
 
 -- | Send the supported options for the file
-updateOptions :: FilePath -> A.Value
-updateOptions f =
+updateOptions :: FilePath -> T.Text -> A.Value
+updateOptions f clientId =
   A.object
-    [ "clientId" .= T.pack "sprotty",
+    [ "clientId" .= clientId,
       "action"
         .= A.object
-          [ "kind" .= T.pack "updateOptions",
+          [ "kind" .= ("updateOptions" :: T.Text),
             "valuedSynthesisOptions" .= (Seq.empty :: Seq.Seq A.Object),
             "layoutOptions" .= (Seq.empty :: Seq.Seq A.Object),
             "actions" .= (Seq.empty :: Seq.Seq A.Object),
@@ -187,56 +191,209 @@ updateOptions f =
     ]
 
 -- | Send the graph for layout and display to the LSP client (KLighD-VSCode)
-requestBounds :: FilePath -> IRSystem -> A.Value
-requestBounds f ir =
+requestBounds :: FilePath -> T.Text -> IRSystem -> A.Value
+requestBounds f clientId ir =
   A.object
-    [ "clientId" .= T.pack "sprotty",
+    [ "clientId" .= clientId,
       "action"
         .= A.object
-          [ "kind" .= T.pack "requestBounds",
+          [ "kind" .= ("requestBounds" :: T.Text),
             "newRoot"
               .= forSyDeIRToGraph f ir
           ]
     ]
 
 -- | The static notification and request handlers we support
-handlers :: Input -> Handlers (LspM (Maybe FilePath))
-handlers f =
+handlers :: Handlers (LspM (Maybe FilePath))
+handlers =
   mconcat
     [ notificationHandler SMethod_Initialized $ \_not -> do
         pure (),
       notificationHandler setPreferencesMethod $ \_not -> do
         pure (),
+      notificationHandler SMethod_WorkspaceDidChangeConfiguration $ \_not -> do
+        pure (),
+      requestHandler SMethod_Initialize $ \_req _resp -> do
+        _resp
+          ( Right $
+              InitializeResult
+                { _capabilities =
+                    ServerCapabilities
+                      { _positionEncoding = Nothing,
+                        _textDocumentSync = Nothing,
+                        _notebookDocumentSync = Nothing,
+                        _completionProvider = Nothing,
+                        _hoverProvider = Nothing,
+                        _signatureHelpProvider = Nothing,
+                        _declarationProvider = Nothing,
+                        _definitionProvider = Nothing,
+                        _typeDefinitionProvider = Nothing,
+                        _implementationProvider = Nothing,
+                        _referencesProvider = Nothing,
+                        _documentHighlightProvider = Nothing,
+                        _documentSymbolProvider = Nothing,
+                        _codeActionProvider = Nothing,
+                        _codeLensProvider = Nothing,
+                        _documentLinkProvider = Nothing,
+                        _colorProvider = Nothing,
+                        _workspaceSymbolProvider = Nothing,
+                        _documentFormattingProvider = Nothing,
+                        _documentRangeFormattingProvider = Nothing,
+                        _documentOnTypeFormattingProvider = Nothing,
+                        _renameProvider = Nothing,
+                        _foldingRangeProvider = Nothing,
+                        _selectionRangeProvider = Nothing,
+                        _executeCommandProvider = Nothing,
+                        _callHierarchyProvider = Nothing,
+                        _linkedEditingRangeProvider = Nothing,
+                        _semanticTokensProvider = Nothing,
+                        _monikerProvider = Nothing,
+                        _typeHierarchyProvider = Nothing,
+                        _inlineValueProvider = Nothing,
+                        _inlayHintProvider = Nothing,
+                        _diagnosticProvider = Nothing,
+                        _workspace = Nothing,
+                        _experimental = Nothing
+                      },
+                  _serverInfo = Nothing
+                }
+          )
+        pure (),
       notificationHandler diagramAcceptMethod $ \TNotificationMessage {_params = p} -> do
         -- In the case where the client does not provide a sourceUri, use the
         -- old one. This is the case for e.g. the refreshDiagram action
-        c <- getConfig
-        let file = maybe (getFile p) id c
+        oldFile <- getConfig
+        let file = maybe (maybe "" id oldFile) id (getFilePathFromClient p)
         _ <- setConfig (Just file)
-        sendNotification diagramAcceptMethod setSynthesis
-        sendNotification diagramAcceptMethod (updateOptions file)
+
+        -- What clientId should we use?
+        let clientId = maybe ("sprotty" :: T.Text) id (getClientId p)
+
+        -- Decode elementSelected
+        let sel = getSelected p & map (T.split (\_c -> _c == '$')) & map last & map T.unpack
+
+        -- Does the client want a diagram?
+        let update = shouldUpdate p
+
+        -- TODO: maybe only recompute on TextDocumentDidSave
         (core, dflags) <- withRunInIO (\_u -> compileToCore file)
-        let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
-        let graphMessage = requestBounds file forsydeIR
-        sendNotification diagramAcceptMethod graphMessage
+        let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
+
+        -- Get location information on selected object
+        let IRSystem _ procs sigs _ = forsydeIR
+        let s = map findSignalSpan (map IRString sel) <*> [sigs] & mconcat
+        let a = map findProcessSpan (map IRString sel) <*> [procs] & mconcat
+        let spans = s ++ a
+        _ <- if length spans > 0 then withRunInIO (\_u -> putStrLn $ show spans) else pure ()
+
+        -- Send the diagram if the client wants it
+        if update then sendNotification diagramAcceptMethod (setSynthesis clientId) else pure ()
+        if update then sendNotification diagramAcceptMethod (updateOptions file clientId) else pure ()
+        let graphMessage = requestBounds file clientId forsydeIR
+        if update then sendNotification diagramAcceptMethod graphMessage else pure ()
+
+        -- When an element is selcted, only that one seems to be sent.
+        -- Therefore, just use the first one
+        _ <- case spans of
+          sspan : _ ->
+            let (fname, sl, sc, el, ec) = sspan
+             in sendRequest
+                  SMethod_WindowShowDocument
+                  ShowDocumentParams
+                    { _uri = Uri $ "file://" <> T.pack fname,
+                      _external = Just False,
+                      _takeFocus = Just True,
+                      _selection =
+                        Just
+                          Range
+                            { _start =
+                                Position
+                                  { _line = fromIntegral (sl - 1),
+                                    _character = fromIntegral (sc - 1)
+                                  },
+                              _end =
+                                Position
+                                  { _line = fromIntegral (el - 1),
+                                    _character = fromIntegral (ec - 1)
+                                  }
+                            }
+                    }
+                  (\_f -> pure ())
+          _ -> pure $ IdString "no-operation"
+
         pure ()
     ]
   where
-    getFile params = case f of
-      FromClient -> case getFilePathFromClient params of
-        Just _file -> _file
-        Nothing -> ""
-      InputFile fn -> fn
+    findIR :: (a -> Maybe b) -> (a -> Bool) -> [a] -> [b]
+    findIR transform match l =
+      foldr
+        ( \e a ->
+            if match e
+              then case transform e of
+                Just ret -> ret : a
+                Nothing -> a
+              else a
+        )
+        []
+        l
+    findSignalSpan :: IRId -> [IRSignal] -> [IRSpan]
+    findSignalSpan sig l = findIR transform match l
+      where
+        match (IRSignal n _ _) = sig == n
+        transform (IRSignal n _ _) = varToSpan n
+    findProcessSpan :: IRId -> [IRConstructor] -> [IRSpan]
+    findProcessSpan proc l = findIR transform match l
+      where
+        match = \case
+          IRDelay n _ _ -> proc == n
+          IRActor n _ _ _ -> proc == n
+        transform = \case
+          IRDelay n _ _ -> varToSpan n
+          IRActor n _ _ _ -> varToSpan n
     getKey key = \case
       A.Object o -> o !? key
       _ -> Nothing
+    getKind params =
+      Just params
+        >>= getKey "action"
+        >>= getKey "kind"
+        >>= \case
+          A.String _a -> Just $ T.unpack _a
+          _ -> Nothing
+    shouldUpdate params =
+      case getKind params of
+        Just "requestModel" -> True
+        Just "refreshDiagram" -> True
+        _ -> False
+    getSelected params =
+      Just params
+        >>= getKey "action"
+        >>= getKey "selectedElementsIDs"
+        >>= \case
+          A.Array _a -> Just $ F.toList _a
+          _ -> Nothing
+        & maybeToList
+        & mconcat
+        & foldr
+          ( \j l ->
+              case j of
+                A.String s -> s : l
+                _ -> l
+          )
+          []
     getFilePathFromClient params =
       Just params
         >>= getKey "action"
         >>= getKey "options"
         >>= getKey "sourceUri"
         >>= \case
-          A.String _a -> Just $ T.unpack $ snd $ T.splitAt 6 _a
+          A.String _a -> Just $ T.unpack $ snd $ T.splitAt 7 _a
+          _ -> Nothing
+    getClientId params =
+      Just params
+        >>= getKey "clientId"
+        >>= \case
+          A.String _a -> Just _a
           _ -> Nothing
 
 runServerC :: Handle -> Handle -> ServerDefinition config -> IO Int
@@ -276,15 +433,15 @@ run (Arguments (Host ip) (TCP p) i_f) =
                   defaultConfig = Nothing,
                   configSection = "demo",
                   doInitialize = \env _req -> pure $ Right env,
-                  staticHandlers = \_caps -> (handlers FromClient),
+                  staticHandlers = \_caps -> handlers,
                   interpretHandler = \env -> Iso (runLspT env) liftIO,
                   options = defaultOptions
                 }
           pure ()
     InputFile f -> do
       (core, dflags) <- withRunInIO (\_u -> compileToCore f)
-      let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
-      let graphMessage = requestBounds f forsydeIR
+      let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
+      let graphMessage = requestBounds f "sprotty" forsydeIR
       BSL8.putStrLn $ AP.encodePretty graphMessage
 
 -- | Listen on host and port, as well as accept and fork off connections
