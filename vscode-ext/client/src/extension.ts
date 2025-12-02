@@ -1,3 +1,4 @@
+import { ChildProcess, spawn } from "node:child_process";
 import { connect, NetConnectOpts, Socket } from "net";
 import { ExtensionContext } from "vscode";
 import * as vscode from "vscode";
@@ -11,6 +12,7 @@ import {
 
 let client: LanguageClient;
 let socket: Socket;
+let serverProcess: ChildProcess;
 
 export async function activate(context: ExtensionContext) {
   const serverOptions: ServerOptions = createServerOptions(context);
@@ -49,6 +51,7 @@ export function deactivate(): Thenable<void> | undefined {
       socket.end(resolve);
       return;
     }
+    serverProcess?.kill("SIGKILL");
     client?.stop().then(resolve);
   });
 }
@@ -72,10 +75,23 @@ function createServerOptions(context: ExtensionContext): ServerOptions {
   } else {
     console.log("Spawning to language server as a process.");
     const lsp_executable = context.asAbsolutePath(`server/forsyde-lsp-exe`);
+    serverProcess = spawn(lsp_executable, [], {
+      detached: false,
+      stdio: "inherit"
+    });
 
-    return {
-      run: { command: lsp_executable },
-      debug: { command: lsp_executable },
+    const connectionInfo: NetConnectOpts = {
+      port: 5007,
+    };
+    console.log("Connecting to language server on port: ", connectionInfo.port);
+
+    return async () => {
+      socket = connect(connectionInfo);
+      const result: StreamInfo = {
+        writer: socket,
+        reader: socket,
+      };
+      return result;
     };
   }
 }
