@@ -1,5 +1,6 @@
 module ProceduralIRToCSpec (spec) where
 
+import ArgumentsMain
 import Data.Char (isSpace)
 import ProceduralIR
 import ProceduralIRToC
@@ -148,7 +149,7 @@ spec :: Spec
 spec = beforeAll readExpectedCode $ do
   describe "Procedural IR To C Codegen" $ do
     it "Test hand-crafted Procedural IR" $ \simpleCString -> do
-      let cString = translateProgram exampleProceduralIR False
+      let cString = translateProgram exampleProceduralIR PC False
       normalize cString `shouldBe` normalize simpleCString
   where
     normalize = filter (not . isSpace)
