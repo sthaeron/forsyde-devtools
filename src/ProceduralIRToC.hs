@@ -2,11 +2,10 @@ module ProceduralIRToC where
 
 import Data.List (intercalate)
 import ProceduralIR
-import System.Process (readProcess)
 import Text.Printf (printf)
 
 indent :: String -> String
-indent = unlines . map ("  " ++) . lines
+indent = unlines . map ("    " ++) . lines
 
 stripSemicolon :: String -> String
 stripSemicolon str =
@@ -47,7 +46,7 @@ translateType currentType = case currentType of
   TFloat -> "float"
   TChar -> "char"
   TIdent s -> s
-  TPointer t -> translateType t ++ "*"
+  TPointer t -> translateType t ++ " *"
   TReference t -> translateType t ++ "&"
   TQualifiedType qualifers ty -> (intercalate " " (map prettyTypeQualifier qualifers)) ++ (translateType ty)
   TFunctionPointer returnType paramTypes ->
@@ -66,8 +65,12 @@ translateExpression (EChar c) = show c
 translateExpression (EString s) = show s
 translateExpression (EBinOp bop exprA exprB) =
   translateExpression exprA ++ " " ++ translateBinaryOperator bop ++ " " ++ translateExpression exprB
-translateExpression (EUnOp uop expr) =
-  translateUnaryOperator uop ++ translateExpression expr
+translateExpression (EUnOp unop@Increment expr) =
+  translateExpression expr ++ translateUnaryOperator unop
+translateExpression (EUnOp unop@Decrement expr) =
+  translateExpression expr ++ translateUnaryOperator unop
+translateExpression (EUnOp unop expr) =
+  translateUnaryOperator unop ++ translateExpression expr
 translateExpression (ECall name arguments) =
   name ++ "(" ++ intercalate ", " (map translateExpression arguments) ++ ")"
 translateExpression (ECallExpr calleeExpr arguments) =
@@ -88,8 +91,12 @@ translateExpression (EParen expr) =
 translateStatement :: Statement -> String
 translateStatement (SExpr expression) =
   translateExpression expression ++ ";"
+translateStatement (SVarDecl varType@(TPointer _pointerType) name) =
+  translateType varType ++ name ++ ";"
 translateStatement (SVarDecl varType name) =
   translateType varType ++ " " ++ name ++ ";"
+translateStatement (SVarDef varType@(TPointer _pointerType) name expression) =
+  translateType varType ++ name ++ " = " ++ translateExpression expression ++ ";"
 translateStatement (SVarDef varType name expression) =
   translateType varType ++ " " ++ name ++ " = " ++ translateExpression expression ++ ";"
 translateStatement (SAssign lhsExpression rhsExpression) =
@@ -146,6 +153,8 @@ translateStatement (SLabel label) =
   label ++ ":"
 
 translateParam :: (Type, String) -> String
+translateParam (paramType@(TPointer _pointerType), paramName) =
+  translateType paramType ++ paramName
 translateParam (paramType, paramName) =
   translateType paramType ++ " " ++ paramName
 
@@ -200,11 +209,7 @@ translateProgram :: Program -> Bool -> String
 translateProgram (Prog globals) includes =
   if includes
     then
-      "typedef int token;\n#include <stdio.h>\n#include \"include/common.h\"\n"
-        ++ intercalate "\n" (map translateGlobal globals)
+      "typedef int token;\n#include \"include/common.h\"\n#include <stdio.h>\n\n"
+        ++ intercalate "\n\n" (map translateGlobal globals)
     else
-      intercalate "\n" (map translateGlobal globals)
-
-formatWithClang :: String -> IO String
-formatWithClang code =
-  readProcess "clang-format" ["--style={BasedOnStyle: llvm, IndentWidth: 4}"] code
+      intercalate "\n\n" (map translateGlobal globals)

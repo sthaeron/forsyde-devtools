@@ -51,7 +51,7 @@ library
     SDFSchedule
     Utilities
 
-executable forsyde-devtools-exe
+executable forsyde-compiler-exe
   import: common-options
   hs-source-dirs: src
   main-is: Main.hs
@@ -88,6 +88,7 @@ executable forsyde-lsp-exe
     ForSyDeIRToProceduralIR
     ProceduralIR
     ProceduralIRToC
+    SDFSchedule
     SKGraphSchema
     Utilities
 

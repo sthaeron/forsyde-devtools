@@ -24,7 +24,10 @@
                       ];
 
                       postInstall = (old.postInstall or "") + ''
-                        wrapProgram $out/bin/forsyde-devtools-exe \
+                        wrapProgram $out/bin/forsyde-compiler-exe \
+                          --prefix PATH : ${dirOf "${old.passthru.env.NIX_GHC}"} \
+                          --set GHC_PACKAGE_PATH "${old.passthru.env.NIX_GHC_LIBDIR}/package.conf.d:"
+                        wrapProgram $out/bin/forsyde-lsp-exe \
                           --prefix PATH : ${dirOf "${old.passthru.env.NIX_GHC}"} \
                           --set GHC_PACKAGE_PATH "${old.passthru.env.NIX_GHC_LIBDIR}/package.conf.d:"
                       '';
@@ -78,9 +81,16 @@
           '';
         };
         packages.default = pkgs.forsyde-devtools;
-        apps.forsyde-devtools = {
-          type = "app";
-          program = "${self.packages.${system}.forsyde-devtools}/bin/forsyde-devtools-exe";
+        apps = {
+          forsyde-compiler = {
+            type = "app";
+            program = "${self.packages.${system}.default}/bin/forsyde-compiler-exe";
+          };
+          forsyde-lsp = {
+            type = "app";
+            program = "${self.packages.${system}.default}/bin/forsyde-lsp-exe";
+          };
+          default = self.apps.${system}.forsyde-compiler;
         };
       }
     );
