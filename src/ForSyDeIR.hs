@@ -18,7 +18,7 @@ module ForSyDeIR
   )
 where
 
-import CoreIR (prettyCoreExpr)
+import CoreIR (prettyCoreExpr, varToString)
 import Data.Aeson
 import Data.Aeson.Encode.Pretty
 import Data.Function
@@ -30,7 +30,7 @@ import qualified Data.Text.Lazy.Builder as TLB
 import GHC (DynFlags)
 import GHC.Core
 import qualified GHC.Data.FastString as FS
-import GHC.Plugins (Var, nameOccName, nameSrcSpan, occNameString, varName, varUnique)
+import GHC.Plugins (Var, nameSrcSpan, varName, varUnique)
 import GHC.Types.SrcLoc
 import Text.Printf (printf)
 
@@ -42,7 +42,7 @@ data IRId
   | Empty
 
 instance Show IRId where
-  show (IRVar i) = occNameString $ nameOccName $ varName i
+  show (IRVar i) = varToString i
   show (IRString s) = s
   show Empty = ""
 

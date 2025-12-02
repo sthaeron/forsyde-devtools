@@ -5,7 +5,6 @@ import Data.List (elemIndex)
 import ForSyDeIR
 import GHC hiding (targetId)
 import GHC.Core
-import GHC.Types.Literal
 
 -- | The `TranslationContext` is a data type which is used to pass around
 -- context required to complete the translation of Core IR to ForSyDe IR.
@@ -423,7 +422,7 @@ createActorSDF initialContext actorType binder expr =
 -- all integer literals within their expression as a list.
 getLits :: CoreExpr -> [Int] -> [Int]
 getLits expr acc = case expr of
-  Lit l -> (fromIntegral (litValue l)) : acc
+  Lit l -> (literalToInt l) : acc
   App e a -> getLits e (getLits a acc)
   Lam _ e -> getLits e acc
   Let _ e -> getLits e acc
