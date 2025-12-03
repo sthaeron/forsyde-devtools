@@ -211,7 +211,7 @@ translateIRConstructor io initialContext constructor = case constructor of
                   scopeStmt =
                     SScope
                       [ SExpr (ECall "read_token" [EVar $ show signalId, EReference (EVar ("output_" ++ show signalId))]),
-                        SExpr (ECall "printf" [EString "%d", EVar ("output_" ++ show signalId)])
+                        SExpr (ECall "printf" [EString "%d ", EVar ("output_" ++ show signalId)])
                       ]
                   forStmt =
                     SFor
