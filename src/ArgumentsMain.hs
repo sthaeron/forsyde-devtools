@@ -36,6 +36,10 @@ data Target
   = PC
   | PICO2
 
+data IOType
+  = Scanf
+  | Predefined
+
 data Arguments = Arguments
   { -- Files
     input :: Input,
@@ -43,7 +47,9 @@ data Arguments = Arguments
     -- Formats
     output_format :: OutputFormat,
     -- Target
-    target :: Target
+    target :: Target,
+    -- IO Format (whether to get SDF Input from scanf or predetermined file)
+    io :: IOType
   }
 
 -- Handle file input, always need to define a file
@@ -203,6 +209,28 @@ targetTop =
         <> help "Target platform for C code. (PC default, PC and PICO2 supported)"
     )
 
+-- Parse IO Type. Implementation is similar to `target` option
+ioName :: ReadM IOType
+ioName = str >>= returnIO
+  where
+    returnIO s = case s of
+      "scanf" -> pure (Scanf)
+      "predefined" -> pure (Predefined)
+      t -> error ("Unsupported input source: " ++ t)
+
+-- Parse target platform. Uses pattern matching to handle raw strings which
+-- means it is used  like "--target={target}" as opposed to having --target-PC,
+-- target-PICO2, etc
+ioTop :: Parser IOType
+ioTop =
+  option
+    (ioName)
+    ( long "io"
+        <> metavar "IO"
+        <> value Scanf
+        <> help "Source of input tokens for the SDF models in the C code. (scanf default, scanf and predefined supported)"
+    )
+
 -- Top level argument parsing function, takes 4 flags.
 arguments :: Parser Arguments
 arguments =
@@ -211,3 +239,4 @@ arguments =
     <*> outputFileTop
     <*> outputFormatTop
     <*> targetTop
+    <*> ioTop
