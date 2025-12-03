@@ -1,5 +1,6 @@
 module ForSyDeIRToProceduralIR where
 
+import ArgumentsMain (IOType (Predefined, Scanf))
 import CoreIR (literalToInt, prettyCoreExpr, varToString)
 import ForSyDeIR
 import GHC hiding (targetId)
@@ -46,21 +47,31 @@ initialTranslationContext dflags lookupSignalList inputList outputList delayBuff
 -- | Translates a ForSyDe IR `IRSystem` into a Procedural IR `Program`. Requires
 -- the schedule, buffer, and delay buffer lists from the SDF scheduler as an
 -- input. Also requires an associated list of signals for lookups.
-translateIRSystemToProgram :: DynFlags -> [IRId] -> [(IRId, Int)] -> [(IRId, IRId)] -> [(IRId, IRSignal)] -> IRSystem -> Program
-translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookupSignalList (IRSystem (inputList, outputList) constructors _signalList functionList) =
+translateIRSystemToProgram :: DynFlags -> [IRId] -> [(IRId, Int)] -> [(IRId, IRId)] -> [(IRId, IRSignal)] -> IOType -> IRSystem -> Program
+translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookupSignalList io (IRSystem (inputList, outputList) constructors _signalList functionList) =
   let initialContext = initialTranslationContext dflags lookupSignalList inputList outputList delayBufferList
-      context1 = foldl' translateIRConstructor initialContext constructors
-      context2 = foldl' translateBuffer context1 bufferList
+      context1 = foldl' (translateIRConstructor io) initialContext constructors
+      context2 = foldl' (translateBuffer io) context1 bufferList
       context3 = foldl' translateIRFunctionToGlobals context2 functionList
-      main = translateContextToMain context3 scheduleList
+      main = translateContextToMain context3 scheduleList io
    in Prog (reverse (initFunctions context3) ++ [main] ++ reverse (functions context3))
 
 -- | Translates the `TranslationContext` and Schedule into a main function.
-translateContextToMain :: TranslationContext -> [IRId] -> Global
-translateContextToMain context scheduleList =
+translateContextToMain :: TranslationContext -> [IRId] -> IOType -> Global
+translateContextToMain context scheduleList io =
   let scheduledStmts = scheduleActors context scheduleList
-      whileStmt = SWhile (EInt 1) (SScope scheduledStmts)
-      mainInitStmts = [SExpr (ECall "init" []), SVarDecl TInt "status"] ++ reverse (initBuffers context) ++ reverse (ioTokens context) ++ reverse (initDelay context)
+      scheduledStmtsSpecial = case io of
+        Scanf -> []
+        Predefined ->
+          [ SVarAssign "iter_current" (EBinOp Plus (EVar "iter_current") (EInt 1)),
+            SIf (EBinOp Equal (EVar "iter_current") (EVar "iter_max")) (SVarAssign "iter_current" (EInt 0)) Nothing
+          ]
+
+      whileStmt = SWhile (EInt 1) (SScope (scheduledStmts ++ scheduledStmtsSpecial))
+      mainInitStmtsSpecial = case io of
+        Scanf -> [SExpr (ECall "init" []), SVarDecl TInt "status"]
+        Predefined -> [SExpr (ECall "init" []), SVarDef TInt "iter_current" (EInt (0))]
+      mainInitStmts = mainInitStmtsSpecial ++ reverse (initBuffers context) ++ reverse (ioTokens context) ++ reverse (initDelay context)
       mainFreeStmts = reverse (freeBuffers context) ++ [SReturn (Just (EInt 0))]
       mainBody = SScope (mainInitStmts ++ [whileStmt] ++ mainFreeStmts)
    in GFuncDef Nothing TInt "main" [] mainBody
@@ -84,14 +95,20 @@ scheduleActors context scheduleList = foldl' foldSchedule [] scheduleList
 -- statement which are used to update the `TranslationContext`. Note that io
 -- token statements are only created for buffers which relate to with system
 -- inputs and outputs.
-translateBuffer :: TranslationContext -> (IRId, Int) -> TranslationContext
-translateBuffer initialContext (bufferId, bufferSize) =
+translateBuffer :: IOType -> TranslationContext -> (IRId, Int) -> TranslationContext
+translateBuffer io initialContext (bufferId, bufferSize) =
   let initStmt = SVarDef (TPointer (TIdent "buffer_nonblocking")) (show bufferId) (ECall "buffer_nonblocking_new" [EInt bufferSize])
       freeStmt = SExpr (ECall "buffer_nonblocking_free" [EVar $ show bufferId])
    in if (elem bufferId (systemInputs initialContext))
-        then
-          let ioTokenStmt = SArrayDecl TInt ("input_" ++ show bufferId) [EInt bufferSize]
-           in initialContext {ioTokens = ioTokenStmt : ioTokens initialContext, initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
+        then case io of
+          -- If scanf is used, then need to define input handling arrays
+          Scanf ->
+            let ioTokenStmt = SArrayDecl TInt ("input_" ++ show bufferId) [EInt bufferSize]
+             in initialContext {ioTokens = ioTokenStmt : ioTokens initialContext, initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
+          -- If input is predefined, then do not create "input_" arrays.
+          -- But you still need to create the "s_" buffers for those signals
+          Predefined ->
+            initialContext {ioTokens = ioTokens initialContext, initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
         else
           if (elem bufferId (systemOutputs initialContext))
             then
@@ -102,8 +119,8 @@ translateBuffer initialContext (bufferId, bufferSize) =
 
 -- | Translates an `IRConstructor` into a set of statements which are used to
 -- update the `TranslationContext`.
-translateIRConstructor :: TranslationContext -> IRConstructor -> TranslationContext
-translateIRConstructor initialContext constructor = case constructor of
+translateIRConstructor :: IOType -> TranslationContext -> IRConstructor -> TranslationContext
+translateIRConstructor io initialContext constructor = case constructor of
   IRDelay _ tokens (inputSignal, outputSignal) ->
     -- `IRDelay` results in a list of statements adding initial delay tokens
     -- into a signal buffer.
@@ -136,8 +153,8 @@ translateIRConstructor initialContext constructor = case constructor of
                     ++ [EVar $ show functionId]
                 )
             )
-        inputStmts = foldl' foldActorSignals [] inputSignals
-        outputStmts = foldl' foldActorSignals [] outputSignals
+        inputStmts = foldl' (foldActorSignals io) [] inputSignals
+        outputStmts = foldl' (foldActorSignals io) [] outputSignals
         stmts = reverse inputStmts ++ [actorCallStmt] ++ reverse outputStmts
         context1 = initialContext {actors = (actorId, stmts) : actors initialContext}
      in context1
@@ -150,28 +167,40 @@ translateIRConstructor initialContext constructor = case constructor of
       case lookup signalId (delayBuffers context) of
         Just bufferId -> bufferId
         Nothing -> signalId
-    foldActorSignals :: [Statement] -> IRId -> [Statement]
-    foldActorSignals acc signalId =
+    foldActorSignals :: IOType -> [Statement] -> IRId -> [Statement]
+    foldActorSignals io acc signalId =
       if (elem signalId (systemInputs initialContext))
-        then
-          let bufferSize = getTargetRate initialContext signalId
-              -- If actor has inputs which are system inputs the following
-              -- adds statements which relate to obtaining inputs from
-              -- standard in.
-              scanForStmt =
-                SFor
-                  (SVarDef TInt "i" (EInt 0))
-                  (EBinOp Less (EVar "i") (EInt (bufferSize)))
-                  (SExpr (EUnOp Increment (EVar "i")))
-                  (SScope [SVarAssign "status" (ECall "scanf" [EString "%d", EReference (EArrayAccess (EVar ("input_" ++ show signalId)) (EVar "i"))])])
-              breakIfStmt = SIf (EBinOp Less (EVar "status") (EInt 1)) (SBreak) Nothing
-              writeForStmt =
-                SFor
-                  (SVarDef TInt "i" (EInt 0))
-                  (EBinOp Less (EVar "i") (EInt (bufferSize)))
-                  (SExpr (EUnOp Increment (EVar "i")))
-                  (SScope [SExpr (ECall "write_token" [EVar $ show signalId, EArrayAccess (EVar ("input_" ++ show signalId)) (EVar "i")])])
-           in (writeForStmt : breakIfStmt : scanForStmt : acc)
+        then case io of
+          -- If IO-Type is scanf, then do scanf->break->write
+          Scanf ->
+            let bufferSize = getTargetRate initialContext signalId
+                -- If actor has inputs which are system inputs the following
+                -- adds statements which relate to obtaining inputs from
+                -- standard in.
+                scanForStmt =
+                  SFor
+                    (SVarDef TInt "i" (EInt 0))
+                    (EBinOp Less (EVar "i") (EInt (bufferSize)))
+                    (SExpr (EUnOp Increment (EVar "i")))
+                    (SScope [SVarAssign "status" (ECall "scanf" [EString "%d", EReference (EArrayAccess (EVar ("input_" ++ show signalId)) (EVar "i"))])])
+                breakIfStmt = SIf (EBinOp Less (EVar "status") (EInt 1)) (SBreak) Nothing
+                writeForStmt =
+                  SFor
+                    (SVarDef TInt "i" (EInt 0))
+                    (EBinOp Less (EVar "i") (EInt (bufferSize)))
+                    (SExpr (EUnOp Increment (EVar "i")))
+                    (SScope [SExpr (ECall "write_token" [EVar $ show signalId, EArrayAccess (EVar ("input_" ++ show signalId)) (EVar "i")])])
+             in (writeForStmt : breakIfStmt : scanForStmt : acc)
+          -- If IO-Type is predefined, then do write
+          Predefined ->
+            let bufferSize = getTargetRate initialContext signalId
+                writeForStmt =
+                  SFor
+                    (SVarDef TInt "i" (EInt 0))
+                    (EBinOp Less (EVar "i") (EInt (bufferSize)))
+                    (SExpr (EUnOp Increment (EVar "i")))
+                    (SScope [SExpr (ECall "write_token" [EVar $ show signalId, EArrayAccess (EVar ("input_" ++ show signalId)) (EBinOp Plus (EBinOp Multiply (EVar ("iter_current")) (EInt bufferSize)) (EVar "i"))])])
+             in (writeForStmt : acc)
         else
           if (elem signalId (systemOutputs initialContext))
             then
