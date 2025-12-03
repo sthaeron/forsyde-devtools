@@ -309,7 +309,7 @@ handlers =
         let s = map findSignalSpan (map IRString sel) <*> [sigs] & mconcat
         let a = map findProcessSpan (map IRString sel) <*> [procs] & mconcat
         let spans = s ++ a
-        _ <- if length spans > 0 then liftIO $ putStrLn $ show spans else pure ()
+        _ <- if length spans > 0 then liftIO $ hPutStrLn stderr $ show spans else pure ()
 
         -- Send the diagram if the client wants it
         if update then sendNotification diagramAcceptMethod (setSynthesis clientId) else pure ()
@@ -421,9 +421,9 @@ main = run =<< execParser opts
 
 -- | Start the LSP
 run :: Arguments -> IO ()
-run (Arguments (Host ip) (TCP p) i_f) =
-  case i_f of
-    FromClient ->
+run (Arguments comm (Host ip) (TCP p) i_f) =
+  case (i_f, comm) of
+    (FromClient, CommTcp) ->
       runTCPServer (Just ip) p lsp
       where
         lsp s = do
@@ -431,23 +431,29 @@ run (Arguments (Host ip) (TCP p) i_f) =
           -- server returns IO Int, wrapper with "pure ()" so that expression
           -- returns IO ()
           _ <-
-            runServerC handle handle $
-              ServerDefinition
-                { parseConfig = const $ const $ Right Nothing,
-                  onConfigChange = const $ pure (),
-                  defaultConfig = Nothing,
-                  configSection = "demo",
-                  doInitialize = \env _req -> pure $ Right env,
-                  staticHandlers = \_caps -> handlers,
-                  interpretHandler = \env -> Iso (runLspT env) liftIO,
-                  options = defaultOptions
-                }
+            runServerC handle handle serverDef
           pure ()
-    InputFile f -> do
+    (FromClient, CommStdio) -> do
+      _ <- runServerC stdin stdout serverDef
+      pure ()
+    (InputFile f, _) -> do
       (core, dflags) <- liftIO $ compileToCore f
       let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
       let graphMessage = requestBounds f "sprotty" forsydeIR
       BSL8.putStrLn $ AP.encodePretty graphMessage
+      pure ()
+  where
+    serverDef =
+      ServerDefinition
+        { parseConfig = const $ const $ Right Nothing,
+          onConfigChange = const $ pure (),
+          defaultConfig = Nothing,
+          configSection = "demo",
+          doInitialize = \env _req -> pure $ Right env,
+          staticHandlers = \_caps -> handlers,
+          interpretHandler = \env -> Iso (runLspT env) liftIO,
+          options = defaultOptions
+        }
 
 -- | Listen on host and port, as well as accept and fork off connections
 runTCPServer :: Maybe HostName -> ServiceName -> (Socket -> IO a1) -> IO a2
