@@ -28,10 +28,10 @@ import Data.Proxy
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import ForSyDeIR
-import Language.LSP.Logging
-import Language.LSP.Protocol.Message
-import Language.LSP.Protocol.Types
-import Language.LSP.Server
+import qualified Language.LSP.Logging as LSP
+import qualified Language.LSP.Protocol.Message as LSP
+import qualified Language.LSP.Protocol.Types as LSP
+import qualified Language.LSP.Server as LSP
 import Network.Socket
 import Options.Applicative
 import Prettyprinter
@@ -39,14 +39,14 @@ import SKGraphSchema
 import System.IO
 import Utilities
 
-diagramAcceptMethod :: SMethod (Method_CustomMethod "diagram/accept")
-diagramAcceptMethod = (SMethod_CustomMethod (Proxy @"diagram/accept"))
+diagramAcceptMethod :: LSP.SMethod (LSP.Method_CustomMethod "diagram/accept")
+diagramAcceptMethod = (LSP.SMethod_CustomMethod (Proxy @"diagram/accept"))
 
-diagramOpenInTextEditor :: SMethod (Method_CustomMethod "diagram/openInTextEditor")
-diagramOpenInTextEditor = (SMethod_CustomMethod (Proxy @"diagram/openInTextEditor"))
+diagramOpenInTextEditor :: LSP.SMethod (LSP.Method_CustomMethod "diagram/openInTextEditor")
+diagramOpenInTextEditor = (LSP.SMethod_CustomMethod (Proxy @"diagram/openInTextEditor"))
 
-setPreferencesMethod :: SMethod (Method_CustomMethod "keith/preferences/setPreferences")
-setPreferencesMethod = (SMethod_CustomMethod (Proxy @"keith/preferences/setPreferences"))
+setPreferencesMethod :: LSP.SMethod (LSP.Method_CustomMethod "keith/preferences/setPreferences")
+setPreferencesMethod = (LSP.SMethod_CustomMethod (Proxy @"keith/preferences/setPreferences"))
 
 -- | Convert ForSyDe IR into the graph representation understood by KLighD
 forSyDeIRToGraph :: FilePath -> IRSystem -> GraphElement
@@ -233,21 +233,21 @@ diagramOpenInTextEditorMessage uri sline scol eline ecol =
 type Config = Maybe FilePath
 
 -- | The static notification and request handlers we support
-handlers :: Handlers (LspM Config)
+handlers :: LSP.Handlers (LSP.LspM Config)
 handlers =
   mconcat
-    [ notificationHandler SMethod_Initialized $ \_not -> do
+    [ LSP.notificationHandler LSP.SMethod_Initialized $ \_not -> do
         pure (),
-      notificationHandler setPreferencesMethod $ \_not -> do
+      LSP.notificationHandler setPreferencesMethod $ \_not -> do
         pure (),
-      notificationHandler SMethod_WorkspaceDidChangeConfiguration $ \_not -> do
+      LSP.notificationHandler LSP.SMethod_WorkspaceDidChangeConfiguration $ \_not -> do
         pure (),
-      requestHandler SMethod_Initialize $ \_req _resp -> do
+      LSP.requestHandler LSP.SMethod_Initialize $ \_req _resp -> do
         _resp
           ( Right $
-              InitializeResult
+              LSP.InitializeResult
                 { _capabilities =
-                    ServerCapabilities
+                    LSP.ServerCapabilities
                       { _positionEncoding = Nothing,
                         _textDocumentSync = Nothing,
                         _notebookDocumentSync = Nothing,
@@ -288,12 +288,12 @@ handlers =
                 }
           )
         pure (),
-      notificationHandler diagramAcceptMethod $ \TNotificationMessage {_params = p} -> do
+      LSP.notificationHandler diagramAcceptMethod $ \LSP.TNotificationMessage {_params = p} -> do
         -- In the case where the client does not provide a sourceUri, use the
         -- old one. This is the case for e.g. the refreshDiagram action
-        oldFile <- getConfig
+        oldFile <- LSP.getConfig
         let file = maybe (maybe "" id oldFile) id (getFilePathFromClient p)
-        _ <- setConfig (Just file)
+        _ <- LSP.setConfig (Just file)
 
         -- What clientId should we use?
         let clientId = maybe ("sprotty" :: T.Text) id (getClientId p)
@@ -319,17 +319,17 @@ handlers =
             else pure ()
 
         -- Send the diagram if the client wants it
-        if update then sendNotification diagramAcceptMethod (setSynthesis clientId) else pure ()
-        if update then sendNotification diagramAcceptMethod (updateOptions file clientId) else pure ()
+        if update then LSP.sendNotification diagramAcceptMethod (setSynthesis clientId) else pure ()
+        if update then LSP.sendNotification diagramAcceptMethod (updateOptions file clientId) else pure ()
         let graphMessage = requestBounds file clientId forsydeIR
-        if update then sendNotification diagramAcceptMethod graphMessage else pure ()
+        if update then LSP.sendNotification diagramAcceptMethod graphMessage else pure ()
 
         -- When an element is selcted, only that one seems to be sent.
         -- Therefore, just use the first one
         _ <- case spans of
           sspan : _ ->
             let (fname, sl, sc, el, ec) = sspan
-             in sendNotification diagramOpenInTextEditor $
+             in LSP.sendNotification diagramOpenInTextEditor $
                   diagramOpenInTextEditorMessage fname sl sc el ec
           _ -> pure ()
 
@@ -408,7 +408,7 @@ handlers =
           A.String _a -> Just _a
           _ -> Nothing
 
-logToText :: LspServerLog -> T.Text
+logToText :: LSP.LspServerLog -> T.Text
 logToText = T.show . pretty
 
 formatOut :: L.WithSeverity T.Text -> String
@@ -418,15 +418,15 @@ formatOut (L.WithSeverity m s) =
 stderrLogger :: L.LogAction IO (L.WithSeverity T.Text)
 stderrLogger = L.cmap formatOut L.logStringStderr
 
-clientLogger :: L.LogAction (LspM Config) (L.WithSeverity T.Text)
-clientLogger = defaultClientLogger
+clientLogger :: L.LogAction (LSP.LspM Config) (L.WithSeverity T.Text)
+clientLogger = LSP.defaultClientLogger
 
-dualLogger :: L.LogAction (LspM Config) (L.WithSeverity T.Text)
+dualLogger :: L.LogAction (LSP.LspM Config) (L.WithSeverity T.Text)
 dualLogger = clientLogger <> L.hoistLogAction liftIO stderrLogger
 
-runServerC :: Handle -> Handle -> ServerDefinition Config -> IO Int
+runServerC :: Handle -> Handle -> LSP.ServerDefinition Config -> IO Int
 runServerC =
-  runServerWithHandles
+  LSP.runServerWithHandles
     (L.cmap (fmap logToText) stderrLogger)
     (L.cmap (fmap logToText) dualLogger)
 
@@ -467,15 +467,15 @@ run (Arguments comm (Host ip) (TCP p) i_f) =
       pure ()
   where
     serverDef =
-      ServerDefinition
+      LSP.ServerDefinition
         { parseConfig = const $ const $ Right Nothing,
           onConfigChange = const $ pure (),
           defaultConfig = Nothing,
           configSection = "demo",
           doInitialize = \env _req -> pure $ Right env,
           staticHandlers = \_caps -> handlers,
-          interpretHandler = \env -> Iso (runLspT env) liftIO,
-          options = defaultOptions
+          interpretHandler = \env -> LSP.Iso (LSP.runLspT env) liftIO,
+          options = LSP.defaultOptions
         }
 
 -- | Listen on host and port, as well as accept and fork off connections
