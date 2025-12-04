@@ -8,6 +8,7 @@
 module Main (main) where
 
 import ArgumentsLSP
+import Colog.Core ((<&))
 import qualified Colog.Core as L
 import Control.Concurrent (forkFinally)
 import qualified Control.Exception as E
@@ -16,7 +17,7 @@ import Control.Monad.IO.Class
 import qualified CoreIRToForSyDeIR
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
-import Data.Aeson.Encode.Pretty as AP
+import qualified Data.Aeson.Encode.Pretty as AP
 import Data.Aeson.KeyMap ((!?))
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import qualified Data.Foldable as F
@@ -27,6 +28,7 @@ import Data.Proxy
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import ForSyDeIR
+import Language.LSP.Logging
 import Language.LSP.Protocol.Message
 import Language.LSP.Protocol.Types
 import Language.LSP.Server
@@ -311,7 +313,10 @@ handlers =
         let s = map findSignalSpan (map IRString sel) <*> [sigs] & mconcat
         let a = map findProcessSpan (map IRString sel) <*> [procs] & mconcat
         let spans = s ++ a
-        _ <- if length spans > 0 then liftIO $ hPutStrLn stderr $ show spans else pure ()
+        _ <-
+          if length spans > 0
+            then liftIO $ stderrLogger <& ("Selected: " <> T.show spans) `L.WithSeverity` L.Info
+            else pure ()
 
         -- Send the diagram if the client wants it
         if update then sendNotification diagramAcceptMethod (setSynthesis clientId) else pure ()
@@ -403,11 +408,27 @@ handlers =
           A.String _a -> Just _a
           _ -> Nothing
 
+logToText :: LspServerLog -> T.Text
+logToText = T.show . pretty
+
+formatOut :: L.WithSeverity T.Text -> String
+formatOut (L.WithSeverity m s) =
+  show s <> ": " <> T.unpack m
+
+stderrLogger :: L.LogAction IO (L.WithSeverity T.Text)
+stderrLogger = L.cmap formatOut L.logStringStderr
+
+clientLogger :: L.LogAction (LspM Config) (L.WithSeverity T.Text)
+clientLogger = defaultClientLogger
+
+dualLogger :: L.LogAction (LspM Config) (L.WithSeverity T.Text)
+dualLogger = clientLogger <> L.hoistLogAction liftIO stderrLogger
+
 runServerC :: Handle -> Handle -> ServerDefinition Config -> IO Int
 runServerC =
   runServerWithHandles
-    (L.cmap (fmap $ T.pack . show . pretty) (L.cmap show L.logStringStderr))
-    (L.cmap (fmap $ T.pack . show . pretty) (L.cmap show L.logStringStderr))
+    (L.cmap (fmap logToText) stderrLogger)
+    (L.cmap (fmap logToText) dualLogger)
 
 -- | Process arguments for the LSP and run it
 main :: IO ()
