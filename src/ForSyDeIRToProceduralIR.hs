@@ -12,6 +12,7 @@ import ProceduralIR
 -- ProceduralIR.
 data TranslationContext = TranslationContext
   { flags :: DynFlags, -- Stores `DynFlags` for safely obtaining strings
+    ioType :: IOType, -- Type of input handling for the program (scanf or predefined)
     lookupSignals :: [(IRId, IRSignal)],
     actors :: [(IRId, [Statement])], -- Associated list of actor ids and statements
     signals :: [(IRId, Statement)], -- Associated list of signal ids and statement
@@ -26,10 +27,11 @@ data TranslationContext = TranslationContext
     functions :: [Global]
   }
 
-initialTranslationContext :: DynFlags -> [(IRId, IRSignal)] -> [IRId] -> [IRId] -> [(IRId, IRId)] -> TranslationContext
-initialTranslationContext dflags lookupSignalList inputList outputList delayBufferList =
+initialTranslationContext :: DynFlags -> IOType -> [(IRId, IRSignal)] -> [IRId] -> [IRId] -> [(IRId, IRId)] -> TranslationContext
+initialTranslationContext dflags io lookupSignalList inputList outputList delayBufferList =
   TranslationContext
     { flags = dflags,
+      ioType = io,
       lookupSignals = lookupSignalList,
       actors = [],
       signals = [],
@@ -49,26 +51,25 @@ initialTranslationContext dflags lookupSignalList inputList outputList delayBuff
 -- input. Also requires an associated list of signals for lookups.
 translateIRSystemToProgram :: DynFlags -> [IRId] -> [(IRId, Int)] -> [(IRId, IRId)] -> [(IRId, IRSignal)] -> IOType -> IRSystem -> Program
 translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookupSignalList io (IRSystem (inputList, outputList) constructors _signalList functionList) =
-  let initialContext = initialTranslationContext dflags lookupSignalList inputList outputList delayBufferList
-      context1 = foldl' (translateIRConstructor io) initialContext constructors
-      context2 = foldl' (translateBuffer io) context1 bufferList
+  let initialContext = initialTranslationContext dflags io lookupSignalList inputList outputList delayBufferList
+      context1 = foldl' translateIRConstructor initialContext constructors
+      context2 = foldl' translateBuffer context1 bufferList
       context3 = foldl' translateIRFunctionToGlobals context2 functionList
-      main = translateContextToMain context3 scheduleList io
+      main = translateContextToMain context3 scheduleList
    in Prog (reverse (initFunctions context3) ++ [main] ++ reverse (functions context3))
 
 -- | Translates the `TranslationContext` and Schedule into a main function.
-translateContextToMain :: TranslationContext -> [IRId] -> IOType -> Global
-translateContextToMain context scheduleList io =
+translateContextToMain :: TranslationContext -> [IRId] -> Global
+translateContextToMain context scheduleList =
   let scheduledStmts = scheduleActors context scheduleList
-      scheduledStmtsSpecial = case io of
+      scheduledStmtsSpecial = case (ioType context) of
         Scanf -> []
         Predefined ->
           [ SVarAssign "iter_current" (EBinOp Plus (EVar "iter_current") (EInt 1)),
             SIf (EBinOp Equal (EVar "iter_current") (EVar "iter_max")) (SVarAssign "iter_current" (EInt 0)) Nothing
           ]
-
       whileStmt = SWhile (EInt 1) (SScope (scheduledStmts ++ scheduledStmtsSpecial))
-      mainInitStmtsSpecial = case io of
+      mainInitStmtsSpecial = case (ioType context) of
         Scanf -> [SExpr (ECall "init" []), SVarDecl TInt "status"]
         Predefined -> [SExpr (ECall "init" []), SVarDef TInt "iter_current" (EInt (0))]
       mainInitStmts = mainInitStmtsSpecial ++ reverse (initBuffers context) ++ reverse (ioTokens context) ++ reverse (initDelay context)
@@ -95,12 +96,12 @@ scheduleActors context scheduleList = foldl' foldSchedule [] scheduleList
 -- statement which are used to update the `TranslationContext`. Note that io
 -- token statements are only created for buffers which relate to with system
 -- inputs and outputs.
-translateBuffer :: IOType -> TranslationContext -> (IRId, Int) -> TranslationContext
-translateBuffer io initialContext (bufferId, bufferSize) =
+translateBuffer :: TranslationContext -> (IRId, Int) -> TranslationContext
+translateBuffer initialContext (bufferId, bufferSize) =
   let initStmt = SVarDef (TPointer (TIdent "buffer_nonblocking")) (show bufferId) (ECall "buffer_nonblocking_new" [EInt bufferSize])
       freeStmt = SExpr (ECall "buffer_nonblocking_free" [EVar $ show bufferId])
    in if (elem bufferId (systemInputs initialContext))
-        then case io of
+        then case (ioType initialContext) of
           -- If scanf is used, then need to define input handling arrays
           Scanf ->
             let ioTokenStmt = SArrayDecl TInt ("input_" ++ show bufferId) [EInt bufferSize]
@@ -119,8 +120,8 @@ translateBuffer io initialContext (bufferId, bufferSize) =
 
 -- | Translates an `IRConstructor` into a set of statements which are used to
 -- update the `TranslationContext`.
-translateIRConstructor :: IOType -> TranslationContext -> IRConstructor -> TranslationContext
-translateIRConstructor io initialContext constructor = case constructor of
+translateIRConstructor :: TranslationContext -> IRConstructor -> TranslationContext
+translateIRConstructor initialContext constructor = case constructor of
   IRDelay _ tokens (inputSignal, outputSignal) ->
     -- `IRDelay` results in a list of statements adding initial delay tokens
     -- into a signal buffer.
@@ -153,8 +154,8 @@ translateIRConstructor io initialContext constructor = case constructor of
                     ++ [EVar $ show functionId]
                 )
             )
-        inputStmts = foldl' (foldActorSignals io) [] inputSignals
-        outputStmts = foldl' (foldActorSignals io) [] outputSignals
+        inputStmts = foldl' foldActorSignals [] inputSignals
+        outputStmts = foldl' foldActorSignals [] outputSignals
         stmts = reverse inputStmts ++ [actorCallStmt] ++ reverse outputStmts
         context1 = initialContext {actors = (actorId, stmts) : actors initialContext}
      in context1
@@ -167,10 +168,10 @@ translateIRConstructor io initialContext constructor = case constructor of
       case lookup signalId (delayBuffers context) of
         Just bufferId -> bufferId
         Nothing -> signalId
-    foldActorSignals :: IOType -> [Statement] -> IRId -> [Statement]
-    foldActorSignals io acc signalId =
+    foldActorSignals :: [Statement] -> IRId -> [Statement]
+    foldActorSignals acc signalId =
       if (elem signalId (systemInputs initialContext))
-        then case io of
+        then case (ioType initialContext) of
           -- If IO-Type is scanf, then do scanf->break->write
           Scanf ->
             let bufferSize = getTargetRate initialContext signalId
