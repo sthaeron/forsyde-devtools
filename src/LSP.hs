@@ -228,8 +228,10 @@ diagramOpenInTextEditorMessage uri sline scol eline ecol =
       "forceOpen" .= False
     ]
 
+type Config = Maybe FilePath
+
 -- | The static notification and request handlers we support
-handlers :: Handlers (LspM (Maybe FilePath))
+handlers :: Handlers (LspM Config)
 handlers =
   mconcat
     [ notificationHandler SMethod_Initialized $ \_not -> do
@@ -401,7 +403,7 @@ handlers =
           A.String _a -> Just _a
           _ -> Nothing
 
-runServerC :: Handle -> Handle -> ServerDefinition config -> IO Int
+runServerC :: Handle -> Handle -> ServerDefinition Config -> IO Int
 runServerC =
   runServerWithHandles
     (L.cmap (fmap $ T.pack . show . pretty) (L.cmap show L.logStringStderr))
