@@ -39,6 +39,7 @@ data UnaryOperator
   | LogicalNot -- !rhs
   | Increment -- ++rhs
   | Decrement -- --rhs
+  deriving (Show)
 
 data BinaryOperator
   = Plus -- lhs + rhs
@@ -89,6 +90,7 @@ data Expression
   | EMemberAccess Expression String -- expr.string
   | EPointerAccess Expression String -- expr->string
   | EParen Expression -- (expr)
+  deriving (Show)
 
 -- Statements
 data Statement

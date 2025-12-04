@@ -280,10 +280,8 @@ getTargetRate context signalId =
 translateIRFunctionToGlobals :: [IRConstructor] -> TranslationContext -> IRFunction -> TranslationContext
 translateIRFunctionToGlobals constructors currentContext function =
   let context1 = case (translateIRFunction function (flags currentContext) constructors) of
-        (Just functionDeclaration, Just functionDefinition) -> currentContext {initFunctions = functionDeclaration : (initFunctions currentContext), functions = functionDefinition : (functions currentContext)}
-        (Just functionDeclaration, Nothing) -> currentContext {initFunctions = functionDeclaration : (initFunctions currentContext)}
-        (Nothing, Nothing) -> currentContext
-        _ -> error ("translateIRFunctionToGlobals - unsupported function:\n" ++ prettyIRFunction (flags currentContext) function)
+        (functionDeclaration, Just functionDefinition) -> currentContext {initFunctions = functionDeclaration : (initFunctions currentContext), functions = functionDefinition : (functions currentContext)}
+        (functionDeclaration, Nothing) -> currentContext {initFunctions = functionDeclaration : (initFunctions currentContext)}
    in context1
 
 -- The following is a temporary hard coded solution that translates the inputs
