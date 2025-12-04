@@ -235,6 +235,7 @@ data Config = Config
     clientId :: Maybe T.Text,
     system :: Maybe IRSystem
   }
+  deriving (Show)
 
 defaultConfig :: Config
 defaultConfig =
