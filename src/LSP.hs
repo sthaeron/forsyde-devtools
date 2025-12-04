@@ -301,6 +301,12 @@ handlers =
                 }
           )
         pure (),
+      LSP.notificationHandler LSP.SMethod_WorkspaceDidChangeWatchedFiles $ \_not -> do
+        _ <- recomputeModel
+        sendModel,
+      LSP.notificationHandler LSP.SMethod_TextDocumentDidSave $ \_not -> do
+        _ <- recomputeModel
+        sendModel,
       LSP.notificationHandler diagramAcceptMethod $ \LSP.TNotificationMessage {_params = p} -> do
         config <- LSP.getConfig
         -- What file should we use?
@@ -359,6 +365,21 @@ handlers =
             >> LSP.sendNotification diagramAcceptMethod (updateOptions curFile curId)
             >> LSP.sendNotification diagramAcceptMethod (requestBounds curFile curId curSystem)
         _ -> liftIO $ stderrLogger <& ("does not have enough information to send diagram: " <> T.show config) `L.WithSeverity` L.Error
+    recomputeModel :: LSP.LspT Config IO ()
+    recomputeModel = do
+      config <- LSP.getConfig
+      out <- case config of
+        Config {file = Just newfile} ->
+          liftIO $ compileToModelMaybe newfile
+        _ -> pure Nothing
+      case out of
+        Nothing -> pure ()
+        Just _ ->
+          LSP.setConfig config {system = out}
+    compileToModelMaybe f = do
+      (core, dflags) <- compileToCore f
+      let (irsystem, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
+      pure $ Just irsystem
     findIR :: (a -> Maybe b) -> (a -> Bool) -> [a] -> [b]
     findIR transform match l =
       foldr
