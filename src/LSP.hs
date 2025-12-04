@@ -50,7 +50,7 @@ setPreferencesMethod = (LSP.SMethod_CustomMethod (Proxy @"keith/preferences/setP
 
 -- | Convert ForSyDe IR into the graph representation understood by KLighD
 forSyDeIRToGraph :: FilePath -> IRSystem -> GraphElement
-forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
+forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
   where
     -- \| Create a port with a label for signal rate
     createPortWithRate parent rends props (n, r) =
@@ -150,7 +150,7 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
     edges = map createEdge signals
     graph =
       KGraph
-        { gid = T.pack ("file://" ++ file),
+        { gid = T.pack ("file://" ++ filename),
           child =
             KNode
               { gid = "$root",
@@ -163,9 +163,9 @@ forSyDeIRToGraph file (IRSystem (inputs, outputs) actors signals _) = graph
 
 -- | Send our supported syntheses to the LSP client (KLighD-VSCode)
 setSynthesis :: T.Text -> A.Value
-setSynthesis clientId =
+setSynthesis _clientId =
   A.object
-    [ "clientId" .= clientId,
+    [ "clientId" .= _clientId,
       "action"
         .= A.object
           [ "kind" .= ("setSyntheses" :: T.Text),
@@ -181,9 +181,9 @@ setSynthesis clientId =
 
 -- | Send the supported options for the file
 updateOptions :: FilePath -> T.Text -> A.Value
-updateOptions f clientId =
+updateOptions f _clientId =
   A.object
-    [ "clientId" .= clientId,
+    [ "clientId" .= _clientId,
       "action"
         .= A.object
           [ "kind" .= ("updateOptions" :: T.Text),
@@ -196,9 +196,9 @@ updateOptions f clientId =
 
 -- | Send the graph for layout and display to the LSP client (KLighD-VSCode)
 requestBounds :: FilePath -> T.Text -> IRSystem -> A.Value
-requestBounds f clientId ir =
+requestBounds f _clientId ir =
   A.object
-    [ "clientId" .= clientId,
+    [ "clientId" .= _clientId,
       "action"
         .= A.object
           [ "kind" .= ("requestBounds" :: T.Text),
@@ -230,7 +230,19 @@ diagramOpenInTextEditorMessage uri sline scol eline ecol =
       "forceOpen" .= False
     ]
 
-type Config = Maybe FilePath
+data Config = Config
+  { file :: Maybe FilePath,
+    clientId :: Maybe T.Text,
+    system :: Maybe IRSystem
+  }
+
+defaultConfig :: Config
+defaultConfig =
+  Config
+    { file = Nothing,
+      clientId = Nothing,
+      system = Nothing
+    }
 
 -- | The static notification and request handlers we support
 handlers :: LSP.Handlers (LSP.LspM Config)
@@ -289,24 +301,28 @@ handlers =
           )
         pure (),
       LSP.notificationHandler diagramAcceptMethod $ \LSP.TNotificationMessage {_params = p} -> do
-        -- In the case where the client does not provide a sourceUri, use the
-        -- old one. This is the case for e.g. the refreshDiagram action
-        oldFile <- LSP.getConfig
-        let file = maybe (maybe "" id oldFile) id (getFilePathFromClient p)
-        _ <- LSP.setConfig (Just file)
-
+        config <- LSP.getConfig
+        -- What file should we use?
+        let newfile = maybe (maybe "" id $ file config) id (getFilePathFromClient p)
         -- What clientId should we use?
-        let clientId = maybe ("sprotty" :: T.Text) id (getClientId p)
+        let newId = maybe (maybe ("sprotty" :: T.Text) id $ clientId config) id (getClientId p)
+        -- TODO: maybe only recompute on TextDocumentDidSave
+        (core, dflags) <- liftIO $ compileToCore newfile
+        let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
+        -- Update config with new data
+        _ <-
+          LSP.setConfig
+            config
+              { file = Just newfile,
+                clientId = Just newId,
+                system = Just forsydeIR
+              }
 
         -- Decode elementSelected
         let sel = getSelected p & map (T.split (\_c -> _c == '$')) & map last & map T.unpack
 
         -- Does the client want a diagram?
         let update = shouldUpdate p
-
-        -- TODO: maybe only recompute on TextDocumentDidSave
-        (core, dflags) <- liftIO $ compileToCore file
-        let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
 
         -- Get location information on selected object
         let IRSystem _ procs sigs _ = forsydeIR
@@ -319,9 +335,9 @@ handlers =
             else pure ()
 
         -- Send the diagram if the client wants it
-        if update then LSP.sendNotification diagramAcceptMethod (setSynthesis clientId) else pure ()
-        if update then LSP.sendNotification diagramAcceptMethod (updateOptions file clientId) else pure ()
-        let graphMessage = requestBounds file clientId forsydeIR
+        if update then LSP.sendNotification diagramAcceptMethod (setSynthesis newId) else pure ()
+        if update then LSP.sendNotification diagramAcceptMethod (updateOptions newfile newId) else pure ()
+        let graphMessage = requestBounds newfile newId forsydeIR
         if update then LSP.sendNotification diagramAcceptMethod graphMessage else pure ()
 
         -- When an element is selcted, only that one seems to be sent.
@@ -468,9 +484,9 @@ run (Arguments comm (Host ip) (TCP p) i_f) =
   where
     serverDef =
       LSP.ServerDefinition
-        { parseConfig = const $ const $ Right Nothing,
+        { parseConfig = const $ const $ Right defaultConfig,
           onConfigChange = const $ pure (),
-          defaultConfig = Nothing,
+          defaultConfig = defaultConfig,
           configSection = "demo",
           doInitialize = \env _req -> pure $ Right env,
           staticHandlers = \_caps -> handlers,
