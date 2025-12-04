@@ -336,10 +336,7 @@ handlers =
             else pure ()
 
         -- Send the diagram if the client wants it
-        if update then LSP.sendNotification diagramAcceptMethod (setSynthesis newId) else pure ()
-        if update then LSP.sendNotification diagramAcceptMethod (updateOptions newfile newId) else pure ()
-        let graphMessage = requestBounds newfile newId forsydeIR
-        if update then LSP.sendNotification diagramAcceptMethod graphMessage else pure ()
+        _ <- if update then sendModel else pure ()
 
         -- When an element is selcted, only that one seems to be sent.
         -- Therefore, just use the first one
@@ -353,6 +350,15 @@ handlers =
         pure ()
     ]
   where
+    sendModel :: LSP.LspT Config IO ()
+    sendModel = do
+      config@Config {file = f, clientId = c, system = s} <- LSP.getConfig
+      case (f, c, s) of
+        (Just curFile, Just curId, Just curSystem) ->
+          LSP.sendNotification diagramAcceptMethod (setSynthesis curId)
+            >> LSP.sendNotification diagramAcceptMethod (updateOptions curFile curId)
+            >> LSP.sendNotification diagramAcceptMethod (requestBounds curFile curId curSystem)
+        _ -> liftIO $ stderrLogger <& ("does not have enough information to send diagram: " <> T.show config) `L.WithSeverity` L.Error
     findIR :: (a -> Maybe b) -> (a -> Bool) -> [a] -> [b]
     findIR transform match l =
       foldr
