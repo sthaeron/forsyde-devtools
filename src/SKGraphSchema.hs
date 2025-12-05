@@ -52,6 +52,8 @@ data KProperty
   | JunctionPoints [Int]
   | LayerConstraint Int
   | PortBorderOffset Float
+  | PortSide Int
+  | PortConstraints Int
 
 data KPlacementData
   = KTopPosition Float Float -- absolute (Float), relative (Float)
@@ -321,3 +323,5 @@ instance A.ToJSON GraphElement where
         JunctionPoints l -> ("org.eclipse.elk.junctionPoints", A.toJSON $ Seq.fromList l)
         LayerConstraint v -> ("org.eclipse.elk.layered.layering.layerConstraint", A.toJSON v)
         PortBorderOffset v -> ("org.eclipse.elk.port.borderOffset", A.toJSON v)
+        PortSide v -> ("org.eclipse.elk.port.side", A.toJSON v)
+        PortConstraints v -> ("org.eclipse.elk.portConstraints", A.toJSON v)

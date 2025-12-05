@@ -80,7 +80,8 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
           [KRoundedRectangle [KBackgroundColor 160 160 240] 4 4]
           [ (NodeLabelsPlacement [1, 4, 6]),
             (NodeSizeConstraints [0, 1, 2, 3]),
-            (NodeSizeMinimum [64, 64])
+            (NodeSizeMinimum [64, 64]),
+            (PortConstraints 2)
           ]
       (IRDelay name _ _) ->
         createNode'
@@ -112,8 +113,8 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
         nid = "$root$N$" <> T.show name
         insignals = findInputSignals signals name
         outsignals = findOutputSignals signals name
-        inports = map (createPort nid (maybe [] (\_l -> [KText "◆" []]) l) []) insignals
-        outports = map (createPort nid [] []) outsignals
+        inports = map (createPort nid (maybe [] (\_l -> [KText "◆" []]) l) [PortSide 4]) insignals
+        outports = map (createPort nid [] [PortSide 2]) outsignals
         nl = maybe [] (\lc -> [KLabel {gid = nid <> "$L$" <> T.show name, label = T.show lc}]) l
         c = inports ++ outports ++ nl
         node =
