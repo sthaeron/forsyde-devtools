@@ -211,7 +211,7 @@ translateProgram (Prog globals) target io includes =
   let targetText = case target of
         PC -> "#define PLATFORM PC\n"
         PICO2 -> "#define PLATFORM PICO2\n"
-      includeSpecial = case io of
+      includeInput = case io of
         StdIn -> ""
         Predefined -> "#include \"input.h\"\n"
    in let outputProgram =
@@ -219,7 +219,7 @@ translateProgram (Prog globals) target io includes =
               then
                 targetText
                   ++ "typedef int token;\n#include \"include/common.h\"\n#include <stdio.h>\n"
-                  ++ includeSpecial
+                  ++ includeInput
                   ++ "\n"
                   ++ intercalate "\n\n" (map translateGlobal globals)
               else
