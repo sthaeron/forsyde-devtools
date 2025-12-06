@@ -1,6 +1,6 @@
 module ProceduralIRToC where
 
-import ArgumentsMain (IOType (Predefined, Scanf), Target (PC, PICO2))
+import ArgumentsMain (InputType (Predefined, StdIn), Target (PC, PICO2))
 import Data.List (intercalate)
 import ProceduralIR
 import Text.Printf (printf)
@@ -206,13 +206,13 @@ translateGlobal global = case global of
       (structId)
       (intercalate ",\n" (map translateParam fields))
 
-translateProgram :: Program -> Target -> IOType -> Bool -> String
+translateProgram :: Program -> Target -> InputType -> Bool -> String
 translateProgram (Prog globals) target io includes =
   let targetText = case target of
         PC -> "#define PLATFORM PC\n"
         PICO2 -> "#define PLATFORM PICO2\n"
       includeSpecial = case io of
-        Scanf -> ""
+        StdIn -> ""
         Predefined -> "#include \"input.h\"\n"
    in let outputProgram =
             if includes

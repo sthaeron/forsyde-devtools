@@ -69,12 +69,12 @@ generateDefaultFileName f OutputSchedule = f ++ ".sched"
 
 run :: Arguments -> IO ()
 -- "Normal run"
-run (Arguments (InputFile input_file) output_file OutputC t io) = do
+run (Arguments (InputFile input_file) output_file OutputC t inputType) = do
   (core, dflags) <- compileToCore input_file
   let (forsydeIR, lookupSignals) = translateCoreProgram dflags core
   let (schedule, buffers, delayBuffers) = computeScheduleAndBuffers forsydeIR
-  let proceduralIR = translateIRSystemToProgram dflags schedule buffers delayBuffers lookupSignals io forsydeIR
-  let c = translateProgram proceduralIR t io True
+  let proceduralIR = translateIRSystemToProgram dflags schedule buffers delayBuffers lookupSignals inputType forsydeIR
+  let c = translateProgram proceduralIR t inputType True
   write_output output_file OutputC c
 run (Arguments (InputFile input_file) output_file OutputForSyDeIR _ _) = do
   (core, dflags) <- compileToCore input_file
@@ -85,11 +85,11 @@ run (Arguments (InputFile input_file) output_file OutputForSyDeIRJSON _ _) = do
   let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
   let ir_json = prettyIRJSON forsydeIR
   write_output output_file OutputForSyDeIRJSON ir_json
-run (Arguments (InputFile input_file) output_file OutputProceduralIR _ io) = do
+run (Arguments (InputFile input_file) output_file OutputProceduralIR _ inputType) = do
   (core, dflags) <- compileToCore input_file
   let (forsydeIR, lookupSignals) = translateCoreProgram dflags core
   let (schedule, buffers, delayBuffers) = computeScheduleAndBuffers forsydeIR
-  let proceduralIR = translateIRSystemToProgram dflags schedule buffers delayBuffers lookupSignals io forsydeIR
+  let proceduralIR = translateIRSystemToProgram dflags schedule buffers delayBuffers lookupSignals inputType forsydeIR
   write_output output_file OutputProceduralIR (prettyProgram proceduralIR)
 run (Arguments (InputFile input_file) output_file OutputCore _ _) = do
   (core, dflags) <- compileToCore input_file

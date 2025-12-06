@@ -1,6 +1,6 @@
 module ForSyDeIRToProceduralIR where
 
-import ArgumentsMain (IOType (Predefined, Scanf))
+import ArgumentsMain (InputType (Predefined, StdIn))
 import CoreIR (literalToInt, prettyCoreExpr, varToString)
 import ForSyDeIR
 import GHC hiding (targetId)
@@ -12,7 +12,7 @@ import ProceduralIR
 -- ProceduralIR.
 data TranslationContext = TranslationContext
   { flags :: DynFlags, -- Stores `DynFlags` for safely obtaining strings
-    ioType :: IOType, -- Type of input handling for the program (scanf or predefined)
+    inputType :: InputType, -- Type of input handling for the program (stin or predefined)
     lookupSignals :: [(IRId, IRSignal)],
     actors :: [(IRId, [Statement])], -- Associated list of actor ids and statements
     signals :: [(IRId, Statement)], -- Associated list of signal ids and statement
@@ -27,11 +27,11 @@ data TranslationContext = TranslationContext
     functions :: [Global]
   }
 
-initialTranslationContext :: DynFlags -> IOType -> [(IRId, IRSignal)] -> [IRId] -> [IRId] -> [(IRId, IRId)] -> TranslationContext
+initialTranslationContext :: DynFlags -> InputType -> [(IRId, IRSignal)] -> [IRId] -> [IRId] -> [(IRId, IRId)] -> TranslationContext
 initialTranslationContext dflags io lookupSignalList inputList outputList delayBufferList =
   TranslationContext
     { flags = dflags,
-      ioType = io,
+      inputType = io,
       lookupSignals = lookupSignalList,
       actors = [],
       signals = [],
@@ -49,7 +49,7 @@ initialTranslationContext dflags io lookupSignalList inputList outputList delayB
 -- | Translates a ForSyDe IR `IRSystem` into a Procedural IR `Program`. Requires
 -- the schedule, buffer, and delay buffer lists from the SDF scheduler as an
 -- input. Also requires an associated list of signals for lookups.
-translateIRSystemToProgram :: DynFlags -> [IRId] -> [(IRId, Int)] -> [(IRId, IRId)] -> [(IRId, IRSignal)] -> IOType -> IRSystem -> Program
+translateIRSystemToProgram :: DynFlags -> [IRId] -> [(IRId, Int)] -> [(IRId, IRId)] -> [(IRId, IRSignal)] -> InputType -> IRSystem -> Program
 translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookupSignalList io (IRSystem (inputList, outputList) constructors _signalList functionList) =
   let initialContext = initialTranslationContext dflags io lookupSignalList inputList outputList delayBufferList
       context1 = foldl' translateIRConstructor initialContext constructors
@@ -62,15 +62,15 @@ translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookup
 translateContextToMain :: TranslationContext -> [IRId] -> Global
 translateContextToMain context scheduleList =
   let scheduledStmts = scheduleActors context scheduleList
-      scheduledStmtsSpecial = case (ioType context) of
-        Scanf -> []
+      scheduledStmtsSpecial = case (inputType context) of
+        StdIn -> []
         Predefined ->
           [ SVarAssign "iter_current" (EBinOp Plus (EVar "iter_current") (EInt 1)),
             SIf (EBinOp Equal (EVar "iter_current") (EVar "iter_max")) (SVarAssign "iter_current" (EInt 0)) Nothing
           ]
       whileStmt = SWhile (EInt 1) (SScope (scheduledStmts ++ scheduledStmtsSpecial))
-      mainInitStmtsSpecial = case (ioType context) of
-        Scanf -> [SExpr (ECall "init" []), SVarDecl TInt "status"]
+      mainInitStmtsSpecial = case (inputType context) of
+        StdIn -> [SExpr (ECall "init" []), SVarDecl TInt "status"]
         Predefined -> [SExpr (ECall "init" []), SVarDef TInt "iter_current" (EInt (0))]
       mainInitStmts = mainInitStmtsSpecial ++ reverse (initBuffers context) ++ reverse (ioTokens context) ++ reverse (initDelay context)
       mainFreeStmts = reverse (freeBuffers context) ++ [SReturn (Just (EInt 0))]
@@ -101,9 +101,9 @@ translateBuffer initialContext (bufferId, bufferSize) =
   let initStmt = SVarDef (TPointer (TIdent "buffer_nonblocking")) (show bufferId) (ECall "buffer_nonblocking_new" [EInt bufferSize])
       freeStmt = SExpr (ECall "buffer_nonblocking_free" [EVar $ show bufferId])
    in if (elem bufferId (systemInputs initialContext))
-        then case (ioType initialContext) of
+        then case (inputType initialContext) of
           -- If scanf is used, then need to define input handling arrays
-          Scanf ->
+          StdIn ->
             let ioTokenStmt = SArrayDecl TInt ("input_" ++ show bufferId) [EInt bufferSize]
              in initialContext {ioTokens = ioTokenStmt : ioTokens initialContext, initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
           -- If input is predefined, then do not create "input_" arrays.
@@ -171,9 +171,9 @@ translateIRConstructor initialContext constructor = case constructor of
     foldActorSignals :: [Statement] -> IRId -> [Statement]
     foldActorSignals acc signalId =
       if (elem signalId (systemInputs initialContext))
-        then case (ioType initialContext) of
+        then case (inputType initialContext) of
           -- If IO-Type is scanf, then do scanf->break->write
-          Scanf ->
+          StdIn ->
             let bufferSize = getTargetRate initialContext signalId
                 -- If actor has inputs which are system inputs the following
                 -- adds statements which relate to obtaining inputs from
