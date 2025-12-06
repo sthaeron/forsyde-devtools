@@ -48,8 +48,8 @@ data Arguments = Arguments
     output_format :: OutputFormat,
     -- Target
     target :: Target,
-    -- IO Format (whether to get SDF Input from scanf or predetermined file)
-    io :: InputType
+    -- Input Format (whether to get SDF Input from scanf or predetermined file)
+    iType :: InputType
   }
 
 -- Handle file input, always need to define a file

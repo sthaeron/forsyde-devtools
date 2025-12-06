@@ -65,13 +65,13 @@ translateContextToMain context scheduleList =
       scheduledInputStmts = case (inputType context) of
         StdIn -> []
         Predefined ->
-          [ SVarAssign "iter_current" (EBinOp Plus (EVar "iter_current") (EInt 1)),
-            SIf (EBinOp Equal (EVar "iter_current") (EVar "iter_max")) (SVarAssign "iter_current" (EInt 0)) Nothing
+          [ SVarAssign "iteration_current" (EBinOp Plus (EVar "iteration_current") (EInt 1)),
+            SIf (EBinOp Equal (EVar "iteration_current") (EVar "iteration_max")) (SVarAssign "iteration_current" (EInt 0)) Nothing
           ]
       whileStmt = SWhile (EInt 1) (SScope (scheduledStmts ++ scheduledInputStmts))
       mainInitInputStmts = case (inputType context) of
         StdIn -> [SExpr (ECall "init" []), SVarDecl TInt "status"]
-        Predefined -> [SExpr (ECall "init" []), SVarDef TInt "iter_current" (EInt (0))]
+        Predefined -> [SExpr (ECall "init" []), SVarDef TInt "iteration_current" (EInt (0))]
       mainInitStmts = mainInitInputStmts ++ reverse (initBuffers context) ++ reverse (ioTokens context) ++ reverse (initDelay context)
       mainFreeStmts = reverse (freeBuffers context) ++ [SReturn (Just (EInt 0))]
       mainBody = SScope (mainInitStmts ++ [whileStmt] ++ mainFreeStmts)
@@ -200,7 +200,7 @@ translateIRConstructor initialContext constructor = case constructor of
                     (SVarDef TInt "i" (EInt 0))
                     (EBinOp Less (EVar "i") (EInt (bufferSize)))
                     (SExpr (EUnOp Increment (EVar "i")))
-                    (SScope [SExpr (ECall "write_token" [EVar $ show signalId, EArrayAccess (EVar ("input_" ++ show signalId)) (EBinOp Plus (EBinOp Multiply (EVar ("iter_current")) (EInt bufferSize)) (EVar "i"))])])
+                    (SScope [SExpr (ECall "write_token" [EVar $ show signalId, EArrayAccess (EVar ("input_" ++ show signalId)) (EBinOp Plus (EBinOp Multiply (EVar ("iteration_current")) (EInt bufferSize)) (EVar "i"))])])
              in (writeForStmt : acc)
         else
           if (elem signalId (systemOutputs initialContext))
