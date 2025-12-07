@@ -19,14 +19,21 @@ data IP
 data Port
   = TCP String
 
+-- LSP communication method
+data ProtocolCommunication
+  = CommTcp
+  | CommStdio
+
 -- Arguments, kind of horrible names but used to not shadow usage of ip/port
 -- in main. Contains an ip address, port and file name for synthesis in the
 -- server
 data Arguments = Arguments
-  { -- Files
+  { -- LSP protocol communication
+    communication :: ProtocolCommunication,
+    -- Server connection information, if protocol communication is TCP
     hostIp :: IP,
     serverPort :: Port,
-    -- Formats
+    -- What source file to use. Runs in single shot mode if not FromClient
     input :: Input
   }
 
@@ -80,11 +87,26 @@ tcpPort =
         <> help "Host TCP Port"
     )
 
--- Top level argument parsing function. 3 mandatory arguments but
--- ip and port have default values.
+-- How to communicate with the LSP client, TCP by default
+protocolComm :: Parser ProtocolCommunication
+protocolComm =
+  flag
+    CommTcp
+    CommTcp
+    ( long "tcp"
+        <> help "Protocol communcation over TCP (default)"
+    )
+    <|> flag'
+      CommStdio
+      ( long "stdio"
+          <> help "Protocol communication over standard input/output"
+      )
+
+-- Top level argument parsing function
 arguments :: Parser Arguments
 arguments =
   Arguments
-    <$> ipAddress
+    <$> protocolComm
+    <*> ipAddress
     <*> tcpPort
     <*> inputTop

@@ -182,6 +182,15 @@ prettyIRSystem dflags (IRSystem (inputs, outputs) constructors signals functions
     (indent 4 (intercalate ",\n" (map prettyIRSignal signals)))
     (indent 4 (intercalate ",\n" (map (prettyIRFunction dflags) functions)))
 
+instance Show IRSystem where
+  show (IRSystem (inputs, outputs) constructors signals _) =
+    printf
+      "IRSystem(\n  {%s}, {%s},\n  {\n%s  },\n  {\n%s  },\n  {}\n)\n"
+      (intercalate ", " (map prettyIRId inputs))
+      (intercalate ", " (map prettyIRId outputs))
+      (indent 4 (intercalate ",\n" (map prettyIRConstructor constructors)))
+      (indent 4 (intercalate ",\n" (map prettyIRSignal signals)))
+
 -- ForSyDe IR to JSON functions
 
 instance ToJSON ActorType where

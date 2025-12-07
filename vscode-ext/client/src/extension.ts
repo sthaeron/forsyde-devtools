@@ -25,7 +25,7 @@ export async function activate(context: ExtensionContext) {
 
   // Create the language client and start the client.
   client = new LanguageClient(
-    "Language Server Example",
+    "ForSyDe DevTools LSP",
     serverOptions,
     clientOptions,
     true,
@@ -74,8 +74,8 @@ function createServerOptions(context: ExtensionContext): ServerOptions {
     const lsp_executable = context.asAbsolutePath(`server/forsyde-lsp-exe`);
 
     return {
-      run: { command: lsp_executable },
-      debug: { command: lsp_executable },
+      run: { command: lsp_executable, args: ["--stdio"] },
+      debug: { command: lsp_executable, args: ["--stdio"] },
     };
   }
 }
