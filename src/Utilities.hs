@@ -1,4 +1,4 @@
-module Utilities (compileToCore, noInlineTypecheck, scheduleAndBuffer) where
+module Utilities (compileToCore, compileToCoreWithForSyDePath, noInlineTypecheck, scheduleAndBuffer) where
 
 import CoreIRToForSyDeIR (translateCoreProgram)
 import Data.Data (Data, gmapT)
@@ -16,17 +16,13 @@ import System.FilePath (takeBaseName)
 -- specified file path into GHC Core. Returns a `CoreProgram` and the internally
 -- defined and used `DynFlags`. This flags are used for safe pretty printing.
 compileToCore :: FilePath -> IO (CoreProgram, DynFlags)
-compileToCore filePath = runGhc (Just libdir) $ do
+compileToCore = compileToCoreWithForSyDePath Nothing
+
+compileToCoreWithForSyDePath :: Maybe FilePath -> FilePath -> IO (CoreProgram, DynFlags)
+compileToCoreWithForSyDePath forSyDePath filePath = runGhc (Just libdir) $ do
   dflags <- getSessionDynFlags
-  let newDflags =
-        dflags
-          { ghcLink = NoLink,
-            ghcMode = CompManager,
-            backend = interpreterBackend,
-            verbosity = 0,
-            debugLevel = 0
-          }
-  _ <- setSessionDynFlags newDflags
+  let newDflags = makeDynFlags dflags
+  _ <- setSessionDynFlags $ newDflags
   target <- guessTarget filePath Nothing Nothing
   setTargets [target]
   _ <- load LoadAllTargets
@@ -37,6 +33,23 @@ compileToCore filePath = runGhc (Just libdir) $ do
   let noInlineTcg = noInlineTypecheck tcg
   guts <- liftIO $ hscDesugar env modSummary noInlineTcg
   return $ (mg_binds guts, newDflags)
+  where
+    makeDynFlags dflags =
+      let newDynFlags =
+            dflags
+              { ghcLink = NoLink,
+                ghcMode = CompManager,
+                backend = interpreterBackend,
+                verbosity = 0,
+                debugLevel = 0
+              }
+       in case forSyDePath of
+            Just path ->
+              newDynFlags
+                { packageDBFlags = [PackageDB $ PkgDbPath $ path],
+                  packageFlags = [ExposePackage "forsyde-shallow" (PackageArg "forsyde-shallow") (ModRenaming True [])]
+                }
+            Nothing -> newDynFlags
 
 -- | Updates all bindings within the function called `system` and adds NOINLINE
 -- pragmas. Prevents the pre optimisier run during desugaring from inlining
