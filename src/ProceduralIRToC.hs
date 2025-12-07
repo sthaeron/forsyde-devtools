@@ -121,16 +121,14 @@ translateStatement (SIf expression thenStmt maybeElseStmt) =
   let thenPart =
         "if ("
           ++ translateExpression expression
-          ++ ") {\n"
-          ++ indent (translateStatement thenStmt)
-          ++ "}"
+          ++ ") "
+          ++ (translateStatement thenStmt)
    in case maybeElseStmt of
         Nothing -> thenPart
         Just elseStmt ->
           thenPart
-            ++ " else {\n"
-            ++ indent (translateStatement elseStmt)
-            ++ "}"
+            ++ " else "
+            ++ (translateStatement elseStmt)
 translateStatement (SWhile expression statement) =
   "while (" ++ translateExpression expression ++ ") " ++ translateStatement statement
 translateStatement (SFor initStmt condExpr updateStmt bodyStmt) =
