@@ -40,6 +40,10 @@ data InputType
   = StdIn
   | Predefined
 
+data Runs
+  = Limited Int
+  | Perpetual
+
 data Arguments = Arguments
   { -- Files
     input :: Input,
@@ -49,7 +53,8 @@ data Arguments = Arguments
     -- Target
     target :: Target,
     -- Input Format (whether to get SDF Input from scanf or predetermined file)
-    iType :: InputType
+    iType :: InputType,
+    runs :: Runs
   }
 
 -- Handle file input, always need to define a file
@@ -231,6 +236,23 @@ ioTop =
         <> help "Source of input tokens for the SDF models in the C code. (stdin default, stdin and predefined supported)"
     )
 
+runsParse :: ReadM Runs
+runsParse = str >>= returnRuns
+  where
+    returnRuns s = case s of
+      "inf" -> pure (Perpetual)
+      x -> pure (Limited (read x))
+
+runsTop :: Parser Runs
+runsTop =
+  option
+    (runsParse)
+    ( long "runs"
+        <> metavar "RUNS"
+        <> value (Limited 1)
+        <> help "How many times to loop input data, when input mode is set to 'predefined'. 1 By default, pass an integer for a limited number or 'inf' to run the program perpetually"
+    )
+
 -- Top level argument parsing function, takes 4 flags.
 arguments :: Parser Arguments
 arguments =
@@ -240,3 +262,4 @@ arguments =
     <*> outputFormatTop
     <*> targetTop
     <*> ioTop
+    <*> runsTop
