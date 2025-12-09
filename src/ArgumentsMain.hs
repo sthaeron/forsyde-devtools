@@ -144,11 +144,10 @@ outputFormatTop =
     <|> outputFormatProceduralIR
     <|> outputFormatSchedule
 
--- Temporary implementation. Sets output to core as default functionality,
 outputFormatC :: Parser OutputFormat
 outputFormatC =
   flag
-    OutputCore
+    OutputC
     OutputC
     ( long "output-c"
         <> help "Output file in C"
