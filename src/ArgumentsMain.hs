@@ -36,6 +36,14 @@ data Target
   = PC
   | PICO2
 
+data InputType
+  = StdIn
+  | Predefined
+
+data Runs
+  = Limited Int
+  | Perpetual
+
 data Arguments = Arguments
   { -- Files
     input :: Input,
@@ -43,7 +51,10 @@ data Arguments = Arguments
     -- Formats
     output_format :: OutputFormat,
     -- Target
-    target :: Target
+    target :: Target,
+    -- Input Format (whether to get SDF Input from scanf or predetermined file)
+    iType :: InputType,
+    runs :: Runs
   }
 
 -- Handle file input, always need to define a file
@@ -203,6 +214,45 @@ targetTop =
         <> help "Target platform for C code. (PC default, PC and PICO2 supported)"
     )
 
+-- Parse InputType. Implementation is similar to `target` option
+ioName :: ReadM InputType
+ioName = str >>= returnIO
+  where
+    returnIO s = case s of
+      "stdin" -> pure (StdIn)
+      "predefined" -> pure (Predefined)
+      t -> error ("Unsupported input source: " ++ t)
+
+-- Parse target platform. Uses pattern matching to handle raw strings which
+-- means it is used  like "--target={target}" as opposed to having --target-PC,
+-- target-PICO2, etc
+ioTop :: Parser InputType
+ioTop =
+  option
+    (ioName)
+    ( long "input-type"
+        <> metavar "INPUTTYPE"
+        <> value StdIn
+        <> help "Source of input tokens for the SDF models in the C code. (stdin default, stdin and predefined supported)"
+    )
+
+runsParse :: ReadM Runs
+runsParse = str >>= returnRuns
+  where
+    returnRuns s = case s of
+      "inf" -> pure (Perpetual)
+      x -> pure (Limited (read x))
+
+runsTop :: Parser Runs
+runsTop =
+  option
+    (runsParse)
+    ( long "runs"
+        <> metavar "RUNS"
+        <> value (Limited 1)
+        <> help "How many times to loop input data, when input mode is set to 'predefined'. 1 By default, pass an integer for a limited number or 'inf' to run the program perpetually"
+    )
+
 -- Top level argument parsing function, takes 4 flags.
 arguments :: Parser Arguments
 arguments =
@@ -211,3 +261,5 @@ arguments =
     <*> outputFileTop
     <*> outputFormatTop
     <*> targetTop
+    <*> ioTop
+    <*> runsTop

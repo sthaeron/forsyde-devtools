@@ -17,18 +17,40 @@ The top of the file should contain the following imports and declarations:
 
 ```C
 typedef xxxx token;
-
+#define PLATFORM {platform}
 #include <stdio.h>
-#include "common.h"
+#include "include/common.h"
 ```
 
 where `xxxx` should be the numerical type used for `Signal` in the SDF model,
 typically `int`, `float` or `double` . Note that this will limit the whole SDF model to
 have a singular data type that the whole graph needs to use, this is because
-`actor_templates.h` relies on the `token` definition.
+`actor_templates.h` relies on the `token` definition. Afterwards, the platform is
+defined via the `PLATFORM` pre-processor variable. This helps wrap platform
+abstractions later for the `include/common.h` file, which in turns also pulls
+in `include/actor_templates.h`.
 
-Including `common.h` will wrap the correct platform abstractions, and also pull
-in `actor_templates.h`.
+If the `--input-type` flag is used for the compiler, and this variable is set to `predefined`,
+instead of relying on `scanf` to feed input tokens, the code should use a file called
+`input.h` defining the following variables:
+
+```C
+int iteration_max = x;
+```
+
+where `x` is how many hyperperiods the provided input signal contains. Furthermore, the inputs need to be defined following the naming conventions of the `input_` variables, example file
+
+```C
+int iteration_max = 4;
+
+token input_s_in_x[4] = {1,2,3,4};
+token input_s_in_y[4] = {1,2,3,4};
+```
+
+This file needs to be imported in this mode in the C code with
+```c
+#include "input.h"
+```
 
 ## Functions
 
@@ -74,9 +96,32 @@ init()
 This line is wrapped in `common.h` and contains whatever the platform needs to initialize, so that
 the compiler implementation does not have to worry about it.
 
+### Status variables
+
+After `init()`, declare a return variable that can handle returns for `scanf`
+calls:
+
+```C
+int status;
+```
+
+in the case when input mode for `stdin` is used. If the `predefined` mode is used,
+then declare and assign an iteration variable in the following manner:
+
+```C
+int iteration_current = 0;
+```
+
+if the `--runs` flag is set to `inf`. If the `runs` flag is set to `--runs={x}` then additionally declare
+
+```C
+int run_current = 0;
+int run_max = {x};
+```
+
 ### Input/Output tokens
 
-This section should be followed bt a declaration of arrays for input/output tokens:
+This section should be followed by a declaration of arrays for input/output tokens:
 
 - The output tokens should be scalar, of type `token`, since the for-loop will iterate
 and read a token into this scalar each iteration of the loop. This means that one
@@ -86,6 +131,8 @@ and read a token into this scalar each iteration of the loop. This means that on
 for every input in the graph. The inputs will need to be processed for the whole period
 at once, which means that the (static) length of each array will need to be equal to
 tokens consumed per firing, multiplied by that actors value in the repetition vector.
+The input arrays should **only** be declared in `stdin` IO mode, and should be ommitted
+in the `predefined` mode since they are already defined in the `input.h` file.
 
 Example:
 
@@ -99,17 +146,6 @@ time per schedule.
 token input_a[4];
 token input_b[1];
 token output;
-```
-
-### Iteration variable
-
-Several for-loops are used inside the main while-loop. Declare the iteration
-variable in this portion of the code, along with a return variable that can
-handle returns for `scanf` calls:
-
-```C
-int i;
-int ret;
 ```
 
 ### Buffers
@@ -147,40 +183,55 @@ while(1) {
 #### Input
 
 The start of the while loop should be followed by input processing. In order
-to process input tokens, the `scanf` function should be used to read all tokens.
+to process input tokens in the `stdin` input mode, the `scanf` function should be
+used to read all tokens.
 
-Each input should be encapsulated by a for-loop for that input buffer, example:
+Each input in the SDF model should have a translation block consisting of the
+following 3 steps:
+
+1. Read the input tokens with `scanf`, and store the return value in `ret`
+2. Check if the return value `ret` is less than 1
+3. Write the tokens into the corresponding buffer
+
+Example:
 
 ```C
-for (i = 0; i < 4; i++)
+for (i = 0; i < 4; i++) {
     ret = scanf("%d", &input_a[i]);
+}
+if (ret < 1) {
+    break;
+}
+for(i = 0; i < 4; i++) {
+    write_token(s_in_a, input_a[i]);
+}
 ```
 
 where `%d` needs to be replaced in case another data type than decimal is read.
-Similarly as [Input/Output tokens](#inputoutput-tokens), the upper bound on this
-for-loop needs to consider how many times this input needs every firing, and how
-many times this buffer will be read from per period. In this example, 2 tokens
-are consumed from `input_a` each time the actor fires, and the actor fires 2
-times per schedule meaning 4 tokens need to be read per period.
+Similarly as [Input/Output tokens](#inputoutput-tokens), the upper bound on the
+for-loop for (1.) needs to consider how many times this input needs every firing,
+and how many times this buffer will be read from per period. In this example,
+2 tokens are consumed from `input_a` each time the actor fires, and the actor
+fires 2 times per schedule meaning 4 tokens need to be read per period.
 
-After all inputs for all of the input arrays are collected, only the final
-`scanf` return value is checked once (to over-emphasize, do not put this
-after every for-loop, only after the final one!)
+For (2.), only the final `scanf` return value is checked for that particular
+input, which will break out of the main while-loop. Afterwards for (3.), a
+for-loop is used to run `write_token()` to write the input tokens to their
+corresponding buffers. All `for` and `if` scopes shall be enclosed with curly
+braces.
 
-```C
-if (ret < 1)
-    break;
-```
-
-which will break out of the main while-loop.
-
-After the break, create a for-loop that uses the `write_token()` to write
-the input tokens to their corresponding buffers, example:
+In the case when `predetermined` input is used, a modified version of step (3.) is
+used. The signal input will contain strided data for each full period of the
+schedule, so the `write_token` needs to subindex within a period. This is done with
+for example:
 
 ```C
-for(i = 0; i < 4; i++)
-    write_token(s_in_a, input_a[i]);
+for(i = 0; i < 4; i++) {
+    write_token(s_in_a, input_a[iteration_current * 4 + i]);
+}
 ```
+
+since each period contains 4 tokens of data.
 
 #### Schedule
 
@@ -220,6 +271,31 @@ all of the tokens have been printed, print a new line to end the schedule:
 
 ```C
 printf("\n");
+```
+
+#### Predefined input
+
+If in `predefined` input mode with runs set to `inf`, it needs to be checked whether all the data has
+been consumed. Start by incrementing the iteration counter, and then wrap
+the value back to 0 if all inputs have been consumed:
+
+```C
+ iteration_current = iteration_current + 1;
+ if (iteration_current == iteration_max) {
+     iteration_current = 0;
+ }
+```
+
+In the case where runs is set to `runs={x}`, then use the following code block
+
+```C
+if (iteration_current == iteration_max) {
+    iteration_current = 0;
+    run_current = run_current + 1;
+}
+if (run_current == run_max) {
+    break;
+}
 ```
 
 #### End

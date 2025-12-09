@@ -74,12 +74,12 @@ exampleProceduralIR =
               SArrayAssign "x" (EInt 1) (Just "foo") (EInt 2),
               SIf
                 (EBinOp Less (EVar "i") (EVar "n"))
-                (SReturn Nothing)
+                ((SScope [(SReturn Nothing)]))
                 Nothing,
               SIf
                 (EBinOp Greater (EVar "i") (EInt 0))
-                (SReturn (Just (EInt 1)))
-                (Just (SReturn (Just (EInt 0)))),
+                ((SScope [SReturn (Just (EInt 1))]))
+                (Just (SScope [(SReturn (Just (EInt 0)))])),
               SReturn (Just (EInt 0)),
               SReturn Nothing,
               SFor
@@ -149,7 +149,7 @@ spec :: Spec
 spec = beforeAll readExpectedCode $ do
   describe "Procedural IR To C Codegen" $ do
     it "Test hand-crafted Procedural IR" $ \simpleCString -> do
-      let cString = translateProgram exampleProceduralIR PC False
+      let cString = translateProgram exampleProceduralIR PC StdIn False
       normalize cString `shouldBe` normalize simpleCString
   where
     normalize = filter (not . isSpace)
