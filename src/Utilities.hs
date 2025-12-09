@@ -9,6 +9,7 @@ module Utilities
     pop,
     peek,
     isEmpty,
+    stackToList,
   )
 where
 
@@ -43,6 +44,9 @@ peek (Stack (x : _)) = Just x
 isEmpty :: Stack a -> Bool
 isEmpty (Stack []) = True
 isEmpty (Stack _) = False
+
+stackToList :: Stack a -> [a]
+stackToList (Stack list) = list
 
 -- | Custom `compileToCore` function which compiles a haskell module at a
 -- specified file path into GHC Core. Returns a `CoreProgram` and the internally

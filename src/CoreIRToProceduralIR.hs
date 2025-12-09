@@ -6,7 +6,6 @@
 module CoreIRToProceduralIR where
 
 import CoreIR (literalToInt, prettyCoreAlt, varToString)
-import Data.Functor.Classes (eq1)
 import Data.List (elemIndex)
 import Data.Maybe (listToMaybe, mapMaybe)
 import ForSyDeIR
@@ -15,7 +14,7 @@ import GHC.Core
 import GHC.Driver.Ppr (showPpr)
 import GHC.Plugins (Var)
 import ProceduralIR
-import Utilities (Stack, emptyStack, pop, push)
+import Utilities (Stack, emptyStack, pop, push, stackToList)
 
 data TranslationContext = TranslationContext
   { flags :: DynFlags,
@@ -48,19 +47,6 @@ data FunctionContent
   | FMultiply
   | FDiv
   | FNegate
-
-instance Show FunctionContent where
-  show :: FunctionContent -> String
-  show (FVar v) = varToString v
-  show (FInt i) = show i
-  show FColon = ":"
-  show FTuple = "(,)"
-  show FList = "[]"
-  show FPlus = "+"
-  show FMinus = "-"
-  show FMultiply = "*"
-  show FDiv = "/"
-  show FNegate = "-"
 
 translateIRFunction :: IRFunction -> DynFlags -> [IRConstructor] -> (Global, Maybe Global)
 translateIRFunction function dflags constructors =
@@ -97,13 +83,13 @@ getParameterList context (IRDelay _ _ _) = ([], context)
 getFunctionDeclaration :: [(ProceduralIR.Type, String)] -> IRId -> Global
 getFunctionDeclaration parameterList functionId =
   let functionDeclareGlobal = GFuncDeclare (Just Static) TVoid (show functionId) parameterList
-   in (functionDeclareGlobal)
+   in functionDeclareGlobal
 
 getFunctionDefinition :: TranslationContext -> [(ProceduralIR.Type, String)] -> IRId -> Global
 getFunctionDefinition context parametersList functionId =
   let stmtScope = scope context
       functionDefinitionGlobal = GFuncDef (Just Static) TVoid (show functionId) parametersList stmtScope
-   in (functionDefinitionGlobal)
+   in functionDefinitionGlobal
 
 findActorFromFunctionId :: IRId -> [IRConstructor] -> Maybe IRConstructor
 findActorFromFunctionId targetFunctionId constructors =
@@ -148,35 +134,29 @@ translateFunctionExpr context inputIndex inputCounter expr = case expr of
 
 translateFunctionContent :: TranslationContext -> [FunctionContent] -> Statement
 translateFunctionContent context contentList =
-  let finalExprsStack = aux (emptyStack) contentList
-      stmtList = stackToScope (outputSignalIds context) [] finalExprsStack
+  let finalExprsStack = foldl' functionContentToStack emptyStack contentList
+      stmtList = foldl' stackToScope [] (zip (outputSignalIds context) (stackToList finalExprsStack))
    in SScope stmtList
   where
-    stackToScope :: [String] -> [Statement] -> Stack [Expression] -> [Statement]
-    stackToScope outputSignalList acc exprsStack = case (pop exprsStack) of
-      Nothing -> acc
-      Just (exprList, exprsStack1) ->
-        let (outputSignal, outputSignalTail) = case outputSignalList of
-              [] -> error "translateFunctionContent - insufficient output signals for expressions"
-              (output : outputTail) -> (output, outputTail)
-            outputStmts = map (\(idx, expr) -> SArrayAssign outputSignal (EInt idx) Nothing expr) (zip [0 ..] exprList)
-         in stackToScope outputSignalTail (acc ++ outputStmts) exprsStack1
-    aux :: (Stack [Expression]) -> [FunctionContent] -> (Stack [Expression])
-    aux exprsStack currentContentList = case currentContentList of
-      [] -> exprsStack
-      FList : contentTail ->
+    stackToScope :: [Statement] -> (String, [Expression]) -> [Statement]
+    stackToScope acc (outputSignal, exprList) =
+      let outputStmts = map (\(idx, expr) -> SArrayAssign outputSignal (EInt idx) Nothing expr) (zip [0 ..] exprList)
+       in (acc ++ outputStmts)
+    functionContentToStack :: (Stack [Expression]) -> FunctionContent -> (Stack [Expression])
+    functionContentToStack exprsStack content = case content of
+      FList ->
         let newExprList = []
             exprsStack1 = push newExprList exprsStack
-         in aux exprsStack1 contentTail
-      (FInt i) : contentTail ->
+         in exprsStack1
+      (FInt i) ->
         let (exprList, exprsStack1) = case (pop exprsStack) of
               Nothing -> error "translateFunctionContent - empty expression stack when expecting expression list"
               Just (elist, stack1) -> (elist, stack1)
             expr = EInt i
             newExprList = expr : exprList
             exprsStack2 = push newExprList exprsStack1
-         in aux exprsStack2 contentTail
-      (FVar varId) : contentTail ->
+         in exprsStack2
+      (FVar varId) ->
         let (exprList, exprsStack1) = case (pop exprsStack) of
               Nothing -> error "translateFunctionContent - empty expression stack when expecting expression list"
               Just (elist, stack1) -> (elist, stack1)
@@ -185,8 +165,8 @@ translateFunctionContent context contentList =
               Nothing -> error ("translateFunctionContent - variable not found: " ++ varToString varId)
             newExprList = variableExpr : exprList
             exprsStack2 = push newExprList exprsStack1
-         in aux exprsStack2 contentTail
-      FPlus : contentTail ->
+         in exprsStack2
+      FPlus ->
         let (exprList, exprsStack1) = case (pop exprsStack) of
               Nothing -> error "translateFunctionContent - empty expression stack when expecting expression list"
               Just (elist, stack1) -> (elist, stack1)
@@ -199,8 +179,8 @@ translateFunctionContent context contentList =
             newExpr = EBinOp Plus expr1 expr2
             newExprList = newExpr : exprTail
             exprsStack2 = push newExprList exprsStack1
-         in aux exprsStack2 contentTail
-      FMinus : contentTail ->
+         in exprsStack2
+      FMinus ->
         let (exprList, exprsStack1) = case (pop exprsStack) of
               Nothing -> error "translateFunctionContent - empty expression stack when expecting expression list"
               Just (elist, stack1) -> (elist, stack1)
@@ -213,8 +193,8 @@ translateFunctionContent context contentList =
             newExpr = EBinOp Minus expr1 expr2
             newExprList = newExpr : exprTail
             exprsStack2 = push newExprList exprsStack1
-         in aux exprsStack2 contentTail
-      FMultiply : contentTail ->
+         in exprsStack2
+      FMultiply ->
         let (exprList, exprsStack1) = case (pop exprsStack) of
               Nothing -> error "translateFunctionContent - empty expression stack when expecting expression list"
               Just (elist, stack1) -> (elist, stack1)
@@ -227,8 +207,8 @@ translateFunctionContent context contentList =
             newExpr = EBinOp Multiply expr1 expr2
             newExprList = newExpr : exprTail
             exprsStack2 = push newExprList exprsStack1
-         in aux exprsStack2 contentTail
-      FDiv : contentTail ->
+         in exprsStack2
+      FDiv ->
         let (exprList, exprsStack1) = case (pop exprsStack) of
               Nothing -> error "translateFunctionContent - empty expression stack when expecting expression list"
               Just (elist, stack1) -> (elist, stack1)
@@ -241,8 +221,8 @@ translateFunctionContent context contentList =
             newExpr = EBinOp Divide expr1 expr2
             newExprList = newExpr : exprTail
             exprsStack2 = push newExprList exprsStack1
-         in aux exprsStack2 contentTail
-      FNegate : contentTail ->
+         in exprsStack2
+      FNegate ->
         let (exprList, exprsStack1) = case (pop exprsStack) of
               Nothing -> error "translateFunctionContent - empty expression stack when expecting expression list"
               Just (elist, stack1) -> (elist, stack1)
@@ -252,9 +232,9 @@ translateFunctionContent context contentList =
             newExpr = EParen (EUnOp Negate expr1)
             newExprList = newExpr : exprTail
             exprsStack2 = push newExprList exprsStack1
-         in aux exprsStack2 contentTail
-      FColon : contentTail -> aux exprsStack contentTail
-      FTuple : contentTail -> aux exprsStack contentTail
+         in exprsStack2
+      FColon -> exprsStack
+      FTuple -> exprsStack
 
 translateOutputExprToFunctionContentList :: TranslationContext -> CoreExpr -> [FunctionContent] -> [FunctionContent]
 translateOutputExprToFunctionContentList context expr acc = case expr of
