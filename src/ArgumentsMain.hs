@@ -230,7 +230,7 @@ ioTop :: Parser InputType
 ioTop =
   option
     (ioName)
-    ( long "inputtype"
+    ( long "input-type"
         <> metavar "INPUTTYPE"
         <> value StdIn
         <> help "Source of input tokens for the SDF models in the C code. (stdin default, stdin and predefined supported)"

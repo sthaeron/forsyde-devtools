@@ -30,7 +30,7 @@ defined via the `PLATFORM` pre-processor variable. This helps wrap platform
 abstractions later for the `include/common.h` file, which in turns also pulls
 in `include/actor_templates.h`.
 
-If the `--inputtype` flag is used for the compiler, and this variable is set to `predefined`,
+If the `--input-type` flag is used for the compiler, and this variable is set to `predefined`,
 instead of relying on `scanf` to feed input tokens, the code should use a file called
 `input.h` defining the following variables:
 

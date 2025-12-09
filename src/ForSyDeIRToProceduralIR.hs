@@ -190,7 +190,7 @@ translateIRConstructor initialContext constructor = case constructor of
     foldActorSignals acc signalId =
       if (elem signalId (systemInputs initialContext))
         then case (inputType initialContext) of
-          -- If IO-Type is scanf, then do scanf->break->write
+          -- If input type is stdin, then do scanf->break->write
           StdIn ->
             let bufferSize = getTargetRate initialContext signalId
                 -- If actor has inputs which are system inputs the following
@@ -210,7 +210,7 @@ translateIRConstructor initialContext constructor = case constructor of
                     (SExpr (EUnOp Increment (EVar "i")))
                     (SScope [SExpr (ECall "write_token" [EVar $ show signalId, EArrayAccess (EVar ("input_" ++ show signalId)) (EVar "i")])])
              in (writeForStmt : breakIfStmt : scanForStmt : acc)
-          -- If IO-Type is predefined, then do write
+          -- If input type is predefined, then do write
           Predefined ->
             let bufferSize = getTargetRate initialContext signalId
                 writeForStmt =
