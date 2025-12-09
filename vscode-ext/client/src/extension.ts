@@ -13,6 +13,21 @@ let client: LanguageClient;
 let socket: Socket;
 
 export async function activate(context: ExtensionContext) {
+  vscode.workspace.onDidChangeConfiguration((e) => {
+    if (e.affectsConfiguration("forsydeDevtoolsLSP")) {
+      vscode.window
+        .showInformationMessage(
+          "ForSyDe DevTools LSP config changed. Restart to apply changes. ",
+          "Restart Visual Studio Code",
+          "Restart Later",
+        )
+        .then((sel) => {
+          if (sel === "Restart Visual Studio Code")
+            vscode.commands.executeCommand("workbench.action.reloadWindow");
+        });
+    }
+  });
+
   const serverOptions: ServerOptions = createServerOptions(context);
 
   // Options to control the language client
@@ -70,12 +85,19 @@ function createServerOptions(context: ExtensionContext): ServerOptions {
       return result;
     };
   } else {
+    let { stackPkgPath } =
+      vscode.workspace.getConfiguration("forsydeDevtoolsLSP");
     console.log("Spawning to language server as a process.");
     const lsp_executable = context.asAbsolutePath(`server/forsyde-lsp-exe`);
 
+    let args = ["--stdio"];
+    if (stackPkgPath && stackPkgPath.length > 0) {
+      args = ["--stack-pkg-path", stackPkgPath, "--stdio"];
+    }
+
     return {
-      run: { command: lsp_executable, args: ["--stdio"] },
-      debug: { command: lsp_executable, args: ["--stdio"] },
+      run: { command: lsp_executable, args },
+      debug: { command: lsp_executable, args },
     };
   }
 }
