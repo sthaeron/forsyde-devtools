@@ -54,7 +54,9 @@ data Arguments = Arguments
     target :: Target,
     -- Input Format (whether to get SDF Input from scanf or predetermined file)
     iType :: InputType,
-    runs :: Runs
+    runs :: Runs,
+    -- Path to the package DB containing ForSyDe Shallow
+    forSyDePath :: Maybe FilePath
   }
 
 -- Handle file input, always need to define a file
@@ -253,6 +255,16 @@ runsTop =
         <> help "How many times to loop input data, when input mode is set to 'predefined'. 1 By default, pass an integer for a limited number or 'inf' to run the program perpetually"
     )
 
+-- Path to the package DB containing ForSyDe Shallow
+forSyDePathOption :: Parser (Maybe FilePath)
+forSyDePathOption =
+  option
+    (str >>= \s -> pure $ Just s)
+    ( long "forsyde-pkgpath"
+        <> value Nothing
+        <> help "The path to the ForSyDe Shallow package (unspecified by default)"
+    )
+
 -- Top level argument parsing function, takes 4 flags.
 arguments :: Parser Arguments
 arguments =
@@ -263,3 +275,4 @@ arguments =
     <*> targetTop
     <*> ioTop
     <*> runsTop
+    <*> forSyDePathOption

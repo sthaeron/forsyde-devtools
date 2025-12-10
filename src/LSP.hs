@@ -234,7 +234,8 @@ diagramOpenInTextEditorMessage uri sline scol eline ecol =
 data Config = Config
   { file :: Maybe FilePath,
     clientId :: Maybe T.Text,
-    system :: Maybe IRSystem
+    system :: Maybe IRSystem,
+    forSyDePkg :: Maybe FilePath
   }
   deriving (Show)
 
@@ -243,7 +244,8 @@ defaultConfig =
   Config
     { file = Nothing,
       clientId = Nothing,
-      system = Nothing
+      system = Nothing,
+      forSyDePkg = Nothing
     }
 
 -- | The static notification and request handlers we support
@@ -315,7 +317,7 @@ handlers =
         -- What clientId should we use?
         let newId = maybe (maybe ("sprotty" :: T.Text) id $ clientId config) id (getClientId p)
         -- TODO: maybe only recompute on TextDocumentDidSave
-        (core, dflags) <- liftIO $ compileToCore newfile
+        (core, dflags) <- liftIO $ compileToCoreWithForSyDePath (forSyDePkg config) newfile
         let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
         -- Update config with new data
         _ <-
@@ -369,16 +371,17 @@ handlers =
     recomputeModel :: LSP.LspT Config IO ()
     recomputeModel = do
       config <- LSP.getConfig
+      let pkgPath = forSyDePkg config
       out <- case config of
         Config {file = Just newfile} ->
-          liftIO $ compileToModelMaybe newfile
+          liftIO $ compileToModelMaybe pkgPath newfile
         _ -> pure Nothing
       case out of
         Nothing -> pure ()
         Just _ ->
           LSP.setConfig config {system = out}
-    compileToModelMaybe f = do
-      (core, dflags) <- compileToCore f
+    compileToModelMaybe pkgPath f = do
+      (core, dflags) <- compileToCoreWithForSyDePath pkgPath f
       let (irsystem, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
       pure $ Just irsystem
     findIR :: (a -> Maybe b) -> (a -> Bool) -> [a] -> [b]
@@ -489,7 +492,7 @@ main = run =<< execParser opts
 
 -- | Start the LSP
 run :: Arguments -> IO ()
-run (Arguments comm (Host ip) (TCP p) i_f) =
+run (Arguments comm (Host ip) (TCP p) i_f pkgPath) =
   case (i_f, comm) of
     (FromClient, CommTcp) ->
       runTCPServer (Just ip) p lsp
@@ -505,7 +508,7 @@ run (Arguments comm (Host ip) (TCP p) i_f) =
       _ <- runServerC stdin stdout serverDef
       pure ()
     (InputFile f, _) -> do
-      (core, dflags) <- liftIO $ compileToCore f
+      (core, dflags) <- liftIO $ compileToCoreWithForSyDePath pkgPath f
       let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
       let graphMessage = requestBounds f "sprotty" forsydeIR
       BSL8.putStrLn $ AP.encodePretty graphMessage
@@ -513,9 +516,9 @@ run (Arguments comm (Host ip) (TCP p) i_f) =
   where
     serverDef =
       LSP.ServerDefinition
-        { parseConfig = const $ const $ Right defaultConfig,
+        { parseConfig = const $ const $ Right defaultConfig {forSyDePkg = pkgPath},
           onConfigChange = const $ pure (),
-          defaultConfig = defaultConfig,
+          defaultConfig = defaultConfig {forSyDePkg = pkgPath},
           configSection = "demo",
           doInitialize = \env _req -> pure $ Right env,
           staticHandlers = \_caps -> handlers,

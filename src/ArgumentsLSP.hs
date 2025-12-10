@@ -34,7 +34,9 @@ data Arguments = Arguments
     hostIp :: IP,
     serverPort :: Port,
     -- What source file to use. Runs in single shot mode if not FromClient
-    input :: Input
+    input :: Input,
+    -- Path to the package DB containing ForSyDe Shallow
+    forSyDePath :: Maybe FilePath
   }
 
 inputTop :: Parser Input
@@ -102,6 +104,16 @@ protocolComm =
           <> help "Protocol communication over standard input/output"
       )
 
+-- Path to the package DB containing ForSyDe Shallow
+forSyDePathOption :: Parser (Maybe FilePath)
+forSyDePathOption =
+  option
+    (str >>= \s -> pure $ Just s)
+    ( long "forsyde-pkgpath"
+        <> value Nothing
+        <> help "The path to the ForSyDe Shallow package (unspecified by default)"
+    )
+
 -- Top level argument parsing function
 arguments :: Parser Arguments
 arguments =
@@ -110,3 +122,4 @@ arguments =
     <*> ipAddress
     <*> tcpPort
     <*> inputTop
+    <*> forSyDePathOption
