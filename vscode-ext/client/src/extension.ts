@@ -13,6 +13,8 @@ let client: LanguageClient;
 let socket: Socket;
 
 export async function activate(context: ExtensionContext) {
+  vscode.window.showInformationMessage("ForSyDe DevTools LSP activated.");
+
   vscode.workspace.onDidChangeConfiguration((e) => {
     if (e.affectsConfiguration("forsydeDevtoolsLSP")) {
       vscode.window
