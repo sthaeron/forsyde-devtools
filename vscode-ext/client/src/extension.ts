@@ -94,7 +94,7 @@ function createServerOptions(context: ExtensionContext): ServerOptions {
 
     let args = ["--stdio"];
     if (stackPkgPath && stackPkgPath.length > 0) {
-      args = ["--stack-pkg-path", stackPkgPath, "--stdio"];
+      args = ["--forsyde-pkgpath", stackPkgPath, "--stdio"];
     }
 
     return {
