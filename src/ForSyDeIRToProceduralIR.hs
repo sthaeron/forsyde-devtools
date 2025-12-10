@@ -21,6 +21,7 @@ data TranslationContext = TranslationContext
     ioTokens :: [Statement], -- List of statements for input/output tokens
     initBuffers :: [Statement], -- List of statements for initialising signal buffers
     freeBuffers :: [Statement], -- List of statements for freeing signal buffers
+    schedulerBufferList :: [(IRId, Int)], -- The buffer list that comes from the schedule
     systemInputs :: [IRId], -- List of system inputs
     systemOutputs :: [IRId], -- List of system outputs
     delayBuffers :: [(IRId, IRId)], -- Associated list of signal ids and buffer name for delay signals
@@ -29,8 +30,8 @@ data TranslationContext = TranslationContext
     functions :: [Global]
   }
 
-initialTranslationContext :: DynFlags -> InputType -> Runs -> [(IRId, IRSignal)] -> [IRId] -> [IRId] -> [(IRId, IRId)] -> TranslationContext
-initialTranslationContext dflags input r lookupSignalList inputList outputList delayBufferList =
+initialTranslationContext :: DynFlags -> InputType -> Runs -> [(IRId, IRSignal)] -> [(IRId, Int)] -> [IRId] -> [IRId] -> [(IRId, IRId)] -> TranslationContext
+initialTranslationContext dflags input r lookupSignalList bList inputList outputList delayBufferList =
   TranslationContext
     { flags = dflags,
       inputType = input,
@@ -41,6 +42,7 @@ initialTranslationContext dflags input r lookupSignalList inputList outputList d
       ioTokens = [],
       initBuffers = [],
       freeBuffers = [],
+      schedulerBufferList = bList,
       systemInputs = inputList,
       systemOutputs = outputList,
       delayBuffers = delayBufferList,
@@ -54,7 +56,7 @@ initialTranslationContext dflags input r lookupSignalList inputList outputList d
 -- input. Also requires an associated list of signals for lookups.
 translateIRSystemToProgram :: DynFlags -> [IRId] -> [(IRId, Int)] -> [(IRId, IRId)] -> [(IRId, IRSignal)] -> InputType -> Runs -> IRSystem -> Program
 translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookupSignalList input r (IRSystem (inputList, outputList) constructors _signalList functionList) =
-  let initialContext = initialTranslationContext dflags input r lookupSignalList inputList outputList delayBufferList
+  let initialContext = initialTranslationContext dflags input r lookupSignalList bufferList inputList outputList delayBufferList
       context1 = foldl' translateIRConstructor initialContext constructors
       context2 = foldl' translateBuffer context1 bufferList
       context3 = foldl' (translateIRFunctionToGlobals constructors) context2 functionList
@@ -68,17 +70,26 @@ translateContextToMain context scheduleList =
       scheduledInputStmts = case ((inputType context), (runs context)) of
         (StdIn, _) -> []
         (Predefined, Perpetual) ->
-          [ SVarAssign "iteration_current" (EBinOp Plus (EVar "iteration_current") (EInt 1)),
-            SIf (EBinOp Equal (EVar "iteration_current") (EVar "iteration_max")) (SScope [SVarAssign "iteration_current" (EInt 0)]) Nothing
-          ]
+          [SVarAssign "iteration_current" (EBinOp Plus (EVar "iteration_current") (EInt 1))]
+            ++ (foldl' resetIterationVariablesFromInputs [] (systemInputs context))
+            ++ [ SIf (EBinOp Equal (EVar "iteration_current") (EVar "iteration_max")) (SScope [SVarAssign "iteration_current" (EInt 0)]) Nothing
+               ]
         (Predefined, Limited _) ->
-          -- [ SVarAssign "iteration_current" (EBinOp Plus (EVar "iteration_current") (EInt 1)),
-          --  SIf (EBinOp Equal (EVar "iteration_current") (EVar "iteration_max")) (SVarAssign "iteration_current" (EInt 0)) Nothing,
-          --  SVarAssign "run_current" (EBinOp Plus (EVar "run_current") (EInt 1))
-          -- ]
-          [ SVarAssign "iteration_current" (EBinOp Plus (EVar "iteration_current") (EInt 1)),
-            SIf (EBinOp Equal (EVar "iteration_current") (EVar "iteration_max")) (SScope [SVarAssign "iteration_current" (EInt 0), SVarAssign "run_current" (EBinOp Plus (EVar "run_current") (EInt 1))]) Nothing
-          ]
+          [SVarAssign "iteration_current" (EBinOp Plus (EVar "iteration_current") (EInt 1))]
+            ++ (foldl' resetIterationVariablesFromInputs [] (systemInputs context))
+            ++ [ SIf
+                   (EBinOp Equal (EVar "iteration_current") (EVar "iteration_max"))
+                   ( SScope
+                       [ SVarAssign "iteration_current" (EInt 0),
+                         SVarAssign
+                           "run_current"
+                           (EBinOp Plus (EVar "run_current") (EInt 1))
+                       ]
+                   )
+                   Nothing
+               ]
+        where
+          resetIterationVariablesFromInputs acc x = SVarAssign ("i_" ++ show x) (EInt (0)) : acc
       scheduledRunsStmts = case ((inputType context), (runs context)) of
         (StdIn, _) -> []
         (Predefined, Perpetual) -> []
@@ -91,7 +102,18 @@ translateContextToMain context scheduleList =
         (StdIn, _) -> []
         (Predefined, Perpetual) -> []
         (Predefined, Limited x) -> [SVarDef TInt "run_current" (EInt (0)), SVarDef TInt "run_max" (EInt (x))]
-      mainInitStmts = mainInitInputStmts ++ mainInitRunsStmts ++ reverse (initBuffers context) ++ reverse (ioTokens context) ++ reverse (initDelay context)
+      mainInitIterStmts = case (inputType context) of
+        StdIn -> []
+        Predefined -> foldl' defineIterationVariablesFromInputs [] (systemInputs context)
+        where
+          defineIterationVariablesFromInputs acc x = SVarDef TInt ("i_" ++ show x) (EInt (0)) : acc
+      mainInitStmts =
+        mainInitInputStmts
+          ++ mainInitIterStmts
+          ++ mainInitRunsStmts
+          ++ reverse (initBuffers context)
+          ++ reverse (ioTokens context)
+          ++ reverse (initDelay context)
       mainFreeStmts = reverse (freeBuffers context) ++ [SReturn (Just (EInt 0))]
       mainBody = SScope (mainInitStmts ++ [whileStmt] ++ mainFreeStmts)
    in GFuncDef Nothing TInt "main" [] mainBody
@@ -219,7 +241,28 @@ translateIRConstructor initialContext constructor = case constructor of
                     (SVarDef TInt "i" (EInt 0))
                     (EBinOp Less (EVar "i") (EInt (bufferSize)))
                     (SExpr (EUnOp Increment (EVar "i")))
-                    (SScope [SExpr (ECall "write_token" [EVar $ show signalId, EArrayAccess (EVar ("input_" ++ show signalId)) (EBinOp Plus (EBinOp Multiply (EVar ("iteration_current")) (EInt bufferSize)) (EVar "i"))])])
+                    ( SScope
+                        ( [ SExpr
+                              ( ECall
+                                  "write_token"
+                                  [ EVar $ show signalId,
+                                    EArrayAccess
+                                      (EVar ("input_" ++ show signalId))
+                                      ( EBinOp
+                                          Plus
+                                          ( EBinOp
+                                              Multiply
+                                              (EVar ("iteration_current"))
+                                              (EInt (getScheduleBufferRate signalId (schedulerBufferList initialContext)))
+                                          )
+                                          (EVar ("i_" ++ show signalId))
+                                      )
+                                  ]
+                              )
+                          ]
+                            ++ [SVarAssign ("i_" ++ show signalId) (EBinOp Plus (EVar ("i_" ++ show signalId)) (EInt 1))]
+                        )
+                    )
              in (writeForStmt : acc)
         else
           if (elem signalId (systemOutputs initialContext))
@@ -276,6 +319,18 @@ getTargetRate context signalId =
    in case signal of
         Just (IRSignal _ _ (_, rate)) -> rate
         Nothing -> error ("getTargetRate - signal not found: " ++ show signalId)
+
+-- Get the rate from the schedule given an ActorId and bufferList
+getScheduleBufferRate :: IRId -> [(IRId, Int)] -> Int
+getScheduleBufferRate actorId bufferList =
+  case bufferList of
+    [] -> error ("buffer rate finder - actor not found: " ++ show actorId)
+    (x, rate) : xs ->
+      if (x == actorId)
+        then
+          rate
+        else
+          getScheduleBufferRate actorId xs
 
 translateIRFunctionToGlobals :: [IRConstructor] -> TranslationContext -> IRFunction -> TranslationContext
 translateIRFunctionToGlobals constructors currentContext function =
