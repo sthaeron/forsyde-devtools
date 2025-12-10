@@ -43,6 +43,17 @@
           "group": "navigation"
         }
       ]
+    },
+    "configuration": {
+      "title": "ForSyDe DevTools LSP",
+      "type": "object",
+      "properties": {
+        "forsydeDevtoolsLSP.stackPkgPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Specify where the package DB which contains ForSyDe Shallow is located. Use the command: \n`find $HOME/.stack -name '*forsyde-shallow*' | grep -o '^.*/pkgdb'`. Invalid pathname will cause the LSP server to not start."
+        }
+      }
     }
   },
   "scripts": {
