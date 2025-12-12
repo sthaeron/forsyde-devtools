@@ -1,4 +1,17 @@
-module Utilities (compileToCore, compileToCoreWithForSyDePath, noInlineTypecheck, scheduleAndBuffer) where
+module Utilities
+  ( compileToCore,
+    compileToCoreWithForSyDePath,
+    noInlineTypecheck,
+    scheduleAndBuffer,
+    Stack,
+    emptyStack,
+    push,
+    pop,
+    peek,
+    isEmpty,
+    stackToList,
+  )
+where
 
 import CoreIRToForSyDeIR (translateCoreProgram)
 import Data.Data (Data, gmapT)
@@ -7,10 +20,33 @@ import ForSyDeIR (IRId (..))
 import GHC
 import GHC.Driver.Main
 import GHC.Paths (libdir)
-import GHC.Plugins
+import GHC.Plugins hiding (isEmpty)
 import GHC.Tc.Types
 import SDFSchedule (computeScheduleAndBuffers)
 import System.FilePath (takeBaseName)
+
+newtype Stack a = Stack [a] deriving (Show, Eq)
+
+emptyStack :: Stack a
+emptyStack = Stack []
+
+push :: a -> Stack a -> Stack a
+push x (Stack xs) = Stack (x : xs)
+
+pop :: Stack a -> Maybe (a, Stack a)
+pop (Stack []) = Nothing
+pop (Stack (x : xs)) = Just (x, Stack xs)
+
+peek :: Stack a -> Maybe a
+peek (Stack []) = Nothing
+peek (Stack (x : _)) = Just x
+
+isEmpty :: Stack a -> Bool
+isEmpty (Stack []) = True
+isEmpty (Stack _) = False
+
+stackToList :: Stack a -> [a]
+stackToList (Stack list) = list
 
 -- | Custom `compileToCore` function which compiles a haskell module at a
 -- specified file path into GHC Core. Returns a `CoreProgram` and the internally
@@ -53,7 +89,7 @@ compileToCoreWithForSyDePath forSyDePath filePath = runGhc (Just libdir) $ do
 
 -- | Updates all bindings within the function called `system` and adds NOINLINE
 -- pragmas. Prevents the pre optimisier run during desugaring from inlining
--- bindings relating to variables and functions within the compiled net list.
+-- bindings relating to variables and functions within the compiled netlist.
 --
 -- Solution is inspired by discussions from the GHC API issue:
 -- https://gitlab.haskell.org/ghc/ghc/-/issues/24386

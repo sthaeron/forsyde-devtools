@@ -2,16 +2,22 @@ module CoreIR where
 
 import Data.List (intercalate)
 import GHC
+import GHC.Builtin.Uniques (knownUniqueName)
 import GHC.Core
 import GHC.Driver.Ppr
-import GHC.Plugins (Literal, Var (varName), litValue, occName, occNameString)
+import GHC.Plugins (Literal, Var (varName), litValue, nameStableString, occName, occNameString, varUnique)
 import Text.Printf (printf)
 
 indent :: String -> String
 indent = unlines . map ("  " ++) . lines
 
 varToString :: Var -> String
-varToString var = occNameString $ occName $ varName var
+varToString var =
+  let stringName = occNameString $ occName $ varName var
+      maybeUniqueName = knownUniqueName $ varUnique var
+   in case maybeUniqueName of
+        Just uniqueName -> stringName ++ nameStableString uniqueName
+        Nothing -> stringName
 
 literalToInt :: Literal -> Int
 literalToInt literal = fromIntegral $ litValue literal
@@ -29,13 +35,13 @@ prettyCoreProgram dflags = intercalate "\n" . map (prettyCoreBind dflags)
 
 prettyCoreExpr :: DynFlags -> CoreExpr -> String
 prettyCoreExpr dflags expr = case expr of
-  Var i -> printf "Var(%s)" (varToString i)
+  Var i -> printf "Var(%s)" (showPpr dflags i)
   Lit l -> printf "Lit(%s)" (showPpr dflags l)
   App e a -> printf "App(%s *\n%s)" (prettyCoreExpr dflags e) (prettyCoreExpr dflags a)
-  Lam b e -> printf "Lam(%s ->\n%s)" (varToString b) (prettyCoreExpr dflags e)
+  Lam b e -> printf "Lam(%s ->\n%s)" (showPpr dflags b) (prettyCoreExpr dflags e)
   Type t -> printf "Type(%s)" (showPpr dflags t)
   Let bind e -> printf "Let(\n%s in\n%s)" (indent (prettyCoreBind dflags bind)) (indent (prettyCoreExpr dflags e))
-  Case e b _ alts -> printf "Case(%s of %s {\n%s})" (prettyCoreExpr dflags e) (showPpr dflags b) (indent (prettyCoreAltList dflags alts))
+  Case e _ t alts -> printf "Case(%s of %s {\n%s})" (prettyCoreExpr dflags e) (showPpr dflags t) (indent (prettyCoreAltList dflags alts))
   Cast e co -> printf "Cast(%s by %s)" (prettyCoreExpr dflags e) (showPpr dflags co)
   Tick t e -> printf "Tick(%s: %s)" (showPpr dflags t) (prettyCoreExpr dflags e)
   Coercion co -> printf "Coercion(%s)" (showPpr dflags co)

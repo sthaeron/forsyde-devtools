@@ -2,7 +2,7 @@ module SDF_example_003 where
 
 import ForSyDe.Shallow
 
--- Net list
+-- Netlist
 system :: Signal Int -> Signal Int
 system s_in = s_out
   where
@@ -19,9 +19,3 @@ d_1 s_1 = delaySDF [0] s_1
 -- Function definitions
 add :: [Int] -> [Int] -> ([Int], [Int])
 add [x] [y] = ([x + y], [x + y])
-
--- add_1 [x] = [x + 1]
--- add_2 [x, y] = [x + y]
--- add_3 [x] [y] = [x + y]
--- add_4 [x, y] [z] = ([x + y + z], [x + y, x + y + z])
--- add_5 [x] [y] [z] = ([x + y + z], [x + y, x + y + z])

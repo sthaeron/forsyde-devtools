@@ -2,6 +2,7 @@ module ForSyDeIRToProceduralIR where
 
 import ArgumentsMain (InputType (Predefined, StdIn), Runs (Limited, Perpetual))
 import CoreIR (literalToInt, prettyCoreExpr, varToString)
+import CoreIRToProceduralIR (translateIRFunction)
 import ForSyDeIR
 import GHC hiding (targetId)
 import GHC.Core
@@ -56,7 +57,7 @@ translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookup
   let initialContext = initialTranslationContext dflags input r lookupSignalList inputList outputList delayBufferList
       context1 = foldl' translateIRConstructor initialContext constructors
       context2 = foldl' translateBuffer context1 bufferList
-      context3 = foldl' translateIRFunctionToGlobals context2 functionList
+      context3 = foldl' (translateIRFunctionToGlobals constructors) context2 functionList
       main = translateContextToMain context3 scheduleList
    in Prog (reverse (initFunctions context3) ++ [main] ++ reverse (functions context3))
 
@@ -202,7 +203,7 @@ translateIRConstructor initialContext constructor = case constructor of
                     (EBinOp Less (EVar "i") (EInt (bufferSize)))
                     (SExpr (EUnOp Increment (EVar "i")))
                     (SScope [SVarAssign "status" (ECall "scanf" [EString "%d", EReference (EArrayAccess (EVar ("input_" ++ show signalId)) (EVar "i"))])])
-                breakIfStmt = SIf (EBinOp Less (EVar "status") (EInt 1)) (SBreak) Nothing
+                breakIfStmt = SIf (EBinOp Less (EVar "status") (EInt 1)) (SScope [SBreak]) Nothing
                 writeForStmt =
                   SFor
                     (SVarDef TInt "i" (EInt 0))
@@ -276,13 +277,12 @@ getTargetRate context signalId =
         Just (IRSignal _ _ (_, rate)) -> rate
         Nothing -> error ("getTargetRate - signal not found: " ++ show signalId)
 
-translateIRFunctionToGlobals :: TranslationContext -> IRFunction -> TranslationContext
-translateIRFunctionToGlobals currentContext (IRFunction functionId maybeFunction) = case maybeFunction of
-  Just function ->
-    let (initFunctionGlobal, functionGlobal) = translateCoreExprToGlobals currentContext functionId function
-        context1 = currentContext {initFunctions = initFunctionGlobal : (initFunctions currentContext), functions = functionGlobal : (functions currentContext)}
-     in context1
-  Nothing -> currentContext
+translateIRFunctionToGlobals :: [IRConstructor] -> TranslationContext -> IRFunction -> TranslationContext
+translateIRFunctionToGlobals constructors currentContext function =
+  let context1 = case (translateIRFunction function (flags currentContext) constructors) of
+        (functionDeclaration, Just functionDefinition) -> currentContext {initFunctions = functionDeclaration : (initFunctions currentContext), functions = functionDefinition : (functions currentContext)}
+        (functionDeclaration, Nothing) -> currentContext {initFunctions = functionDeclaration : (initFunctions currentContext)}
+   in context1
 
 -- The following is a temporary hard coded solution that translates the inputs
 -- of the `add` and `accummulate` functions from SDF example 8.

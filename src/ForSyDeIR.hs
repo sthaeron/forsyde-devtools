@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -42,6 +43,7 @@ data IRId
   | Empty
 
 instance Show IRId where
+  show :: IRId -> String
   show (IRVar i) = varToString i
   show (IRString s) = s
   show Empty = ""
