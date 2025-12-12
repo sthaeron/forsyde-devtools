@@ -2,7 +2,7 @@ module SDF_example_009 where
 
 import ForSyDe.Shallow
 
--- Net list
+-- Netlist
 system :: Signal Int -> (Signal Int, Signal Int, Signal Int)
 system s_in = (s_out_1, s_out_2, s_out_3)
   where

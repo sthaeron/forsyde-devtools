@@ -165,7 +165,7 @@ The following is a set of programmer restrictions which limit what the compiler 
 - The input program should be a correct Haskell/ForSyDe program. ForSyDe DevTools currently does not have any input validity checking mechanisms.
 - "where" scopes are not allowed to be nested except for the initial module scope.
 - "if" expressions are not allowed inside "system"
-- Net lists can only be defined using the identifier "system"
+- Netlists can only be defined using the identifier "system"
 - Type signatures should be written for all defined functions.
 - Current implementation support only "system" with one or two outputs.
 

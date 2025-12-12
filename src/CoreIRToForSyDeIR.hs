@@ -15,8 +15,8 @@ data TranslationContext = TranslationContext
     constructors :: [(IRId, IRConstructor)], -- Associated list of pcIds and IRConstructors
     signals :: [(IRId, IRSignal)], -- Associated list of signalIds and IRSignals
     functions :: [(IRId, IRFunction)], -- Associated list of functionIds and IRFunctions
-    systemInputs :: [IRId], -- List of global inputs to net list
-    systemOutputs :: [IRId], -- List of global outputs to net list
+    systemInputs :: [IRId], -- List of global inputs to netlist
+    systemOutputs :: [IRId], -- List of global outputs to netlist
     nameCounter :: Int, -- Counter used for naming signals
     pcRates :: [(IRId, ([Int], [Int]))], -- Associated list of pcIds and input and ouput rates
     binders :: [(IRId, Binder)] -- Associated list of binderIds and Binders
@@ -70,8 +70,8 @@ translateCoreBind context (NonRec b e) = case show (IRVar b) of
 -- output, thus unsure what the expected outcome should be.
 translateCoreBind _ (Rec _) = error "translateCoreBind - `Rec` used in top level of Core output"
 
--- | Translates the `CoreExpr` which is associated with the system net list.
--- Identifies system inputs, builds the net list through a `TranslationContext`,
+-- | Translates the `CoreExpr` which is associated with the system netlist.
+-- Identifies system inputs, builds the netlist through a `TranslationContext`,
 -- and identifies system outputs.
 translateSystem :: TranslationContext -> CoreExpr -> TranslationContext
 translateSystem initialContext expr = case expr of
@@ -91,11 +91,11 @@ translateSystem initialContext expr = case expr of
      in context2
   _ -> translateSystemOutputs initialContext expr
 
--- | Identifies the system outputs of the net list and does the final clean-up
+-- | Identifies the system outputs of the netlist and does the final clean-up
 -- of the `TranslationContext` by updating constructors and signals.
 --
 -- NOTE: This function needs to be updated with new pattern matches for
--- translation to support net lists with additional system ouputs.
+-- translation to support netlists with additional system ouputs.
 translateSystemOutputs :: TranslationContext -> CoreExpr -> TranslationContext
 translateSystemOutputs initialContext expr = case expr of
   -- System has 1 output
