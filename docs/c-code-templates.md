@@ -119,6 +119,18 @@ int run_current = 0;
 int run_max = {x};
 ```
 
+In `predefined` mode, a cumulative iteration variable needs to be created for every actor that
+takes inputs. This is due to the fact that an input actor can take input tokens at multiple
+occasions in the period. Declare them with the name `i_` followed by the signal name,
+for instance
+
+```C
+int i_s_in_b = 0;
+int i_s_in_a = 0;
+```
+
+for the signals `s_in_b`, `s_in_a`.
+
 ### Input/Output tokens
 
 This section should be followed by a declaration of arrays for input/output tokens:
@@ -128,25 +140,20 @@ and read a token into this scalar each iteration of the loop. This means that on
 `output` variable can be created regardless of how many outputs the graph features.
 
 - The input tokens should be of type `token *`, and a unique array needs to be created
-for every input in the graph. The inputs will need to be processed for the whole period
-at once, which means that the (static) length of each array will need to be equal to
-tokens consumed per firing, multiplied by that actors value in the repetition vector.
-The input arrays should **only** be declared in `stdin` IO mode, and should be ommitted
-in the `predefined` mode since they are already defined in the `input.h` file.
+for every input in the graph. The input arrays should **only** be declared in `stdin` input mode,
+and should be ommitted in the `predefined` mode since they are already defined in the `input.h` file.
 
 Example:
 
-- `input_a` input for actor A. A consumes 2 tokens from input each time, and is ran 2
-times per schedule: `2*2 -> 4`
-- `input_b` input for actor B. B consumes 1 token from input each time, and is ran 1
-time per schedule.
-
 ```C
 // Temporary tokens for print/scan functions for input and output
-token input_a[4];
+token input_a[2];
 token input_b[1];
 token output;
 ```
+
+where `input_a` for actor a requires 2 tokens per firing and `input_b` for actor b requires 1 token
+per firing.
 
 ### Buffers
 
@@ -196,23 +203,20 @@ following 3 steps:
 Example:
 
 ```C
-for (i = 0; i < 4; i++) {
+for (i = 0; i < 2; i++) {
     ret = scanf("%d", &input_a[i]);
 }
 if (ret < 1) {
     break;
 }
-for(i = 0; i < 4; i++) {
+for(i = 0; i < 2; i++) {
     write_token(s_in_a, input_a[i]);
 }
 ```
 
 where `%d` needs to be replaced in case another data type than decimal is read.
-Similarly as [Input/Output tokens](#inputoutput-tokens), the upper bound on the
-for-loop for (1.) needs to consider how many times this input needs every firing,
-and how many times this buffer will be read from per period. In this example,
-2 tokens are consumed from `input_a` each time the actor fires, and the actor
-fires 2 times per schedule meaning 4 tokens need to be read per period.
+The upper bound on the for-loop for (1.) needs to consider how many tokens this
+input needs every firing.
 
 For (2.), only the final `scanf` return value is checked for that particular
 input, which will break out of the main while-loop. Afterwards for (3.), a
@@ -226,12 +230,13 @@ schedule, so the `write_token` needs to subindex within a period. This is done w
 for example:
 
 ```C
-for(i = 0; i < 4; i++) {
-    write_token(s_in_a, input_a[iteration_current * 4 + i]);
+for(i = 0; i < 2; i++) {
+    write_token(s_in_a, input_s_in_a[iteration_current * 4 + i_s_in_a]);
+    i_s_in_a = i_s_in_a + 1;
 }
 ```
 
-since each period contains 4 tokens of data.
+since each period contains 4 tokens of data, where only 2 tokens are consumed each firing.
 
 #### Schedule
 
@@ -275,20 +280,27 @@ printf("\n");
 
 #### Predefined input
 
-If in `predefined` input mode with runs set to `inf`, it needs to be checked whether all the data has
-been consumed. Start by incrementing the iteration counter, and then wrap
-the value back to 0 if all inputs have been consumed:
+If in `predefined` input mode with runs set to `inf`, it needs to be checked
+whether all the data has been consumed. Start by incrementing the iteration
+counter, and then wrap the value back to 0 if all inputs have been consumed:
 
 ```C
- iteration_current = iteration_current + 1;
- if (iteration_current == iteration_max) {
-     iteration_current = 0;
- }
+iteration_current = iteration_current + 1;
+i_s_in_b = 0;
+i_s_in_a = 0;
+if (iteration_current == iteration_max) {
+    iteration_current = 0;
+}
 ```
+The accumulating subindices for the flattened array `i_s_in_b` and
+`i_s_in_a` need to be reset to 0 since the period is over.
 
 In the case where runs is set to `runs={x}`, then use the following code block
 
 ```C
+iteration_current = iteration_current + 1;
+i_s_in_b = 0;
+i_s_in_a = 0;
 if (iteration_current == iteration_max) {
     iteration_current = 0;
     run_current = run_current + 1;
