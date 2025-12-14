@@ -169,7 +169,11 @@ translateIRConstructor initialContext constructor = case constructor of
           Just bufferId ->
             let foldDelayTokens :: [Statement] -> Int -> [Statement]
                 foldDelayTokens acc token =
-                  let stmt = SExpr (ECall "write_token" [EVar $ show bufferId, EInt token])
+                  let stmt =
+                        if elem bufferId (systemOutputs initialContext)
+                          -- TODO: Match the output with the actor on the signal
+                          then SExpr (ECall "printf" [EString "%d\n", EInt token])
+                          else SExpr (ECall "write_token" [EVar $ show bufferId, EInt token])
                    in (stmt : acc)
                 delayStmts = (foldl' foldDelayTokens [] tokens)
              in initialContext {initDelay = delayStmts ++ initDelay initialContext}
@@ -193,8 +197,8 @@ translateIRConstructor initialContext constructor = case constructor of
                     ++ [EVar $ show functionId]
                 )
             )
-        inputStmts = foldl' foldActorSignals [] inputSignals
-        outputStmts = foldl' foldActorSignals [] outputSignals
+        inputStmts = foldl' foldActorSignals [] translatedInputSignals
+        outputStmts = foldl' foldActorSignals [] translatedOutputSignals
         stmts = reverse inputStmts ++ [actorCallStmt] ++ reverse outputStmts
         context1 = initialContext {actors = (actorId, stmts) : actors initialContext}
      in context1
@@ -219,7 +223,7 @@ translateIRConstructor initialContext constructor = case constructor of
                 -- standard in.
                 scanForStmt =
                   SFor
-                    (SVarDef TInt "i" (EInt 0))
+                    (SVarDef TInt "i" (ECall "contained_tokens" [EVar $ show signalId]))
                     (EBinOp Less (EVar "i") (EInt (bufferSize)))
                     (SExpr (EUnOp Increment (EVar "i")))
                     (SScope [SVarAssign "status" (ECall "scanf" [EString "%d", EReference (EArrayAccess (EVar ("input_" ++ show signalId)) (EVar "i"))])])
@@ -236,7 +240,7 @@ translateIRConstructor initialContext constructor = case constructor of
             let bufferSize = getTargetRate initialContext signalId
                 writeForStmt =
                   SFor
-                    (SVarDef TInt "i" (EInt 0))
+                    (SVarDef TInt "i" (ECall "contained_tokens" [EVar $ show signalId]))
                     (EBinOp Less (EVar "i") (EInt (bufferSize)))
                     (SExpr (EUnOp Increment (EVar "i")))
                     ( SScope
