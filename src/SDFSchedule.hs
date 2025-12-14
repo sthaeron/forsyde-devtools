@@ -83,6 +83,10 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
                 srcId == delayName
               ]
          in case (incoming, outgoing) of
+              -- input is a global system input -> ignore
+              ([(inSignalId, _, _)], _) | inSignalId `elem` inputNames -> []
+              -- output is a global system output -> ignore
+              (_, [(outSignalId, _, _)]) | outSignalId `elem` outputNames -> []
               ([(inSignalId, srcIn, prodIn)], [(outSignalId, dstOut, consOut)]) ->
                 [ Edge
                     -- use the input signal id as the delay edge id
