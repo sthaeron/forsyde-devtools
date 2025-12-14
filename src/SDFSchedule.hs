@@ -85,14 +85,16 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
          in case (incoming, outgoing) of
               ([(inSignalId, srcIn, prodIn)], [(outSignalId, dstOut, consOut)]) ->
                 [ Edge
-                    (IRString $ show inSignalId ++ "_" ++ show outSignalId) -- delay edge names are combined
+                    -- use the input signal id as the delay edge id
+                    inSignalId
                     (findActorByName srcIn)
                     (findActorByName dstOut)
                     prodIn
                     consOut
                     True
                     (length delayConstructor)
-                    (Just [(inSignalId, IRString $ show inSignalId ++ "_" ++ show outSignalId), (outSignalId, IRString $ show inSignalId ++ "_" ++ show outSignalId)])
+                    -- allow the edge to be found by the output signal id as well
+                    (Just [(outSignalId, inSignalId)])
                 ]
               ([], _) ->
                 error $ "Delay node " ++ show delayName ++ " has no input signal."
