@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase #-}
 
 module SDFSchedule (computeScheduleAndBuffers, computeScheduleAndBuffersPrint) where
 
@@ -97,8 +98,9 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
                     consOut
                     True
                     (length delayConstructor)
-                    -- allow the edge to be found by the output signal id as well
-                    (Just [(outSignalId, inSignalId)])
+                    -- allow the edge to be found by the output signal id as well.
+                    -- Note that we need the in->in as we only lookup the aliaes.
+                    (Just [(inSignalId, inSignalId), (outSignalId, inSignalId)])
                 ]
               ([], _) ->
                 error $ "Delay node " ++ show delayName ++ " has no input signal."
@@ -407,21 +409,63 @@ simulateBufferUsage actors edges initialTokens schedule =
       let production = prod (edges !! edgeIdx)
        in updateAt edgeIdx (+ production) tokens
 
-computeIOBufferSizes :: IRSystem -> [(IRId, Int)] -> [(IRId, Int)]
-computeIOBufferSizes (IRSystem (inputs, outputs) _ signals _) repsWithNames =
+computeIOBufferSizes :: IRSystem -> [(IRId, Int)] -> ([(IRId, Int)], [(IRId, IRId)])
+computeIOBufferSizes (IRSystem (inputs, outputs) constructors signals _) repsWithNames =
   let -- Find all external input edges
       inputEdges =
-        [ (signalId, dstRate, findActorRep dstId)
-        | IRSignal signalId (srcId, _) (dstId, dstRate) <- signals,
+        [ (signalId, dstRate, findActorRep dstId, aliases, nTokens)
+        | (IRSignal signalId (srcId, _) (dstId, dstRate), aliases, nTokens) <- map nonDelayInputSignal inputSignals,
+          srcId `elem` inputs
+        ]
+      inputSignals =
+        [ s
+        | s@(IRSignal _ (srcId, _) (_, _)) <- signals,
           srcId `elem` inputs
         ]
 
+      -- Find the first non-delay process connected to the input signal
+      nonDelayInputSignal s@(IRSignal sigId (srcId, srcRate) (dstId, _)) =
+        case find (\c -> constructorName c == dstId) constructors of
+          -- The signal directly connects to an actor
+          Just (IRActor _ _ _ _) -> (s, [], 0)
+          -- The signal connects to a delay, keep going
+          Just (IRDelay dName tokens (_, next)) | dstId == dName ->
+            case find (\(IRSignal sId _ _) -> sId == next) signals of
+              Just (IRSignal sigAlias (_, _) (newDstId, newDstRate)) ->
+                let (sig, aliases, nTokens) = nonDelayInputSignal (IRSignal sigId (srcId, srcRate) (newDstId, newDstRate))
+                 in (sig, (sigId, sigId) : (sigAlias, sigId) : aliases, nTokens + length tokens)
+              Nothing -> error $ "Could not find next signal " ++ show next
+          _ -> error $ "Could not find the process " ++ show srcId
+
       -- Find all external output edges
       outputEdges =
-        [ (signalId, srcRate, findActorRep srcId)
-        | IRSignal signalId (srcId, srcRate) (dstId, _) <- signals,
+        [ (signalId, srcRate, findActorRep srcId, aliases, nTokens)
+        | (IRSignal signalId (srcId, srcRate) (dstId, _), aliases, nTokens) <- map nonDelayOutputSignal outputSignals,
           dstId `elem` outputs
         ]
+      outputSignals =
+        [ s
+        | s@(IRSignal _ (_, _) (dstId, _)) <- signals,
+          dstId `elem` outputs
+        ]
+
+      -- Find the first non-delay process connected to the output signal
+      nonDelayOutputSignal s@(IRSignal sigId (srcId, _) (dstId, dstRate)) =
+        case find (\c -> constructorName c == srcId) constructors of
+          -- The signal directly connects to an actor
+          Just (IRActor _ _ _ _) -> (s, [], 0)
+          -- The signal connects to a delay, keep going
+          Just (IRDelay dName tokens (next, _)) | srcId == dName ->
+            case find (\(IRSignal sId _ _) -> sId == next) signals of
+              Just (IRSignal sigAlias (newSrcId, newSrcRate) (_, _)) ->
+                let (sig, aliases, nTokens) = nonDelayOutputSignal (IRSignal sigId (newSrcId, newSrcRate) (dstId, dstRate))
+                 in (sig, (sigId, sigId) : (sigAlias, sigId) : aliases, nTokens + length tokens)
+              Nothing -> error $ "Could not find next signal " ++ show next
+          _ -> error $ "Could not find the process " ++ show srcId
+
+      constructorName = \case
+        IRActor cName _ _ _ -> cName
+        IRDelay cName _ _ -> cName
 
       -- Find repetition count by actor names
       findActorRep actorName =
@@ -429,18 +473,10 @@ computeIOBufferSizes (IRSystem (inputs, outputs) _ signals _) repsWithNames =
           Just rep -> rep
           Nothing -> error $ "Actor " ++ show actorName ++ " not found in repetition counts"
 
-      -- Calculate input buffer size：rate × dst actor rep count
-      inputBuffers =
-        [ (signalId, dstRate * rep)
-        | (signalId, dstRate, rep) <- inputEdges
-        ]
-
-      -- Calculate output buffer size：rate × src actor rep count
-      outputBuffers =
-        [ (signalId, srcRate * rep)
-        | (signalId, srcRate, rep) <- outputEdges
-        ]
-   in inputBuffers ++ outputBuffers
+      -- separate the buffers and aliases
+      foldBuffer (sigId, rate, rep, aliases, nTokens) (sigAcc, aliasAcc) =
+        ((sigId, max (rate * rep) nTokens) : sigAcc, aliases ++ aliasAcc)
+   in foldr foldBuffer ([], []) $ inputEdges ++ outputEdges
 
 ----------------------------------------------------------
 -- Verification of the schedule
@@ -485,8 +521,8 @@ computeScheduleAndBuffers irSystem =
           let schedNames = map name actors
               repsWithNames = zip (map name actors) (replicate (length actors) 1)
               internalBufSizes = zip (map edgeName edges) (replicate (length edges) 0)
-              ioBufSizes = computeIOBufferSizes irSystem repsWithNames
-           in (schedNames, ioBufSizes ++ internalBufSizes, [])
+              (ioBufSizes, aliases) = computeIOBufferSizes irSystem repsWithNames
+           in (schedNames, ioBufSizes ++ internalBufSizes, aliases)
         else
           let mat = buildTopologyMatrixEdgesRows actors edges
               rankMat = rank mat
@@ -510,9 +546,9 @@ computeScheduleAndBuffers irSystem =
                                 schedIdxs = greedySchedule actors edges repCounts
                                 schedNames = map (name . (actors !!)) schedIdxs
                                 internalBufSizes = simulateBufferUsage actors edges (map initTokens edges) schedIdxs
-                                ioBufSizes = computeIOBufferSizes irSystem repsWithNames
+                                (ioBufSizes, aliases) = computeIOBufferSizes irSystem repsWithNames
                                 delayBuffers = getBuffers edges
-                             in (schedNames, ioBufSizes ++ internalBufSizes, delayBuffers)
+                             in (schedNames, ioBufSizes ++ internalBufSizes, delayBuffers ++ aliases)
                    in finalResult
                 else
                   error "Matrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
@@ -543,7 +579,7 @@ computeScheduleAndBuffersPrint irSystem =
                     repsWithNames = zip (map name actors) (replicate (length actors) 1)
                     internalBufSizes = zip (map edgeName edges) (replicate (length edges) 0)
                     ioBufSizes = computeIOBufferSizes irSystem repsWithNames
-                    allBufSizes = ioBufSizes ++ internalBufSizes
+                    allBufSizes = fst ioBufSizes ++ internalBufSizes
                  in "No internal edges found.\n\n"
                       ++ "Schedule (all actors fire once):\n"
                       ++ intercalate ", " (map show schedNames)
@@ -616,7 +652,7 @@ computeScheduleAndBuffersPrint irSystem =
                             -- Simulate buffer usage for one period
                             internalBufSizes = simulateBufferUsage actors edges (map initTokens edges) schedIdxs
                             ioBufSizes = computeIOBufferSizes irSystem repsWithNames
-                            allBufSizes = ioBufSizes ++ internalBufSizes
+                            allBufSizes = fst ioBufSizes ++ internalBufSizes
 
                             internalBufStr =
                               "\n\nInternal buffer sizes (maximum tokens observed per edge):"
@@ -628,7 +664,7 @@ computeScheduleAndBuffersPrint irSystem =
                               "\n\nI/O buffer sizes (rate × repetition count):"
                                 ++ concatMap
                                   (\(ename, sz) -> "\n  " ++ show ename ++ ": " ++ show sz)
-                                  ioBufSizes
+                                  (fst ioBufSizes)
 
                             allBufStr =
                               "\n\nAll buffer sizes (I/O + internal):"
