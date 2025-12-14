@@ -52,7 +52,33 @@ stackToList (Stack list) = list
 -- specified file path into GHC Core. Returns a `CoreProgram` and the internally
 -- defined and used `DynFlags`. This flags are used for safe pretty printing.
 compileToCore :: FilePath -> IO (CoreProgram, DynFlags)
-compileToCore = compileToCoreWithForSyDePath Nothing
+compileToCore filePath = runGhc (Just libdir) $ do
+  dflags <- getSessionDynFlags
+  let newDflags =
+        dflags
+          { ghcLink = NoLink,
+            ghcMode = CompManager,
+            backend = interpreterBackend,
+            verbosity = 0,
+            debugLevel = 0
+          }
+  _ <- setSessionDynFlags newDflags
+  target <- guessTarget filePath Nothing Nothing
+  setTargets [target]
+  _ <- load LoadAllTargets
+  setContext
+    [ IIDecl
+        . simpleImportDecl
+        . mkModuleName
+        $ "ForSyDe.Shallow"
+    ]
+  modSummary <- getModSummary $ mkModuleName (takeBaseName filePath)
+  env <- getSession
+  parsedModule <- liftIO $ hscParse env modSummary
+  (tcg, _) <- liftIO $ hscTypecheckRename env modSummary parsedModule
+  let noInlineTcg = noInlineTypecheck tcg
+  guts <- liftIO $ hscDesugar env modSummary noInlineTcg
+  return $ (mg_binds guts, newDflags)
 
 compileToCoreWithForSyDePath :: Maybe FilePath -> FilePath -> IO (CoreProgram, DynFlags)
 compileToCoreWithForSyDePath forSyDePath filePath = runGhc (Just libdir) $ do
