@@ -14,71 +14,59 @@ module Utilities
 where
 
 import CoreIRToForSyDeIR (translateCoreProgram)
+import Data.Char (isSpace)
 import Data.Data (Data, gmapT)
 import Data.Generics (extT)
+import Data.List (dropWhileEnd)
 import ForSyDeIR (IRId (..))
 import GHC
 import GHC.Driver.Main
+import GHC.Driver.Session (ModRenaming (..), PackageArg (..), PackageDBFlag (..), PackageFlag (..), packageFlags)
 import GHC.Paths (libdir)
 import GHC.Plugins hiding (isEmpty)
 import GHC.Tc.Types
 import SDFSchedule (computeScheduleAndBuffers)
 import System.FilePath (takeBaseName)
+import System.Process (readProcess)
 
-newtype Stack a = Stack [a] deriving (Show, Eq)
-
-emptyStack :: Stack a
-emptyStack = Stack []
-
-push :: a -> Stack a -> Stack a
-push x (Stack xs) = Stack (x : xs)
-
-pop :: Stack a -> Maybe (a, Stack a)
-pop (Stack []) = Nothing
-pop (Stack (x : xs)) = Just (x, Stack xs)
-
-peek :: Stack a -> Maybe a
-peek (Stack []) = Nothing
-peek (Stack (x : _)) = Just x
-
-isEmpty :: Stack a -> Bool
-isEmpty (Stack []) = True
-isEmpty (Stack _) = False
-
-stackToList :: Stack a -> [a]
-stackToList (Stack list) = list
+getStackPackageDbPaths :: IO FilePath
+getStackPackageDbPaths = do
+  globalDb <- readProcess "stack" ["path", "--global-pkg-db"] ""
+  snapshotDb <- readProcess "stack" ["path", "--snapshot-pkg-db"] ""
+  localDb <- readProcess "stack" ["path", "--local-pkg-db"] ""
+  return globalDb
 
 -- | Custom `compileToCore` function which compiles a haskell module at a
 -- specified file path into GHC Core. Returns a `CoreProgram` and the internally
 -- defined and used `DynFlags`. This flags are used for safe pretty printing.
 compileToCore :: FilePath -> IO (CoreProgram, DynFlags)
-compileToCore filePath = runGhc (Just libdir) $ do
-  dflags <- getSessionDynFlags
-  let newDflags =
-        dflags
-          { ghcLink = NoLink,
-            ghcMode = CompManager,
-            backend = interpreterBackend,
-            verbosity = 0,
-            debugLevel = 0
-          }
-  _ <- setSessionDynFlags newDflags
-  target <- guessTarget filePath Nothing Nothing
-  setTargets [target]
-  _ <- load LoadAllTargets
-  setContext
-    [ IIDecl
-        . simpleImportDecl
-        . mkModuleName
-        $ "ForSyDe.Shallow"
-    ]
-  modSummary <- getModSummary $ mkModuleName (takeBaseName filePath)
-  env <- getSession
-  parsedModule <- liftIO $ hscParse env modSummary
-  (tcg, _) <- liftIO $ hscTypecheckRename env modSummary parsedModule
-  let noInlineTcg = noInlineTypecheck tcg
-  guts <- liftIO $ hscDesugar env modSummary noInlineTcg
-  return $ (mg_binds guts, newDflags)
+compileToCore filePath = do
+  packageDbs <- getStackPackageDbPaths
+  runGhc (Just libdir) $ do
+    dflags <- getSessionDynFlags
+    let pkgFlags = [ExposePackage "forsyde-shallow" (PackageArg "forsyde-shallow") (ModRenaming True [])]
+    let dbFlags = [PackageDB (PkgDbPath (packageDbs))]
+    let newDflags =
+          dflags
+            { ghcLink = NoLink,
+              ghcMode = CompManager,
+              backend = interpreterBackend,
+              verbosity = 0,
+              debugLevel = 0,
+              packageDBFlags = dbFlags,
+              packageFlags = packageFlags dflags ++ pkgFlags
+            }
+    _ <- setSessionDynFlags newDflags
+    target <- guessTarget filePath Nothing Nothing
+    setTargets [target]
+    _ <- load LoadAllTargets
+    modSummary <- getModSummary $ mkModuleName (takeBaseName filePath)
+    env <- getSession
+    parsedModule <- liftIO $ hscParse env modSummary
+    (tcg, _) <- liftIO $ hscTypecheckRename env modSummary parsedModule
+    let noInlineTcg = noInlineTypecheck tcg
+    guts <- liftIO $ hscDesugar env modSummary noInlineTcg
+    return $ (mg_binds guts, newDflags)
 
 compileToCoreWithForSyDePath :: Maybe FilePath -> FilePath -> IO (CoreProgram, DynFlags)
 compileToCoreWithForSyDePath forSyDePath filePath = runGhc (Just libdir) $ do
@@ -169,3 +157,27 @@ scheduleAndBuffer filePath = do
   (core, dflags) <- (compileToCore filePath)
   let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
   return $ computeScheduleAndBuffers forsydeIR
+
+-- | A stack data type used in the Core IR to Procedural IR translation solution
+newtype Stack a = Stack [a] deriving (Show, Eq)
+
+emptyStack :: Stack a
+emptyStack = Stack []
+
+push :: a -> Stack a -> Stack a
+push x (Stack xs) = Stack (x : xs)
+
+pop :: Stack a -> Maybe (a, Stack a)
+pop (Stack []) = Nothing
+pop (Stack (x : xs)) = Just (x, Stack xs)
+
+peek :: Stack a -> Maybe a
+peek (Stack []) = Nothing
+peek (Stack (x : _)) = Just x
+
+isEmpty :: Stack a -> Bool
+isEmpty (Stack []) = True
+isEmpty (Stack _) = False
+
+stackToList :: Stack a -> [a]
+stackToList (Stack list) = list
