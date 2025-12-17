@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module ProceduralIR
   ( UnaryOperator (..),
     BinaryOperator (..),
@@ -8,6 +10,7 @@ module ProceduralIR
     Program (..),
     StorageClass (..),
     TypeQualifier (..),
+    Associativity (..),
     prettyStorageClass,
     prettyTypeQualifier,
     prettyBinaryOperator,
@@ -17,6 +20,8 @@ module ProceduralIR
     prettyStatement,
     prettyGlobal,
     prettyProgram,
+    associativity,
+    precedence,
   )
 where
 
@@ -61,6 +66,76 @@ data BinaryOperator
   | Greater -- lhs > rhs
   | GreaterEqual -- lhs >= rhs
   deriving (Show)
+
+data Associativity
+  = ALeft
+  | ARight
+
+class Operator e where
+  precedence :: e -> Int
+  associativity :: e -> Associativity
+
+instance Operator UnaryOperator where
+  precedence = \case
+    Increment -> 15
+    Decrement -> 15
+    -- prefix inc/dec 14
+    Negate -> 14
+    LogicalNot -> 14
+    -- type-cast 13
+
+  associativity = \case
+    Increment -> ALeft
+    Decrement -> ALeft
+    Negate -> ARight
+    LogicalNot -> ARight
+
+instance Operator BinaryOperator where
+  precedence = \case
+    Multiply -> 12
+    Divide -> 12
+    Modulo -> 12
+    Plus -> 11
+    Minus -> 11
+    -- shift 10
+    Less -> 9
+    Greater -> 9
+    LessEqual -> 9
+    GreaterEqual -> 9
+    Equal -> 8
+    NotEqual -> 8
+    -- and 7
+    -- xor 6
+    -- or 5
+    LogicalAnd -> 4
+    LogicalOr -> 3
+    -- ternary 2
+    PlusAssign -> 1
+    MinusAssign -> 1
+    MultiplyAssign -> 1
+    DivideAssign -> 1
+    ModuloAssign -> 1
+    -- comma 0
+
+  associativity = \case
+    Plus -> ALeft
+    Minus -> ALeft
+    Multiply -> ALeft
+    Divide -> ALeft
+    Modulo -> ALeft
+    PlusAssign -> ARight
+    MinusAssign -> ARight
+    MultiplyAssign -> ARight
+    DivideAssign -> ARight
+    ModuloAssign -> ARight
+    Equal -> ARight
+    NotEqual -> ALeft
+    LogicalAnd -> ALeft
+    LogicalOr -> ALeft
+    Less -> ALeft
+    LessEqual -> ALeft
+    Greater -> ALeft
+    GreaterEqual -> ALeft
 
 -- Types
 data Type

@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module ProceduralIRToC where
 
 import ArgumentsMain (InputType (Predefined, StdIn), Target (PC, PICO2))
@@ -7,6 +9,63 @@ import Text.Printf (printf)
 
 indent :: String -> String
 indent = unlines . map ("    " ++) . lines
+
+-- Helper function to place parentheses around operators depending on their
+-- precedence and associativity
+wrapExpression :: Expression -> Expression
+wrapExpression = \case
+  EUnOp op e ->
+    case e of
+      EBinOp op1 _ _ ->
+        if precedence op > precedence op1
+          then EUnOp op (EParen e)
+          else EUnOp op e
+      EUnOp op1 _ ->
+        if precedence op > precedence op1
+          then EUnOp op (EParen e)
+          else EUnOp op e
+      _ -> EUnOp op e
+  EBinOp op e1 e2 ->
+    case associativity op of
+      ALeft ->
+        case (e1, e2) of
+          (EBinOp op1 _ _, EBinOp _ _ _) ->
+            if precedence op > precedence op1
+              then EBinOp op (EParen e1) (EParen e2)
+              else EBinOp op e1 (EParen e2)
+          (EUnOp op1 _, EBinOp _ _ _) ->
+            if precedence op > precedence op1
+              then EBinOp op (EParen e1) (EParen e2)
+              else EBinOp op e1 (EParen e2)
+          (EBinOp op1 _ _, _) ->
+            if precedence op > precedence op1
+              then EBinOp op (EParen e1) e2
+              else EBinOp op e1 e2
+          (EUnOp op1 _, _) ->
+            if precedence op > precedence op1
+              then EBinOp op (EParen e1) e2
+              else EBinOp op e1 e2
+          _ -> EBinOp op e1 e2
+      ARight ->
+        case (e1, e2) of
+          (EBinOp _ _ _, EBinOp op2 _ _) ->
+            if precedence op > precedence op2
+              then EBinOp op (EParen e1) (EParen e2)
+              else EBinOp op (EParen e1) e2
+          (EBinOp _ _ _, EUnOp op2 _) ->
+            if precedence op > precedence op2
+              then EBinOp op (EParen e1) (EParen e2)
+              else EBinOp op (EParen e1) e2
+          (_, EBinOp op2 _ _) ->
+            if precedence op > precedence op2
+              then EBinOp op e1 (EParen e2)
+              else EBinOp op e1 e2
+          (_, EUnOp op2 _) ->
+            if precedence op > precedence op2
+              then EBinOp op e1 (EParen e2)
+              else EBinOp op e1 e2
+          _ -> EBinOp op e1 e2
+  e -> e
 
 stripSemicolon :: String -> String
 stripSemicolon str =
@@ -60,34 +119,35 @@ translateType currentType = case currentType of
       ++ ")"
 
 translateExpression :: Expression -> String
-translateExpression (EVar x) = x
-translateExpression (EInt i) = show i
-translateExpression (EChar c) = show c
-translateExpression (EString s) = show s
-translateExpression (EBinOp bop exprA exprB) =
-  translateExpression exprA ++ " " ++ translateBinaryOperator bop ++ " " ++ translateExpression exprB
-translateExpression (EUnOp unop@Increment expr) =
-  translateExpression expr ++ translateUnaryOperator unop
-translateExpression (EUnOp unop@Decrement expr) =
-  translateExpression expr ++ translateUnaryOperator unop
-translateExpression (EUnOp unop expr) =
-  translateUnaryOperator unop ++ translateExpression expr
-translateExpression (ECall name arguments) =
-  name ++ "(" ++ intercalate ", " (map translateExpression arguments) ++ ")"
-translateExpression (ECallExpr calleeExpr arguments) =
-  translateExpression calleeExpr ++ "(" ++ intercalate ", " (map translateExpression arguments) ++ ")"
-translateExpression (EArrayAccess arrayExpr indexExpr) =
-  translateExpression arrayExpr ++ "[" ++ translateExpression indexExpr ++ "]"
-translateExpression (EReference expr) =
-  "&" ++ translateExpression expr
-translateExpression (EDereference expr) =
-  "*" ++ translateExpression expr
-translateExpression (EMemberAccess expr field) =
-  translateExpression expr ++ "." ++ field
-translateExpression (EPointerAccess expr field) =
-  translateExpression expr ++ "->" ++ field
-translateExpression (EParen expr) =
-  "(" ++ translateExpression expr ++ ")"
+translateExpression expr' =
+  case wrapExpression expr' of
+    EVar x -> x
+    EInt i -> show i
+    EChar c -> show c
+    EString s -> show s
+    EBinOp bop exprA exprB ->
+      translateExpression exprA ++ " " ++ translateBinaryOperator bop ++ " " ++ translateExpression exprB
+    EUnOp op expr ->
+      case op of
+        Increment -> translateExpression expr ++ translateUnaryOperator op
+        Decrement -> translateExpression expr ++ translateUnaryOperator op
+        _ -> translateUnaryOperator op ++ translateExpression expr
+    ECall name arguments ->
+      name ++ "(" ++ intercalate ", " (map translateExpression arguments) ++ ")"
+    ECallExpr calleeExpr arguments ->
+      translateExpression calleeExpr ++ "(" ++ intercalate ", " (map translateExpression arguments) ++ ")"
+    EArrayAccess arrayExpr indexExpr ->
+      translateExpression arrayExpr ++ "[" ++ translateExpression indexExpr ++ "]"
+    EReference expr ->
+      "&" ++ translateExpression expr
+    EDereference expr ->
+      "*" ++ translateExpression expr
+    EMemberAccess expr field ->
+      translateExpression expr ++ "." ++ field
+    EPointerAccess expr field ->
+      translateExpression expr ++ "->" ++ field
+    EParen expr ->
+      "(" ++ translateExpression expr ++ ")"
 
 translateStatement :: Statement -> String
 translateStatement (SExpr expression) =

@@ -232,7 +232,7 @@ translateFunctionContent context contentList =
             Nothing -> error "translateFunctionContent - empty expression stack when popping"
             Just (elist, stack1) -> (elist, stack1)
           (expr1, expr2, exprTail) = case exprList of
-            (e1 : e2 : eTail) -> (EParen e1, EParen e2, eTail)
+            (e1 : e2 : eTail) -> (e1, e2, eTail)
             _ -> error ("translateFunctionContent - insufficient operands for " ++ show binOp)
           newExpr = EBinOp binOp expr1 expr2
           newExprList = newExpr : exprTail
