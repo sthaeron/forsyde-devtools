@@ -103,10 +103,7 @@ noInlineTypecheck tcg = tcg {tcg_binds = applySystemBinds (tcg_binds tcg)}
     checkFunBind bind =
       case bind of
         FunBind {fun_id = var, fun_matches = matches} ->
-          let funName = occNameString (occName (unLoc var))
-           in case funName of
-                "system" -> bind {fun_id = var, fun_matches = applyLocalBinds matches}
-                _ -> bind
+          bind {fun_id = var, fun_matches = applyLocalBinds matches}
         _ -> applySystemBinds bind
 
     applyLocalBinds :: (Data a) => a -> a
