@@ -1,11 +1,9 @@
 module ForSyDeIRToProceduralIR where
 
 import ArgumentsMain (InputType (Predefined, StdIn), Runs (Limited, Perpetual))
-import CoreIR (literalToInt, prettyCoreExpr, varToString)
 import CoreIRToProceduralIR (translateIRFunction)
 import ForSyDeIR
 import GHC hiding (targetId)
-import GHC.Core
 import ProceduralIR
 
 -- | The `TranslationContext` is a data type which is used to pass around
@@ -171,7 +169,11 @@ translateIRConstructor initialContext constructor = case constructor of
           Just bufferId ->
             let foldDelayTokens :: [Statement] -> Int -> [Statement]
                 foldDelayTokens acc token =
-                  let stmt = SExpr (ECall "write_token" [EVar $ show bufferId, EInt token])
+                  let stmt =
+                        if elem bufferId (systemOutputs initialContext)
+                          -- TODO: Match the output with the actor on the signal
+                          then SExpr (ECall "printf" [EString "%d\n", EInt token])
+                          else SExpr (ECall "write_token" [EVar $ show bufferId, EInt token])
                    in (stmt : acc)
                 delayStmts = (foldl' foldDelayTokens [] tokens)
              in initialContext {initDelay = delayStmts ++ initDelay initialContext}
@@ -195,8 +197,8 @@ translateIRConstructor initialContext constructor = case constructor of
                     ++ [EVar $ show functionId]
                 )
             )
-        inputStmts = foldl' foldActorSignals [] inputSignals
-        outputStmts = foldl' foldActorSignals [] outputSignals
+        inputStmts = foldl' foldActorSignals [] translatedInputSignals
+        outputStmts = foldl' foldActorSignals [] translatedOutputSignals
         stmts = reverse inputStmts ++ [actorCallStmt] ++ reverse outputStmts
         context1 = initialContext {actors = (actorId, stmts) : actors initialContext}
      in context1
@@ -221,7 +223,7 @@ translateIRConstructor initialContext constructor = case constructor of
                 -- standard in.
                 scanForStmt =
                   SFor
-                    (SVarDef TInt "i" (EInt 0))
+                    (SVarDef TInt "i" (ECall "contained_tokens" [EVar $ show signalId]))
                     (EBinOp Less (EVar "i") (EInt (bufferSize)))
                     (SExpr (EUnOp Increment (EVar "i")))
                     (SScope [SVarAssign "status" (ECall "scanf" [EString "%d", EReference (EArrayAccess (EVar ("input_" ++ show signalId)) (EVar "i"))])])
@@ -238,7 +240,7 @@ translateIRConstructor initialContext constructor = case constructor of
             let bufferSize = getTargetRate initialContext signalId
                 writeForStmt =
                   SFor
-                    (SVarDef TInt "i" (EInt 0))
+                    (SVarDef TInt "i" (ECall "contained_tokens" [EVar $ show signalId]))
                     (EBinOp Less (EVar "i") (EInt (bufferSize)))
                     (SExpr (EUnOp Increment (EVar "i")))
                     ( SScope
@@ -338,48 +340,3 @@ translateIRFunctionToGlobals constructors currentContext function =
         (functionDeclaration, Just functionDefinition) -> currentContext {initFunctions = functionDeclaration : (initFunctions currentContext), functions = functionDefinition : (functions currentContext)}
         (functionDeclaration, Nothing) -> currentContext {initFunctions = functionDeclaration : (initFunctions currentContext)}
    in context1
-
--- The following is a temporary hard coded solution that translates the inputs
--- of the `add` and `accummulate` functions from SDF example 8.
-translateCoreExprToGlobals :: TranslationContext -> IRId -> CoreExpr -> (Global, Global)
-translateCoreExprToGlobals context binder expr = case (binder, expr) of
-  (b, Lam _ (Lam _ e))
-    | b == IRString "accumulate" ->
-        let functionScopeStmt = translateCoreExprToStatement context e
-            initFunctionGlobal = GFuncDeclare (Just Static) TVoid (show binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output_1"), (TPointer TInt, "output_2")]
-            functionGlobal = GFuncDef (Just Static) TVoid (show binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output_1"), (TPointer TInt, "output_2")] functionScopeStmt
-         in (initFunctionGlobal, functionGlobal)
-  (b, Lam _ (Lam _ e))
-    | b == IRString "add" ->
-        let functionScopeStmt = translateCoreExprToStatement context e
-            initFunctionGlobal = GFuncDeclare (Just Static) TVoid (show binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output")]
-            functionGlobal = GFuncDef (Just Static) TVoid (show binder) [(TPointer TInt, "input_1"), (TPointer TInt, "input_2"), (TPointer TInt, "output")] functionScopeStmt
-         in (initFunctionGlobal, functionGlobal)
-  _ -> error ("translateCoreExprToGlobals - unsupported expression:\n" ++ prettyCoreExpr (flags context) expr)
-
--- The following is a temporary hard coded solution that translates the
--- contents and outputs of the `add` and `accumulate` functions from SDF
--- example 8.
-translateCoreExprToStatement :: TranslationContext -> CoreExpr -> Statement
-translateCoreExprToStatement context expr = case expr of
-  Var varId -> SExpr (EVar (varToString varId))
-  Lit i -> SExpr (EInt (literalToInt i))
-  App (App (App (Var _) (Type _)) (App (App (App (App (Var _op1) (Type _)) (Var _)) (Var _a1)) (Var _a2))) (App (Var _) (Type _)) ->
-    let stmt = SArrayAssign "output" (EInt 0) Nothing (EBinOp Plus (EArrayAccess (EVar "input_1") (EInt 0)) (EArrayAccess (EVar "input_2") (EInt 0)))
-     in SScope ([stmt])
-  App (App (App (App (Var _) (Type _)) (Type _)) (App (App (App (Var _) (Type _)) (App (App (App (App (Var _op1) (Type _)) (Var _)) (Var _a1)) (Var _a2))) (App (Var _) (Type _)))) (App (App (App (Var _) (Type _)) (App (App (App (App (Var _op2) (Type _)) (Var _)) (Var _b1)) (Var _b2))) (App (Var _) (Type _))) ->
-    let stmt1 = SArrayAssign "output_1" (EInt 0) Nothing (EBinOp Plus (EArrayAccess (EVar "input_1") (EInt 0)) (EArrayAccess (EVar "input_2") (EInt 0)))
-        stmt2 = SArrayAssign "output_2" (EInt 0) Nothing (EBinOp Plus (EArrayAccess (EVar "input_1") (EInt 0)) (EArrayAccess (EVar "input_2") (EInt 0)))
-     in SScope ([stmt1, stmt2])
-  Let _ e -> translateCoreExprToStatement context e
-  Case _ _ _ alts -> translateAltsToStatements context alts
-  Lam _ e -> translateCoreExprToStatement context e
-  App _ e -> translateCoreExprToStatement context e
-  Tick _ e -> translateCoreExprToStatement context e
-  _ -> error ("translateCoreExprToStatement - unsupported expression:\n" ++ prettyCoreExpr (flags context) expr)
-
-translateAltsToStatements :: TranslationContext -> [Alt CoreBndr] -> Statement
-translateAltsToStatements context alts = case alts of
-  [] -> error ""
-  (Alt (DataAlt _) _ e) : [] -> translateCoreExprToStatement context e
-  _ : altsTail -> translateAltsToStatements context altsTail

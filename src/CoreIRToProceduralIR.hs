@@ -223,14 +223,6 @@ translateFunctionContent context contentList =
     stackToScope acc (outputSignal, exprList) =
       let outputStmts = map (\(idx, expr) -> SArrayAssign outputSignal (EInt idx) Nothing expr) (zip [0 ..] exprList)
        in (acc ++ outputStmts)
-    -- Helper function which wraps Procedural IR expression which use non
-    -- commutative binary or unary operators in parenthesis.
-    wrapNonCommutativeExpression :: Expression -> Expression
-    wrapNonCommutativeExpression e = case e of
-      EBinOp Minus _ _ -> EParen e
-      EBinOp Divide _ _ -> EParen e
-      EUnOp Negate _ -> EParen e
-      _ -> e
     -- Helper function to handle the case when the `FunctionContent` represents
     -- a `BinaryOperator`
     binOpContentToStack :: BinaryOperator -> Stack [Expression] -> Stack [Expression]
@@ -239,7 +231,7 @@ translateFunctionContent context contentList =
             Nothing -> error "translateFunctionContent - empty expression stack when popping"
             Just (elist, stack1) -> (elist, stack1)
           (expr1, expr2, exprTail) = case exprList of
-            (e1 : e2 : eTail) -> (wrapNonCommutativeExpression e1, wrapNonCommutativeExpression e2, eTail)
+            (e1 : e2 : eTail) -> (EParen e1, EParen e2, eTail)
             _ -> error ("translateFunctionContent - insufficient operands for " ++ show binOp)
           newExpr = EBinOp binOp expr1 expr2
           newExprList = newExpr : exprTail
@@ -280,7 +272,7 @@ translateFunctionContent context contentList =
               Nothing -> error "translateFunctionContent - empty expression stack when popping"
               Just (elist, stack1) -> (elist, stack1)
             (expr1, exprTail) = case exprList of
-              (e1 : eTail) -> (e1, eTail)
+              (e1 : eTail) -> (EParen e1, eTail)
               _ -> error "translateFunctionContent - insufficient operands for Negate"
             newExpr = EUnOp Negate expr1
             newExprList = newExpr : exprTail

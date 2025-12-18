@@ -68,4 +68,9 @@ static void read_token(buffer_nonblocking *buf, token *data)
 	--buf->used;
 }
 
+static size_t contained_tokens(buffer_nonblocking *buf)
+{
+	return buf->used;
+}
+
 #endif
