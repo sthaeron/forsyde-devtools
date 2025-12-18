@@ -396,32 +396,16 @@ handlers =
               _ <- dualLogger <& ("Failed to compile into ForSyDe IR: " <> T.show (e :: E.ErrorCall)) `L.WithSeverity` L.Error
               pure $ system config
             Right (ir, _) -> pure $ Just ir
-    findIR :: (a -> Maybe b) -> (a -> Bool) -> [a] -> [b]
-    findIR transform match l =
-      foldr
-        ( \e a ->
-            if match e
-              then case transform e of
-                Just ret -> ret : a
-                Nothing -> a
-              else a
-        )
-        []
-        l
     findSignalSpan :: IRId -> [IRSignal] -> [IRSpan]
-    findSignalSpan sig l = findIR transform match l
+    findSignalSpan sig l = mapMaybe match l
       where
-        match (IRSignal n _ _) = sig == n
-        transform (IRSignal n _ _) = varToSpan n
+        match (IRSignal n _ _) = if sig == n then varToSpan n else Nothing
     findProcessSpan :: IRId -> [IRConstructor] -> [IRSpan]
-    findProcessSpan proc l = findIR transform match l
+    findProcessSpan proc l = mapMaybe match l
       where
         match = \case
-          IRDelay n _ _ -> proc == n
-          IRActor n _ _ _ -> proc == n
-        transform = \case
-          IRDelay n _ _ -> varToSpan n
-          IRActor n _ _ _ -> varToSpan n
+          IRDelay n _ _ -> if proc == n then varToSpan n else Nothing
+          IRActor n _ _ _ -> if proc == n then varToSpan n else Nothing
     getKey key = \case
       A.Object o -> o !? key
       _ -> Nothing
