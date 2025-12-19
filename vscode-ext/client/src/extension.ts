@@ -9,6 +9,8 @@ import {
   StreamInfo,
 } from "vscode-languageclient/node";
 
+import { existsSync } from "fs";
+
 let client: LanguageClient;
 let socket: Socket;
 
@@ -97,9 +99,16 @@ function createServerOptions(context: ExtensionContext): ServerOptions {
       args = ["--forsyde-pkgpath", stackPkgPath, "--stdio"];
     }
 
-    return {
-      run: { command: lsp_executable, args },
-      debug: { command: lsp_executable, args },
-    };
+    if (existsSync(lsp_executable)) {
+      return {
+        run: { command: lsp_executable, args },
+        debug: { command: lsp_executable, args },
+      };
+    } else {
+      return {
+        run: { command: `forsyde-lsp-exe`, args },
+        debug: { command: `forsyde-lsp-exe`, args },
+      };
+    }
   }
 }
