@@ -150,7 +150,7 @@ outputFormatC =
     OutputC
     OutputC
     ( long "output-c"
-        <> help "Output file in C"
+        <> help "Output file in C (default)"
     )
 
 outputFormatCore :: Parser OutputFormat
@@ -158,7 +158,7 @@ outputFormatCore =
   flag'
     OutputCore
     ( long "output-core"
-        <> help "Output file in Core (default)"
+        <> help "Output file in Core"
     )
 
 outputFormatForSyDeIR :: Parser OutputFormat
