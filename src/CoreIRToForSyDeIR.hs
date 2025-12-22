@@ -231,8 +231,23 @@ translateSystemExpr initialContext expr = case expr of
         context1 = createSignalsFromArguments initialContext pcId arguments
         binder = PcId pcId
      in (binder, context1)
+  App (App (App (Var i) (Type _)) (Var _)) (Var a) ->
+    let pcId = IRVar i
+        aId = IRVar a
+        arguments = [aId]
+        context1 = createSignalsFromArguments initialContext pcId arguments
+        binder = PcId pcId
+     in (binder, context1)
   -- Application of process constructors with 2 input
   App (App (Var i) (Var a1)) (Var a2) ->
+    let pcId = IRVar i
+        a1Id = IRVar a1
+        a2Id = IRVar a2
+        arguments = [a1Id, a2Id]
+        context1 = createSignalsFromArguments initialContext pcId arguments
+        binder = PcId pcId
+     in (binder, context1)
+  App (App (App (App (Var i) (Type _)) (Var _)) (Var a1)) (Var a2) ->
     let pcId = IRVar i
         a1Id = IRVar a1
         a2Id = IRVar a2
@@ -250,8 +265,27 @@ translateSystemExpr initialContext expr = case expr of
         context1 = createSignalsFromArguments initialContext pcId arguments
         binder = PcId pcId
      in (binder, context1)
+  App (App (App (App (App (Var i) (Type _)) (Var _)) (Var a1)) (Var a2)) (Var a3) ->
+    let pcId = IRVar i
+        a1Id = IRVar a1
+        a2Id = IRVar a2
+        a3Id = IRVar a3
+        arguments = [a1Id, a2Id, a3Id]
+        context1 = createSignalsFromArguments initialContext pcId arguments
+        binder = PcId pcId
+     in (binder, context1)
   -- Application of process constructors with 4 input
   App (App (App (App (Var i) (Var a1)) (Var a2)) (Var a3)) (Var a4) ->
+    let pcId = IRVar i
+        a1Id = IRVar a1
+        a2Id = IRVar a2
+        a3Id = IRVar a3
+        a4Id = IRVar a4
+        arguments = [a1Id, a2Id, a3Id, a4Id]
+        context1 = createSignalsFromArguments initialContext pcId arguments
+        binder = PcId pcId
+     in (binder, context1)
+  App (App (App (App (App (App (Var i) (Type _)) (Var _)) (Var a1)) (Var a2)) (Var a3)) (Var a4) ->
     let pcId = IRVar i
         a1Id = IRVar a1
         a2Id = IRVar a2
