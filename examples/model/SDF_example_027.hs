@@ -10,9 +10,11 @@ system s_in = s_out
     s_6 = p_3 s_3 s_5
     (s_out, s_4) = p_4 s_2
     s_5 = p_5 s_4
-    s_6_delayed = delaySDF [0, 0] s_6
+    s_6_delayed = d_1 s_6
 
 -- Process Specification
+d_1 = delaySDF [0, 0]
+
 p_1 = actor21SDF (2, 1) 1 f_1
   where
     f_1 [x1, x2] [y] = [x1 + x2 + y]
