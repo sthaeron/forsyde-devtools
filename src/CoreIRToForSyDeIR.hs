@@ -415,8 +415,7 @@ translateCoreExpr context' binder expr' =
   let (n, expr1) = stripLams 0 expr'
       (context, embeddedFunction, expr2) = case expr1 of
         Let (NonRec bn be) e ->
-          let (context2, func) = createFunctionRet context' bn be
-           in (context2, Just func, e)
+          (context', Just $ IRFunction (IRVar bn) (Just be), e)
         Let _ e -> (context', Nothing, e)
         _ -> (context', Nothing, expr1)
       expr = maybe expr' id (stripApps n expr2)
@@ -512,12 +511,6 @@ getActorSplit actorType = case actorType of
   Actor42 -> 4
   Actor43 -> 4
   Actor44 -> 4
-
-createFunctionRet :: TranslationContext -> CoreBndr -> CoreExpr -> (TranslationContext, IRFunction)
-createFunctionRet context binder expr =
-  let functionId = IRVar binder
-      newFunction = IRFunction functionId (Just expr)
-   in (context {functions = (functionId, newFunction) : (functions context)}, newFunction)
 
 createFunction :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 createFunction context binder expr =
