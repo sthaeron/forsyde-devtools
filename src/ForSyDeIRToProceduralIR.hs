@@ -1,7 +1,7 @@
 module ForSyDeIRToProceduralIR where
 
 import ArgumentsMain (InputType (Predefined, StdIn), Runs (Limited, Perpetual))
-import CoreIRToProceduralIR (translateIRFunction)
+import CoreIRToProceduralIR (translateIRActorFunction)
 import ForSyDeIR
 import GHC hiding (targetId)
 import ProceduralIR
@@ -57,7 +57,7 @@ translateIRSystemToProgram dflags scheduleList bufferList delayBufferList lookup
   let initialContext = initialTranslationContext dflags input r lookupSignalList bufferList inputList outputList delayBufferList
       context1 = foldl' translateIRConstructor initialContext constructors
       context2 = foldl' translateBuffer context1 bufferList
-      context3 = foldl' (translateIRFunctionToGlobals constructors) context2 functionList
+      context3 = foldl' (translateIRActorFunctionToGlobals functionList) context2 constructors
       main = translateContextToMain context3 scheduleList
    in Prog (reverse (initFunctions context3) ++ [main] ++ reverse (functions context3))
 
@@ -334,9 +334,9 @@ getScheduleBufferRate actorId bufferList =
         else
           getScheduleBufferRate actorId xs
 
-translateIRFunctionToGlobals :: [IRConstructor] -> TranslationContext -> IRFunction -> TranslationContext
-translateIRFunctionToGlobals constructors currentContext function =
-  let context1 = case (translateIRFunction function (flags currentContext) constructors) of
+translateIRActorFunctionToGlobals :: [IRFunction] -> TranslationContext -> IRConstructor -> TranslationContext
+translateIRActorFunctionToGlobals iRFunctions currentContext constructor =
+  let context1 = case (translateIRActorFunction (flags currentContext) iRFunctions constructor) of
         Just (functionDeclaration, Just functionDefinition) -> currentContext {initFunctions = functionDeclaration : (initFunctions currentContext), functions = functionDefinition : (functions currentContext)}
         Just (functionDeclaration, Nothing) -> currentContext {initFunctions = functionDeclaration : (initFunctions currentContext)}
         Nothing -> currentContext
