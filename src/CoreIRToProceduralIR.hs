@@ -51,6 +51,33 @@ initialTranslationContext dflags =
       scope = SScope []
     }
 
+-- | Translates an `IRActor` into function definition. It first tries to use
+-- the embedded function if it exists, otherwise falls back to using global
+-- functions
+translateIRActorFunction :: DynFlags -> [IRFunction] -> IRConstructor -> Maybe (Global, Maybe Global)
+-- IRDelays do not contain any function
+translateIRActorFunction _ _ (IRDelay _ _ _) = Nothing
+translateIRActorFunction dflags functions actor@(IRActor _ _ embeddedFunction@(IRFunction functionId _) _) =
+  let context = initialTranslationContext dflags
+      (parameterList, context1) = getParameterList context actor
+      functionDeclarationGlobal = getFunctionDeclaration parameterList functionId
+   in case findFunction embeddedFunction functions of
+        Just (IRFunction _ (Just functionExpr)) ->
+          let context2 = translateFunctionExpr context1 0 0 functionExpr
+              functionDefinitionGlobal = getFunctionDefinition context2 parameterList functionId
+           in Just (functionDeclarationGlobal, Just functionDefinitionGlobal)
+        Just (IRFunction _ Nothing) -> Just (functionDeclarationGlobal, Nothing)
+        Nothing -> Nothing
+
+findFunction :: IRFunction -> [IRFunction] -> Maybe IRFunction
+findFunction embeddedFunction functions =
+  case embeddedFunction of
+    IRFunction _ (Just _) -> Just embeddedFunction
+    IRFunction functionId Nothing ->
+      case filter (\(IRFunction fId _) -> fId == functionId) functions of
+        [] -> Nothing
+        func : _ -> Just func
+
 -- | Translates an `IRFunction` into a Procedural IR function declaration and
 -- optional definition.
 translateIRFunction :: IRFunction -> DynFlags -> [IRConstructor] -> Maybe (Global, Maybe Global)
