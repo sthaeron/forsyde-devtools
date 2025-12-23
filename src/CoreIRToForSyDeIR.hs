@@ -413,46 +413,48 @@ stripApps n expr = case expr of
 translateCoreExpr :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 translateCoreExpr context' binder expr' =
   let (n, expr1) = stripLams 0 expr'
-      (context, expr2) = case expr1 of
-        Let (NonRec bn be) e -> (createFunction context' bn be, e)
-        Let _ e -> (context', e)
-        _ -> (context', expr1)
+      (context, embeddedFunction, expr2) = case expr1 of
+        Let (NonRec bn be) e ->
+          let (context2, func) = createFunctionRet context' bn be
+           in (context2, Just func, e)
+        Let _ e -> (context', Nothing, e)
+        _ -> (context', Nothing, expr1)
       expr = maybe expr' id (stripApps n expr2)
    in case expr of
         App (App (Var i) _) _
           | IRVar i == IRString "delaySDF" -> createDelaySDF context binder expr
         App (App (App (App (App (Var i) _) _) _) _) _
-          | IRVar i == IRString "actor11SDF" -> createActorSDF context Actor11 binder expr
+          | IRVar i == IRString "actor11SDF" -> createActorSDF context Actor11 binder expr embeddedFunction
         App (App (App (App (App (App (Var i) _) _) _) _) _) _
-          | IRVar i == IRString "actor12SDF" -> createActorSDF context Actor12 binder expr
+          | IRVar i == IRString "actor12SDF" -> createActorSDF context Actor12 binder expr embeddedFunction
         App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _
-          | IRVar i == IRString "actor13SDF" -> createActorSDF context Actor13 binder expr
+          | IRVar i == IRString "actor13SDF" -> createActorSDF context Actor13 binder expr embeddedFunction
         App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _
-          | IRVar i == IRString "actor14SDF" -> createActorSDF context Actor14 binder expr
+          | IRVar i == IRString "actor14SDF" -> createActorSDF context Actor14 binder expr embeddedFunction
         App (App (App (App (App (App (Var i) _) _) _) _) _) _
-          | IRVar i == IRString "actor21SDF" -> createActorSDF context Actor21 binder expr
+          | IRVar i == IRString "actor21SDF" -> createActorSDF context Actor21 binder expr embeddedFunction
         App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _
-          | IRVar i == IRString "actor22SDF" -> createActorSDF context Actor22 binder expr
+          | IRVar i == IRString "actor22SDF" -> createActorSDF context Actor22 binder expr embeddedFunction
         App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _
-          | IRVar i == IRString "actor23SDF" -> createActorSDF context Actor23 binder expr
+          | IRVar i == IRString "actor23SDF" -> createActorSDF context Actor23 binder expr embeddedFunction
         App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _
-          | IRVar i == IRString "actor24SDF" -> createActorSDF context Actor24 binder expr
+          | IRVar i == IRString "actor24SDF" -> createActorSDF context Actor24 binder expr embeddedFunction
         App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _
-          | IRVar i == IRString "actor31SDF" -> createActorSDF context Actor31 binder expr
+          | IRVar i == IRString "actor31SDF" -> createActorSDF context Actor31 binder expr embeddedFunction
         App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _
-          | IRVar i == IRString "actor32SDF" -> createActorSDF context Actor32 binder expr
+          | IRVar i == IRString "actor32SDF" -> createActorSDF context Actor32 binder expr embeddedFunction
         App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _
-          | IRVar i == IRString "actor33SDF" -> createActorSDF context Actor33 binder expr
+          | IRVar i == IRString "actor33SDF" -> createActorSDF context Actor33 binder expr embeddedFunction
         App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _
-          | IRVar i == IRString "actor34SDF" -> createActorSDF context Actor34 binder expr
+          | IRVar i == IRString "actor34SDF" -> createActorSDF context Actor34 binder expr embeddedFunction
         App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _
-          | IRVar i == IRString "actor41SDF" -> createActorSDF context Actor41 binder expr
+          | IRVar i == IRString "actor41SDF" -> createActorSDF context Actor41 binder expr embeddedFunction
         App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _
-          | IRVar i == IRString "actor42SDF" -> createActorSDF context Actor42 binder expr
+          | IRVar i == IRString "actor42SDF" -> createActorSDF context Actor42 binder expr embeddedFunction
         App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _
-          | IRVar i == IRString "actor43SDF" -> createActorSDF context Actor43 binder expr
+          | IRVar i == IRString "actor43SDF" -> createActorSDF context Actor43 binder expr embeddedFunction
         App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _
-          | IRVar i == IRString "actor44SDF" -> createActorSDF context Actor44 binder expr
+          | IRVar i == IRString "actor44SDF" -> createActorSDF context Actor44 binder expr embeddedFunction
         _ -> createFunction context binder expr
 
 createDelaySDF :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
@@ -463,21 +465,22 @@ createDelaySDF context binder expr =
       newActorsList = (delayId, ([1], [1])) : (pcRates context)
    in context {constructors = (delayId, newDelay) : (constructors context), pcRates = newActorsList}
 
-createActorSDF :: TranslationContext -> ActorType -> CoreBndr -> CoreExpr -> TranslationContext
-createActorSDF initialContext actorType binder expr =
+createActorSDF :: TranslationContext -> ActorType -> CoreBndr -> CoreExpr -> Maybe IRFunction -> TranslationContext
+createActorSDF initialContext actorType binder expr embeddedFunction =
   let lits = getLits expr []
       maybeFunctionName = getFunctionName initialContext expr
-   in case maybeFunctionName of
-        Nothing -> error "createActorSDF - No function found for actor"
-        Just functionName ->
-          let (inputRates, outputRates) = splitAt (getActorSplit actorType) lits
-              actorId = IRVar binder
-              baseOutputs = replicate (length outputRates) Empty
-              newActor = IRActor actorId actorType (IRFunction functionName Nothing) ([], baseOutputs)
-              newActors = (actorId, (inputRates, outputRates)) : (pcRates initialContext)
-              newConstructors = (actorId, newActor) : (constructors initialContext)
-              context1 = initialContext {pcRates = newActors, constructors = newConstructors}
-           in context1
+      function = case (maybeFunctionName, embeddedFunction) of
+        (Nothing, Nothing) -> error "createActorSDF - No function found for actor"
+        (Just functionName, Nothing) -> IRFunction functionName Nothing
+        (_, Just func) -> func
+   in let (inputRates, outputRates) = splitAt (getActorSplit actorType) lits
+          actorId = IRVar binder
+          baseOutputs = replicate (length outputRates) Empty
+          newActor = IRActor actorId actorType function ([], baseOutputs)
+          newActors = (actorId, (inputRates, outputRates)) : (pcRates initialContext)
+          newConstructors = (actorId, newActor) : (constructors initialContext)
+          context1 = initialContext {pcRates = newActors, constructors = newConstructors}
+       in context1
 
 -- | Helper function for `createDelaySDF` and `createActorSDF` which returns
 -- all integer literals within their expression as a list.
@@ -509,6 +512,12 @@ getActorSplit actorType = case actorType of
   Actor42 -> 4
   Actor43 -> 4
   Actor44 -> 4
+
+createFunctionRet :: TranslationContext -> CoreBndr -> CoreExpr -> (TranslationContext, IRFunction)
+createFunctionRet context binder expr =
+  let functionId = IRVar binder
+      newFunction = IRFunction functionId (Just expr)
+   in (context {functions = (functionId, newFunction) : (functions context)}, newFunction)
 
 createFunction :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 createFunction context binder expr =
