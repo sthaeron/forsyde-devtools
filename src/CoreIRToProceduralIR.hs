@@ -7,7 +7,6 @@ module CoreIRToProceduralIR where
 
 import CoreIR (literalToInt, prettyCoreAlt)
 import Data.List (elemIndex)
-import Data.Maybe (mapMaybe)
 import ForSyDeIR
 import GHC hiding (Type, targetId)
 import GHC.Core
@@ -77,40 +76,6 @@ findFunction embeddedFunction functions =
       case filter (\(IRFunction fId _) -> fId == functionId) functions of
         [] -> Nothing
         func : _ -> Just func
-
--- | Translates an `IRFunction` into a Procedural IR function declaration and
--- optional definition.
-translateIRFunction :: IRFunction -> DynFlags -> [IRConstructor] -> Maybe (Global, Maybe Global)
-translateIRFunction function dflags constructors =
-  let context = initialTranslationContext dflags
-   in case function of
-        IRFunction functionId Nothing ->
-          case (findActorFromFunctionId functionId constructors) of
-            [] -> Nothing
-            actor : _ ->
-              let (parameterList, _context1) = getParameterList context actor
-                  (functionDeclarationGlobal) = getFunctionDeclaration parameterList functionId
-               in Just (functionDeclarationGlobal, Nothing)
-        IRFunction functionId (Just functionExpr) ->
-          case (findActorFromFunctionId functionId constructors) of
-            [] -> Nothing
-            actor : _ ->
-              let (parameterList, context1) = getParameterList context actor
-                  functionDeclarationGlobal = getFunctionDeclaration parameterList functionId
-                  context2 = translateFunctionExpr context1 0 0 functionExpr
-                  functionDefinitionGlobal = getFunctionDefinition context2 parameterList functionId
-               in Just (functionDeclarationGlobal, Just functionDefinitionGlobal)
-
--- Helper function which returns the `IRActor`s associated with a provided
--- function id
-findActorFromFunctionId :: IRId -> [IRConstructor] -> [IRConstructor]
-findActorFromFunctionId targetFunctionId constructors =
-  let checkIRConstructor :: IRConstructor -> Maybe IRConstructor
-      checkIRConstructor actor@(IRActor _ _ (IRFunction functionId _) _)
-        | functionId == targetFunctionId = Just actor
-        | otherwise = Nothing
-      checkIRConstructor _ = Nothing
-   in mapMaybe checkIRConstructor constructors
 
 -- Helper function which builds the parameter list for a `ProceduralIR` function
 -- based on the input and output signals of provided actor. Updates the
