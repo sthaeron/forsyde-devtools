@@ -5,6 +5,7 @@ import Data.List (elemIndex)
 import ForSyDeIR
 import GHC hiding (targetId)
 import GHC.Core
+import GHC.Types.Var (isTyVar)
 
 -- | The `TranslationContext` is a data type which is used to pass around
 -- context required to complete the translation of Core IR to ForSyDe IR.
@@ -75,6 +76,9 @@ translateCoreBind _ (Rec _) = error "translateCoreBind - `Rec` used in top level
 -- and identifies system outputs.
 translateSystem :: TranslationContext -> CoreExpr -> TranslationContext
 translateSystem initialContext expr = case expr of
+  -- Ignores Lambdas that refer to binders which are typed, always comes in
+  -- pairs. These Lambdas are resent when no explicit type is declared.
+  Lam b (Lam _ e) | isTyVar b -> translateSystem initialContext e
   Lam b e ->
     let newInput = IRVar b
         context1 = initialContext {systemInputs = newInput : (systemInputs initialContext)}
@@ -230,8 +234,23 @@ translateSystemExpr initialContext expr = case expr of
         context1 = createSignalsFromArguments initialContext pcId arguments
         binder = PcId pcId
      in (binder, context1)
+  App (App (App (Var i) (Type _)) (Var _)) (Var a) ->
+    let pcId = IRVar i
+        aId = IRVar a
+        arguments = [aId]
+        context1 = createSignalsFromArguments initialContext pcId arguments
+        binder = PcId pcId
+     in (binder, context1)
   -- Application of process constructors with 2 input
   App (App (Var i) (Var a1)) (Var a2) ->
+    let pcId = IRVar i
+        a1Id = IRVar a1
+        a2Id = IRVar a2
+        arguments = [a1Id, a2Id]
+        context1 = createSignalsFromArguments initialContext pcId arguments
+        binder = PcId pcId
+     in (binder, context1)
+  App (App (App (App (Var i) (Type _)) (Var _)) (Var a1)) (Var a2) ->
     let pcId = IRVar i
         a1Id = IRVar a1
         a2Id = IRVar a2
@@ -249,8 +268,27 @@ translateSystemExpr initialContext expr = case expr of
         context1 = createSignalsFromArguments initialContext pcId arguments
         binder = PcId pcId
      in (binder, context1)
+  App (App (App (App (App (Var i) (Type _)) (Var _)) (Var a1)) (Var a2)) (Var a3) ->
+    let pcId = IRVar i
+        a1Id = IRVar a1
+        a2Id = IRVar a2
+        a3Id = IRVar a3
+        arguments = [a1Id, a2Id, a3Id]
+        context1 = createSignalsFromArguments initialContext pcId arguments
+        binder = PcId pcId
+     in (binder, context1)
   -- Application of process constructors with 4 input
   App (App (App (App (Var i) (Var a1)) (Var a2)) (Var a3)) (Var a4) ->
+    let pcId = IRVar i
+        a1Id = IRVar a1
+        a2Id = IRVar a2
+        a3Id = IRVar a3
+        a4Id = IRVar a4
+        arguments = [a1Id, a2Id, a3Id, a4Id]
+        context1 = createSignalsFromArguments initialContext pcId arguments
+        binder = PcId pcId
+     in (binder, context1)
+  App (App (App (App (App (App (Var i) (Type _)) (Var _)) (Var a1)) (Var a2)) (Var a3)) (Var a4) ->
     let pcId = IRVar i
         a1Id = IRVar a1
         a2Id = IRVar a2
@@ -349,6 +387,22 @@ getSourceFromArgument context argument =
             Just (Binding bindingId index) -> (bindingId, index)
             Nothing -> error ("getSourceFromArgument - Unable to identify argument as a system input or binder: " ++ show argument)
 
+-- Strip all Lams so we don't need to bother with non-eta-reduced processes.
+-- We con't count the type variables as those won't produce an App in the top
+-- level definition.
+stripLams :: Integer -> CoreExpr -> (Integer, CoreExpr)
+stripLams n expr = case expr of
+  Lam b (Lam _ e) | isTyVar b -> stripLams n e
+  Lam _ e | otherwise -> stripLams (n + 1) e
+  _ -> (n, expr)
+
+-- Strip n Apps if possible, otherwise Nothing
+stripApps :: Integer -> CoreExpr -> Maybe CoreExpr
+stripApps n expr = case expr of
+  App e _ | n > 0 -> stripApps (n - 1) e
+  _ | n > 0 -> Nothing
+  _ | otherwise -> Just expr
+
 -- | Creates actors and delays by pattern matching based on the number of
 -- inputs to the top level function, represented by `Lam`, and inputs to the
 -- process constructor, represented by `App`. If it cannot match an actor or
@@ -357,42 +411,49 @@ getSourceFromArgument context argument =
 -- NOTE: This function needs to be updated with new pattern matches for
 -- translation to support additional process constructors.
 translateCoreExpr :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
-translateCoreExpr context binder expr = case expr of
-  Lam _ (App (App (App (Var i) _) _) _)
-    | IRVar i == IRString "delaySDF" -> createDelaySDF context binder expr
-  Lam _ (App (App (App (App (App (App (Var i) _) _) _) _) _) _)
-    | IRVar i == IRString "actor11SDF" -> createActorSDF context Actor11 binder expr
-  Lam _ (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _)
-    | IRVar i == IRString "actor12SDF" -> createActorSDF context Actor12 binder expr
-  Lam _ (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _)
-    | IRVar i == IRString "actor13SDF" -> createActorSDF context Actor13 binder expr
-  Lam _ (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _)
-    | IRVar i == IRString "actor14SDF" -> createActorSDF context Actor14 binder expr
-  Lam _ (Lam _ (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _))
-    | IRVar i == IRString "actor21SDF" -> createActorSDF context Actor21 binder expr
-  Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _))
-    | IRVar i == IRString "actor22SDF" -> createActorSDF context Actor22 binder expr
-  Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _))
-    | IRVar i == IRString "actor23SDF" -> createActorSDF context Actor23 binder expr
-  Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _))
-    | IRVar i == IRString "actor24SDF" -> createActorSDF context Actor24 binder expr
-  Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _)))
-    | IRVar i == IRString "actor31SDF" -> createActorSDF context Actor31 binder expr
-  Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _)))
-    | IRVar i == IRString "actor32SDF" -> createActorSDF context Actor32 binder expr
-  Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _) _)))
-    | IRVar i == IRString "actor33SDF" -> createActorSDF context Actor33 binder expr
-  Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _) _) _)))
-    | IRVar i == IRString "actor34SDF" -> createActorSDF context Actor34 binder expr
-  Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _) _))))
-    | IRVar i == IRString "actor41SDF" -> createActorSDF context Actor41 binder expr
-  Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _) _) _))))
-    | IRVar i == IRString "actor42SDF" -> createActorSDF context Actor42 binder expr
-  Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _) _) _) _))))
-    | IRVar i == IRString "actor43SDF" -> createActorSDF context Actor43 binder expr
-  Lam _ (Lam _ (Lam _ (Lam _ (App (App (App (App (App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _) _) _) _) _))))
-    | IRVar i == IRString "actor44SDF" -> createActorSDF context Actor44 binder expr
-  _ -> createFunction context binder expr
+translateCoreExpr context' binder expr' =
+  let (n, expr1) = stripLams 0 expr'
+      (context, expr2) = case expr1 of
+        Let (NonRec bn be) e -> (createFunction context' bn be, e)
+        Let _ e -> (context', e)
+        _ -> (context', expr1)
+      expr = maybe expr' id (stripApps n expr2)
+   in case expr of
+        App (App (Var i) _) _
+          | IRVar i == IRString "delaySDF" -> createDelaySDF context binder expr
+        App (App (App (App (App (Var i) _) _) _) _) _
+          | IRVar i == IRString "actor11SDF" -> createActorSDF context Actor11 binder expr
+        App (App (App (App (App (App (Var i) _) _) _) _) _) _
+          | IRVar i == IRString "actor12SDF" -> createActorSDF context Actor12 binder expr
+        App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _
+          | IRVar i == IRString "actor13SDF" -> createActorSDF context Actor13 binder expr
+        App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _
+          | IRVar i == IRString "actor14SDF" -> createActorSDF context Actor14 binder expr
+        App (App (App (App (App (App (Var i) _) _) _) _) _) _
+          | IRVar i == IRString "actor21SDF" -> createActorSDF context Actor21 binder expr
+        App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _
+          | IRVar i == IRString "actor22SDF" -> createActorSDF context Actor22 binder expr
+        App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _
+          | IRVar i == IRString "actor23SDF" -> createActorSDF context Actor23 binder expr
+        App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _
+          | IRVar i == IRString "actor24SDF" -> createActorSDF context Actor24 binder expr
+        App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _
+          | IRVar i == IRString "actor31SDF" -> createActorSDF context Actor31 binder expr
+        App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _
+          | IRVar i == IRString "actor32SDF" -> createActorSDF context Actor32 binder expr
+        App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _
+          | IRVar i == IRString "actor33SDF" -> createActorSDF context Actor33 binder expr
+        App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _
+          | IRVar i == IRString "actor34SDF" -> createActorSDF context Actor34 binder expr
+        App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _
+          | IRVar i == IRString "actor41SDF" -> createActorSDF context Actor41 binder expr
+        App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _
+          | IRVar i == IRString "actor42SDF" -> createActorSDF context Actor42 binder expr
+        App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _
+          | IRVar i == IRString "actor43SDF" -> createActorSDF context Actor43 binder expr
+        App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _
+          | IRVar i == IRString "actor44SDF" -> createActorSDF context Actor44 binder expr
+        _ -> createFunction context binder expr
 
 createDelaySDF :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 createDelaySDF context binder expr =

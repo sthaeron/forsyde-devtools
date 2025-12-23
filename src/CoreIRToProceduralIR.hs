@@ -5,14 +5,13 @@
 
 module CoreIRToProceduralIR where
 
-import CoreIR (literalToInt, prettyCoreAlt, varToString)
+import CoreIR (literalToInt, prettyCoreAlt)
 import Data.List (elemIndex)
-import Data.Maybe (listToMaybe, mapMaybe)
+import Data.Maybe (mapMaybe)
 import ForSyDeIR
 import GHC hiding (Type, targetId)
 import GHC.Core
-import GHC.Driver.Ppr (showPpr)
-import GHC.Plugins (Var)
+import GHC.Plugins hiding (Type)
 import ProceduralIR
 import Utilities (Stack, emptyStack, pop, push, stackToList)
 
@@ -54,38 +53,37 @@ initialTranslationContext dflags =
 
 -- | Translates an `IRFunction` into a Procedural IR function declaration and
 -- optional definition.
-translateIRFunction :: IRFunction -> DynFlags -> [IRConstructor] -> (Global, Maybe Global)
+translateIRFunction :: IRFunction -> DynFlags -> [IRConstructor] -> Maybe (Global, Maybe Global)
 translateIRFunction function dflags constructors =
   let context = initialTranslationContext dflags
    in case function of
         IRFunction functionId Nothing ->
-          let actor = case (findActorFromFunctionId functionId constructors) of
-                Nothing -> error ("translateIRFunction - no actor associated to " ++ show functionId)
-                Just a -> a
-              (parameterList, _context1) = getParameterList context actor
-              (functionDeclarationGlobal) = getFunctionDeclaration parameterList functionId
-           in (functionDeclarationGlobal, Nothing)
+          case (findActorFromFunctionId functionId constructors) of
+            [] -> Nothing
+            actor : _ ->
+              let (parameterList, _context1) = getParameterList context actor
+                  (functionDeclarationGlobal) = getFunctionDeclaration parameterList functionId
+               in Just (functionDeclarationGlobal, Nothing)
         IRFunction functionId (Just functionExpr) ->
-          let actor = case (findActorFromFunctionId functionId constructors) of
-                Nothing -> error ("translateIRFunction - no actor associated to " ++ show functionId)
-                Just a -> a
-              (parameterList, context1) = getParameterList context actor
-              functionDeclarationGlobal = getFunctionDeclaration parameterList functionId
-              context2 = translateFunctionExpr context1 0 0 functionExpr
-              functionDefinitionGlobal = getFunctionDefinition context2 parameterList functionId
-           in (functionDeclarationGlobal, Just functionDefinitionGlobal)
+          case (findActorFromFunctionId functionId constructors) of
+            [] -> Nothing
+            actor : _ ->
+              let (parameterList, context1) = getParameterList context actor
+                  functionDeclarationGlobal = getFunctionDeclaration parameterList functionId
+                  context2 = translateFunctionExpr context1 0 0 functionExpr
+                  functionDefinitionGlobal = getFunctionDefinition context2 parameterList functionId
+               in Just (functionDeclarationGlobal, Just functionDefinitionGlobal)
 
--- Helper function which identifies which `IRActor` is associated with a
--- provided function id. If successful returns the actor as an optional
--- `IRConstructor` otherwise returns `Nothing`.
-findActorFromFunctionId :: IRId -> [IRConstructor] -> Maybe IRConstructor
+-- Helper function which returns the `IRActor`s associated with a provided
+-- function id
+findActorFromFunctionId :: IRId -> [IRConstructor] -> [IRConstructor]
 findActorFromFunctionId targetFunctionId constructors =
   let checkIRConstructor :: IRConstructor -> Maybe IRConstructor
       checkIRConstructor actor@(IRActor _ _ functionId _)
         | functionId == targetFunctionId = Just actor
         | otherwise = Nothing
       checkIRConstructor _ = Nothing
-   in listToMaybe (mapMaybe checkIRConstructor constructors)
+   in mapMaybe checkIRConstructor constructors
 
 -- Helper function which builds the parameter list for a `ProceduralIR` function
 -- based on the input and output signals of provided actor. Updates the
@@ -118,6 +116,9 @@ getFunctionDefinition context parametersList functionId =
 -- matched binder represents.
 translateFunctionExpr :: TranslationContext -> Int -> Int -> CoreExpr -> TranslationContext
 translateFunctionExpr context inputId inputIndex expr = case expr of
+  -- Ignores Lambdas that refer to binders which are typed, always comes in
+  -- pairs. These Lambdas are resent when no explicit type is declared.
+  Lam b (Lam _ e) | isTyVar b -> translateFunctionExpr context inputId inputIndex e
   -- Function with 4 inputs
   Lam b1 (Lam b2 (Lam b3 (Lam b4 e))) ->
     let context1 = context {functionInputs = [(IRVar b1), (IRVar b2), (IRVar b3), (IRVar b4)]}
@@ -196,15 +197,15 @@ translateOutputExprToFunctionContentList context expr acc = case expr of
     "(,,)" -> FTuple : acc
     "(,,,)" -> FTuple : acc
     "[]" -> FEmptyList : acc
-    "I#" -> acc
-    "$fNumInt" -> acc
-    "$fIntegralInt" -> acc
     "+" -> FPlus : acc
     "-" -> FMinus : acc
     "*" -> FMultiply : acc
     "div" -> FDiv : acc
     "negate" -> FNegate : acc
-    _ -> FVar varId : acc
+    -- Only adds current variable id if its associated to a current variable expression
+    _ -> case lookup (IRVar varId) (functionVariables context) of
+      Just _ -> FVar varId : acc
+      Nothing -> acc
   Lit i -> FInt (literalToInt i) : acc
   _ -> acc
 
@@ -259,7 +260,7 @@ translateFunctionContent context contentList =
               Just (elist, stack1) -> (elist, stack1)
             variableExpr = case lookup (IRVar varId) (functionVariables context) of
               Just expr -> expr
-              Nothing -> error ("translateFunctionContent - variable not found: " ++ varToString varId)
+              Nothing -> error ("translateFunctionContent - variable not found: " ++ showPpr (flags context) varId)
             newExprList = variableExpr : exprList
             exprsStack2 = push newExprList exprsStack1
          in exprsStack2
