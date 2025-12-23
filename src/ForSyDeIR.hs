@@ -114,7 +114,7 @@ data ActorType
   deriving (Show)
 
 -- IRDelay(delayId, tokens, (inputSignal, outputSignal))
--- IRActor(actorId, actorType, (inputSignals, outputSignals))
+-- IRActor(actorId, actorType, functionId (inputSignals, outputSignals))
 data IRConstructor
   = IRDelay IRId [Int] (IRId, IRId)
   | IRActor IRId ActorType IRId ([IRId], [IRId])
