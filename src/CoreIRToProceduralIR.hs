@@ -79,7 +79,7 @@ translateIRFunction function dflags constructors =
 findActorFromFunctionId :: IRId -> [IRConstructor] -> [IRConstructor]
 findActorFromFunctionId targetFunctionId constructors =
   let checkIRConstructor :: IRConstructor -> Maybe IRConstructor
-      checkIRConstructor actor@(IRActor _ _ functionId _)
+      checkIRConstructor actor@(IRActor _ _ (IRFunction functionId _) _)
         | functionId == targetFunctionId = Just actor
         | otherwise = Nothing
       checkIRConstructor _ = Nothing

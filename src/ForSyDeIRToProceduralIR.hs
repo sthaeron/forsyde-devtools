@@ -178,7 +178,7 @@ translateIRConstructor initialContext constructor = case constructor of
                 delayStmts = (foldl' foldDelayTokens [] tokens)
              in initialContext {initDelay = delayStmts ++ initDelay initialContext}
           Nothing -> error ("translateIRConstructor - delay buffer not found for signals: " ++ show inputSignal ++ ", " ++ show outputSignal)
-  IRActor actorId actorType functionId (inputSignals, outputSignals) ->
+  IRActor actorId actorType (IRFunction functionId _) (inputSignals, outputSignals) ->
     -- `IRActor` results in a statement calling an SDF actor function within
     -- source rates, target rates, and a function as arguments.
     let inputRates = map (getTargetRate initialContext) inputSignals

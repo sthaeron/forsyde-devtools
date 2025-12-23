@@ -117,7 +117,7 @@ data ActorType
 -- IRActor(actorId, actorType, (inputSignals, outputSignals))
 data IRConstructor
   = IRDelay IRId [Int] (IRId, IRId)
-  | IRActor IRId ActorType IRId ([IRId], [IRId])
+  | IRActor IRId ActorType IRFunction ([IRId], [IRId])
 
 -- IRSignal(signalId (sourceId, sourceRate) (targetId, targetRate))
 data IRSignal = IRSignal IRId (IRId, Int) (IRId, Int)
@@ -144,8 +144,8 @@ prettyIRSignal (IRSignal signalId (inputId, inputRate) (outputId, outputRate)) =
     outputRate
     (maybe "" prettyIRSpan $ varToSpan signalId)
 
-prettyIRConstructor :: IRConstructor -> String
-prettyIRConstructor (IRDelay delayId tokens (input, output)) =
+prettyIRConstructor :: Maybe DynFlags -> IRConstructor -> String
+prettyIRConstructor _ (IRDelay delayId tokens (input, output)) =
   printf
     "IRDelay(\"%s\", {%s}, %s, %s, %s)"
     (show delayId)
@@ -153,23 +153,30 @@ prettyIRConstructor (IRDelay delayId tokens (input, output)) =
     (prettyIRId input)
     (prettyIRId output)
     (maybe "" prettyIRSpan $ varToSpan delayId)
-prettyIRConstructor (IRActor actorId actorType functionId (inputs, outputs)) =
+prettyIRConstructor dflags (IRActor actorId actorType function (inputs, outputs)) =
   printf
     "IRActor(\"%s\", %s, \"%s\", {%s}, {%s}, %s)"
     (show actorId)
     (show actorType)
-    (show functionId)
+    (prettyIRFunction dflags function)
     (intercalate ", " (map prettyIRId inputs))
     (intercalate ", " (map prettyIRId outputs))
     (maybe "" prettyIRSpan $ varToSpan actorId)
 
-prettyIRFunction :: DynFlags -> IRFunction -> String
-prettyIRFunction dflags (IRFunction functionId function) =
-  printf
-    "IRFunction(\"%s\", %s, %s)"
-    (show functionId)
-    (maybe "" (prettyFunction dflags) function)
-    (maybe "" prettyIRSpan $ varToSpan functionId)
+prettyIRFunction :: Maybe DynFlags -> IRFunction -> String
+prettyIRFunction maybeDflags (IRFunction functionId function) =
+  case maybeDflags of
+    Just dflags ->
+      printf
+        "IRFunction(\"%s\", %s, %s)"
+        (show functionId)
+        (maybe "" (prettyFunction dflags) function)
+        (maybe "" prettyIRSpan $ varToSpan functionId)
+    Nothing ->
+      printf
+        "IRFunction(\"%s\", , %s)"
+        (show functionId)
+        (maybe "" prettyIRSpan $ varToSpan functionId)
 
 prettyFunction :: DynFlags -> CoreExpr -> String
 prettyFunction dflags function = printf "\n%s" (indent 2 (prettyCoreExpr dflags function))
@@ -180,9 +187,9 @@ prettyIRSystem dflags (IRSystem (inputs, outputs) constructors signals functions
     "IRSystem(\n  {%s}, {%s},\n  {\n%s  },\n  {\n%s  },\n  {\n%s  }\n)\n"
     (intercalate ", " (map prettyIRId inputs))
     (intercalate ", " (map prettyIRId outputs))
-    (indent 4 (intercalate ",\n" (map prettyIRConstructor constructors)))
+    (indent 4 (intercalate ",\n" (map (prettyIRConstructor $ Just dflags) constructors)))
     (indent 4 (intercalate ",\n" (map prettyIRSignal signals)))
-    (indent 4 (intercalate ",\n" (map (prettyIRFunction dflags) functions)))
+    (indent 4 (intercalate ",\n" (map (prettyIRFunction $ Just dflags) functions)))
 
 instance Show IRSystem where
   show (IRSystem (inputs, outputs) constructors signals _) =
@@ -190,7 +197,7 @@ instance Show IRSystem where
       "IRSystem(\n  {%s}, {%s},\n  {\n%s  },\n  {\n%s  },\n  {}\n)\n"
       (intercalate ", " (map prettyIRId inputs))
       (intercalate ", " (map prettyIRId outputs))
-      (indent 4 (intercalate ",\n" (map prettyIRConstructor constructors)))
+      (indent 4 (intercalate ",\n" (map (prettyIRConstructor Nothing) constructors)))
       (indent 4 (intercalate ",\n" (map prettyIRSignal signals)))
 
 -- ForSyDe IR to JSON functions
@@ -205,7 +212,7 @@ instance ToJSON IRConstructor where
         "name" .= Text.pack (show name),
         "tokens" .= Seq.fromList tokens
       ]
-  toJSON (IRActor name ty func (_, _)) =
+  toJSON (IRActor name ty (IRFunction func _) (_, _)) =
     object
       [ "type" .= Text.pack (show ty),
         "name" .= Text.pack (show name),

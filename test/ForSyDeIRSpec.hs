@@ -11,7 +11,7 @@ simpleIRSystem :: IRSystem
 simpleIRSystem =
   IRSystem
     ([IRString "input"], [IRString "output"])
-    [ IRActor (IRString "actor_1") Actor22 (IRString "add") ([IRString "s_in", IRString "s_2"], [IRString "s_out", IRString "s_1"]),
+    [ IRActor (IRString "actor_1") Actor22 (IRFunction (IRString "add") Nothing) ([IRString "s_in", IRString "s_2"], [IRString "s_out", IRString "s_1"]),
       IRDelay (IRString "delay_1") [0] (IRString "s_1", IRString "s_2")
     ]
     [ IRSignal (IRString "s_in") (IRString "input", 1) (IRString "actor_1", 1),

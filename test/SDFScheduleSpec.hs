@@ -12,7 +12,7 @@ exampleSystem1 :: IRSystem
 exampleSystem1 =
   IRSystem
     ([IRString "input"], [IRString "output"])
-    [ IRActor (IRString "actor_1") Actor22 (IRString "add") ([IRString "s_in", IRString "s_2"], [IRString "s_out", IRString "s_1"]),
+    [ IRActor (IRString "actor_1") Actor22 (IRFunction (IRString "add") Nothing) ([IRString "s_in", IRString "s_2"], [IRString "s_out", IRString "s_1"]),
       IRDelay (IRString "delay_1") [0] (IRString "s_1", IRString "s_2")
     ]
     [ IRSignal (IRString "s_in") (IRString "input", 1) (IRString "actor_1", 1),
@@ -28,7 +28,7 @@ exampleSystem2 :: IRSystem
 exampleSystem2 =
   IRSystem
     ([IRString "in"], [IRString "out"])
-    [ IRActor (IRString "actor") Actor11 (IRString "add") ([IRString "s_in"], [IRString "s_out"])
+    [ IRActor (IRString "actor") Actor11 (IRFunction (IRString "add") Nothing) ([IRString "s_in"], [IRString "s_out"])
     ]
     [ IRSignal (IRString "s_in") (IRString "in", 1) (IRString "actor", 1),
       IRSignal (IRString "s_out") (IRString "actor", 1) (IRString "out", 1)
@@ -41,9 +41,9 @@ exampleSystem3 :: IRSystem
 exampleSystem3 =
   IRSystem
     ([IRString "input"], [IRString "output"])
-    [ IRActor (IRString "actor_1") Actor22 (IRString "add") ([IRString "s_in", IRString "s_2"], [IRString "s_1", IRString "s_3"]),
+    [ IRActor (IRString "actor_1") Actor22 (IRFunction (IRString "add") Nothing) ([IRString "s_in", IRString "s_2"], [IRString "s_1", IRString "s_3"]),
       IRDelay (IRString "delay_1") [0] (IRString "s_1", IRString "s_2"),
-      IRActor (IRString "actor_2") Actor11 (IRString "add") ([IRString "s_3"], [IRString "s_out"])
+      IRActor (IRString "actor_2") Actor11 (IRFunction (IRString "add") Nothing) ([IRString "s_3"], [IRString "s_out"])
     ]
     [ IRSignal (IRString "s_in") (IRString "input", 1) (IRString "actor_1", 1),
       IRSignal (IRString "s_1") (IRString "actor_1", 1) (IRString "delay_1", 1),
@@ -59,10 +59,10 @@ exampleSystem4 :: IRSystem
 exampleSystem4 =
   IRSystem
     ([IRString "s_ina", IRString "s_inb"], [IRString "s_out"])
-    [ IRActor (IRString "actor_a") Actor11 (IRString "add") ([IRString "s_ina"], [IRString "s_1"]),
-      IRActor (IRString "actor_b") Actor11 (IRString "add") ([IRString "s_inb"], [IRString "s_2"]),
-      IRActor (IRString "actor_c") Actor21 (IRString "add") ([IRString "s_1", IRString "s_4"], [IRString "s_3"]),
-      IRActor (IRString "actor_d") Actor22 (IRString "add") ([IRString "s_2", IRString "s_3"], [IRString "s_4_delay", IRString "s_out"]),
+    [ IRActor (IRString "actor_a") Actor11 (IRFunction (IRString "add") Nothing) ([IRString "s_ina"], [IRString "s_1"]),
+      IRActor (IRString "actor_b") Actor11 (IRFunction (IRString "add") Nothing) ([IRString "s_inb"], [IRString "s_2"]),
+      IRActor (IRString "actor_c") Actor21 (IRFunction (IRString "add") Nothing) ([IRString "s_1", IRString "s_4"], [IRString "s_3"]),
+      IRActor (IRString "actor_d") Actor22 (IRFunction (IRString "add") Nothing) ([IRString "s_2", IRString "s_3"], [IRString "s_4_delay", IRString "s_out"]),
       IRDelay (IRString "delay") [0] (IRString "s_4_delay", IRString "s_4")
     ]
     [ IRSignal (IRString "s_ina") (IRString "s_ina", 1) (IRString "actor_a", 2),
@@ -81,9 +81,9 @@ exampleSystem5 :: IRSystem
 exampleSystem5 =
   IRSystem
     ([IRString "s_in"], [IRString "s_out"])
-    [ IRActor (IRString "a") Actor21 (IRString "add") ([IRString "s_in", IRString "s3"], [IRString "s1"]),
-      IRActor (IRString "b") Actor11 (IRString "add") ([IRString "s1"], [IRString "s2"]),
-      IRActor (IRString "c") Actor12 (IRString "add") ([IRString "s2"], [IRString "s3_delay", IRString "s_out"]),
+    [ IRActor (IRString "a") Actor21 (IRFunction (IRString "add") Nothing) ([IRString "s_in", IRString "s3"], [IRString "s1"]),
+      IRActor (IRString "b") Actor11 (IRFunction (IRString "add") Nothing) ([IRString "s1"], [IRString "s2"]),
+      IRActor (IRString "c") Actor12 (IRFunction (IRString "add") Nothing) ([IRString "s2"], [IRString "s3_delay", IRString "s_out"]),
       IRDelay (IRString "delay") [0, 0, 0, 0, 0, 0] (IRString "s3_delay", IRString "s3")
     ]
     [ IRSignal (IRString "s_in") (IRString "s_in", 1) (IRString "a", 2),
@@ -100,10 +100,10 @@ exampleSystem6 :: IRSystem
 exampleSystem6 =
   IRSystem
     ([IRString "s_in"], [IRString "s_out"])
-    [ IRActor (IRString "a") Actor12 (IRString "add") ([IRString "s_in", IRString "s4"], [IRString "s1"]),
-      IRActor (IRString "b") Actor11 (IRString "add") ([IRString "s1"], [IRString "s2_delay"]),
-      IRActor (IRString "c") Actor11 (IRString "add") ([IRString "s3"], [IRString "s4"]),
-      IRActor (IRString "d") Actor12 (IRString "add") ([IRString "s2"], [IRString "s3", IRString "s_out"]),
+    [ IRActor (IRString "a") Actor12 (IRFunction (IRString "add") Nothing) ([IRString "s_in", IRString "s4"], [IRString "s1"]),
+      IRActor (IRString "b") Actor11 (IRFunction (IRString "add") Nothing) ([IRString "s1"], [IRString "s2_delay"]),
+      IRActor (IRString "c") Actor11 (IRFunction (IRString "add") Nothing) ([IRString "s3"], [IRString "s4"]),
+      IRActor (IRString "d") Actor12 (IRFunction (IRString "add") Nothing) ([IRString "s2"], [IRString "s3", IRString "s_out"]),
       IRDelay (IRString "delay") [0, 0] (IRString "s2_delay", IRString "s2")
     ]
     [ IRSignal (IRString "s_in") (IRString "s_in", 1) (IRString "a", 2),

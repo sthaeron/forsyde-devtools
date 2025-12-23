@@ -473,7 +473,7 @@ createActorSDF initialContext actorType binder expr =
           let (inputRates, outputRates) = splitAt (getActorSplit actorType) lits
               actorId = IRVar binder
               baseOutputs = replicate (length outputRates) Empty
-              newActor = IRActor actorId actorType functionName ([], baseOutputs)
+              newActor = IRActor actorId actorType (IRFunction functionName Nothing) ([], baseOutputs)
               newActors = (actorId, (inputRates, outputRates)) : (pcRates initialContext)
               newConstructors = (actorId, newActor) : (constructors initialContext)
               context1 = initialContext {pcRates = newActors, constructors = newConstructors}
