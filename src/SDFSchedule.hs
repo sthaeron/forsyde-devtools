@@ -21,7 +21,7 @@ convertIRSystem (IRSystem (inputNames, outputNames) constructors signals _) =
         | IRActor n _ _ (_, _) <- constructors
         ]
 
-      -- 3. Actors that receive from "input"
+      -- 3. Actors that receive from inputs
       inputActorNames =
         [ dstId
         | IRSignal _ (srcId, _) (dstId, _) <- signals,
@@ -511,7 +511,8 @@ verifySchedule actors edges initialTokens schedule _repetitionCounts =
 -- Library Function: compute schedule & buffer sizes
 ----------------------------------------------------------
 
--- | Returns schedule as actor names and buffer sizes
+-- | Returns schedule as actor names, buffer sizes, and delay buffer mappings
+-- Returns: (schedule_order, [(buffer_name, buffer_size)], [(original_signal, delay_buffer_name)])
 computeScheduleAndBuffers :: IRSystem -> ([IRId], [(IRId, Int)], [(IRId, IRId)])
 computeScheduleAndBuffers irSystem =
   let (actors, edges) = convertIRSystem irSystem
