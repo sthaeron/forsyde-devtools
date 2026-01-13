@@ -148,7 +148,7 @@ translateBuffer initialContext (bufferId, bufferSize) =
           -- If input is predefined, then do not create "input_" arrays.
           -- But you still need to create the "s_" buffers for those signals
           Predefined ->
-            initialContext {ioTokens = ioTokens initialContext, initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
+            initialContext {initBuffers = initStmt : initBuffers initialContext, freeBuffers = freeStmt : freeBuffers initialContext}
         else
           if (elem bufferId (systemOutputs initialContext))
             then

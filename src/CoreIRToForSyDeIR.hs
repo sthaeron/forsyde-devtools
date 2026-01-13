@@ -5,6 +5,9 @@ import Data.List (elemIndex)
 import ForSyDeIR
 import GHC hiding (targetId)
 import GHC.Core
+import GHC.Driver.Ppr (showPprUnsafe)
+import GHC.Plugins
+import GHC.Plugins (IdDetails (CoVarId))
 import GHC.Types.Var (isTyVar)
 
 -- | The `TranslationContext` is a data type which is used to pass around
@@ -63,10 +66,11 @@ translateCoreProgram dflags program =
 
 -- | Translates a top level `CoreBind`. Module information is currently ignored.
 translateCoreBind :: TranslationContext -> CoreBind -> TranslationContext
-translateCoreBind context (NonRec b e) = case show (IRVar b) of
-  "$trModule" -> context
-  "system" -> translateSystem context e
-  _ -> translateCoreExpr context b e
+translateCoreBind context (NonRec b e)
+  | IRVar b == IRString "$trModule" = context
+  | isSystemName (varName b) = context
+  | IRVar b == IRString "system" = translateSystem context e
+  | otherwise = translateCoreExpr context b e
 -- NOTE: Currently no SDF examples have a `Rec` in the top level of their Core
 -- output, thus unsure what the expected outcome should be.
 translateCoreBind _ (Rec _) = error "translateCoreBind - `Rec` used in top level of Core output"
@@ -511,10 +515,16 @@ getActorSplit actorType = case actorType of
   Actor44 -> 4
 
 createFunction :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
-createFunction context binder expr =
-  let functionId = IRVar binder
-      newFunction = IRFunction functionId (Just expr)
-   in context {functions = (functionId, newFunction) : (functions context)}
+createFunction context binder expr = case expr of
+  App (Var i) (Type _)
+    | IRVar i == IRString "undefined" ->
+        let functionId = IRVar binder
+            newFunction = IRFunction functionId Nothing
+         in context {functions = (functionId, newFunction) : (functions context)}
+  _ ->
+    let functionId = IRVar binder
+        newFunction = IRFunction functionId (Just expr)
+     in context {functions = (functionId, newFunction) : (functions context)}
 
 -- | Helper function for `createActorSDF` which returns name of the function
 -- used by the process constructor.
@@ -527,8 +537,10 @@ getFunctionName context expr = case expr of
           Nothing -> getFunctionName context e
   Lam _ e -> getFunctionName context e
   Let _ e -> getFunctionName context e
-  Var v ->
-    let name = IRVar v
+  -- Not the following results in undefined behaviour in C
+  Var i | IRVar i == IRString "undefined" -> Just (IRString "NULL")
+  Var i ->
+    let name = IRVar i
      in if any (\x -> case x of IRFunction functionName _ -> functionName == name) (map snd (functions context))
           then
             Just name
