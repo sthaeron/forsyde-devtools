@@ -15,7 +15,6 @@ Additionally, the procedural IR serves as an intermediate representation when co
 
 - These language elements are intentionally excluded from the current IR stage to maintain focus on the core model semantics.
 
-
 ## Key Components
 
 ### 1. StorageClass and TypeQualifier
@@ -64,8 +63,10 @@ data BinaryOperator
   | GreaterEqual -- lhs >= rhs
 ```
 
-Procedural IR does not contain information about the associativity and precedence of operators. Specifically, unary operators are currently all treated the same way and placed at the left of the expression. This is currently fine since `++i` works in loop, but use with care if using this grammar in array access. 
-
+Operators implement the type class `Operator`, which has functions for
+associativity and precedence according to the `operator(7)` manual page. This
+is used in the pretty-printing to C for adding `EParen` around expressions
+which would be parsed the wrong way otherwise.
 
 ### 3. Types (`Type`)
 ```Haskell
@@ -111,8 +112,7 @@ data Expression
   | EParen Expression -- (expr)
 ```
 
-Expressions can be considered as values, including literals, variables and its references and pointers, arithmetic, and function calls. 
-
+Expressions can be considered as values, including literals, variables and its references and pointers, arithmetic, and function calls.
 
 ### 5. Statements (`Statement`)
 ```Haskell
@@ -135,7 +135,6 @@ data Statement
   | SLabel String
 ```
 Statements are the main building blocks of procedural program with assignments, control flow.
-
 
 ### 6. Globals
 ```Haskell
@@ -164,19 +163,16 @@ A complete Procedural IR program is a list of Global (functions).
 - If a function takes an array as parameter, it can only be represented by `int *x`, not `int x[]`, since currently function parameters are only represented as `Type Name`.
 - Due to the reason above, multi-dimensional arrays as parameters (e.g., `int x[][4]`) are not handled. Only dynamically allocated arrays could be used and pass them as `int**`. If this is a necessity, it can be updated in future.
 
-**2. Ternary operators**  
+**2. Ternary operators**
 The following code from `SDF_example_001.c` is not supported:
 ```
 count_a = fifo->head + count <= fifo->size ? count : fifo->size - fifo->head;
 ```
-
 
 ## Note: things need to take care of in C codegen
 
 - Printing function pointer parameters may introduce ambiguity and differs from printing other types. It is not simply a matter of printing the type followed by the variable name, as the variable name is embedded within the type syntax. For example:
     - `void *f(token*, token*)` represents a function returning a pointer.
     - `void (*f)(token*, token*)` represents a function pointer variable.
-    
+
     Since our mainly usage of function pointer as function parameters and it is rare to use it in other places, this can also be addressed in later stage by defining an explicit template of printing parameters with type `TFunctionPointer`.
-
-
