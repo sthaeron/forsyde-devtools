@@ -457,6 +457,17 @@ translateCoreExpr context' binder expr' =
           | IRVar i == IRString "actor43SDF" -> createActorSDF context Actor43 binder expr
         App (App (App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _) _) _
           | IRVar i == IRString "actor44SDF" -> createActorSDF context Actor44 binder expr
+        -- Atom SY
+        App (App (App (Var i) _) _) _
+          | IRVar i == IRString "comb11" ->
+              createCombSY context Actor11 binder expr
+        App (App (App (App (Var i) _) _) _) _
+          | IRVar i == IRString "comb21" ->
+              createCombSY context Actor21 binder expr
+        App (App (App (App (Var i) _) _) _) _
+          | IRVar i == IRString "comb12" ->
+              createCombSY context Actor12 binder expr
+        -- _ -> error $ prettyCoreExpr (flags context) expr
         _ -> createFunction context binder expr
 
 createDelaySDF :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
@@ -483,6 +494,22 @@ createActorSDF initialContext actorType binder expr =
               context1 = initialContext {pcRates = newActors, constructors = newConstructors}
            in context1
 
+createCombSY :: TranslationContext -> ActorType -> CoreBndr -> CoreExpr -> TranslationContext
+createCombSY initialContext actorType binder expr =
+  let maybeFunctionName = getFunctionName initialContext expr
+   in case maybeFunctionName of
+        Nothing -> error "createActorSDF - No function found for actor"
+        Just functionName ->
+          let (inputRates, outputRates) =
+                (take (getInputs actorType) (repeat 1), take (getOutputs actorType) (repeat 1))
+              actorId = IRVar binder
+              baseOutputs = replicate (length outputRates) Empty
+              newActor = IRActor actorId actorType functionName ([], baseOutputs)
+              newActors = (actorId, (inputRates, outputRates)) : (pcRates initialContext)
+              newConstructors = (actorId, newActor) : (constructors initialContext)
+              context1 = initialContext {pcRates = newActors, constructors = newConstructors}
+           in context1
+
 -- | Helper function for `createDelaySDF` and `createActorSDF` which returns
 -- all integer literals within their expression as a list.
 getLits :: CoreExpr -> [Int] -> [Int]
@@ -496,7 +523,10 @@ getLits expr acc = case expr of
 -- | Helper function for `createActorSDF` which returns the index to split the
 -- literals within an actor expression based on the actor type.
 getActorSplit :: ActorType -> Int
-getActorSplit actorType = case actorType of
+getActorSplit = getInputs
+
+getInputs :: ActorType -> Int
+getInputs actorType = case actorType of
   Actor11 -> 1
   Actor12 -> 1
   Actor13 -> 1
@@ -512,6 +542,25 @@ getActorSplit actorType = case actorType of
   Actor41 -> 4
   Actor42 -> 4
   Actor43 -> 4
+  Actor44 -> 4
+
+getOutputs :: ActorType -> Int
+getOutputs actorType = case actorType of
+  Actor11 -> 1
+  Actor12 -> 2
+  Actor13 -> 3
+  Actor14 -> 4
+  Actor21 -> 1
+  Actor22 -> 2
+  Actor23 -> 3
+  Actor24 -> 4
+  Actor31 -> 1
+  Actor32 -> 2
+  Actor33 -> 3
+  Actor34 -> 4
+  Actor41 -> 1
+  Actor42 -> 2
+  Actor43 -> 3
   Actor44 -> 4
 
 createFunction :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
