@@ -5,7 +5,7 @@
 
 module CoreIRToProceduralIR where
 
-import CoreIR (literalToInt, prettyCoreAlt)
+import CoreIR (literalToInt, prettyCoreAlt, varToString)
 import Data.List (elemIndex)
 import Data.Maybe (mapMaybe)
 import ForSyDeIR
@@ -26,10 +26,15 @@ data TranslationContext = TranslationContext
     scope :: Statement -- Scope of function definition
   }
 
+data PVar = PVar Var
+
+instance Show PVar where
+  show (PVar v) = varToString v
+
 -- | The `FunctionContent` data type is used to represent the individual
 -- components that make up the contents of a function expression using Core IR.
 data FunctionContent
-  = FVar Var
+  = FVar PVar
   | FInt Int
   | FCons
   | FTuple
@@ -39,6 +44,7 @@ data FunctionContent
   | FMultiply
   | FDiv
   | FNegate
+  deriving (Show)
 
 initialTranslationContext :: DynFlags -> TranslationContext
 initialTranslationContext dflags =
@@ -204,7 +210,7 @@ translateOutputExprToFunctionContentList context expr acc = case expr of
     "negate" -> FNegate : acc
     -- Only adds current variable id if its associated to a current variable expression
     _ -> case lookup (IRVar varId) (functionVariables context) of
-      Just _ -> FVar varId : acc
+      Just _ -> FVar (PVar varId) : acc
       Nothing -> acc
   Lit i -> FInt (literalToInt i) : acc
   _ -> acc
@@ -216,6 +222,8 @@ translateFunctionContent context contentList =
       stmtList = foldl' stackToScope [] (zip (outputIds context) (stackToList finalExprsStack))
    in SScope stmtList
   where
+    -- in error $ show contentList
+
     -- Helper function which translates an associated output signal id and a
     -- list of expressions into a list of statements. Each statement in the list
     -- represents an array assign of the output at an incrementing index equal
@@ -254,7 +262,7 @@ translateFunctionContent context contentList =
             newExprList = expr : exprList
             exprsStack2 = push newExprList exprsStack1
          in exprsStack2
-      (FVar varId) ->
+      (FVar (PVar varId)) ->
         let (exprList, exprsStack1) = case (pop exprsStack) of
               Nothing -> error "translateFunctionContent - empty expression stack when popping"
               Just (elist, stack1) -> (elist, stack1)
