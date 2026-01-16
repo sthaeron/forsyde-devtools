@@ -24,6 +24,7 @@ common common-options
     co-log-core ==0.3.2.5,
     containers ==0.7,
     filepath >=1 && <1.6,
+    forsyde-atom >=0.3.2 && <=0.3.3,
     forsyde-shallow ==3.5.0.0,
     ghc ==9.10.2,
     ghc-paths ==0.1.0.12,
