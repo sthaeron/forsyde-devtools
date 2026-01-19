@@ -252,12 +252,9 @@ defaultConfig =
 handlers :: LSP.Handlers (LSP.LspM Config)
 handlers =
   mconcat
-    [ LSP.notificationHandler LSP.SMethod_Initialized $ \_not -> do
-        pure (),
-      LSP.notificationHandler setPreferencesMethod $ \_not -> do
-        pure (),
-      LSP.notificationHandler LSP.SMethod_WorkspaceDidChangeConfiguration $ \_not -> do
-        pure (),
+    [ LSP.notificationHandler LSP.SMethod_Initialized $ \_not -> pure (),
+      LSP.notificationHandler setPreferencesMethod $ \_not -> pure (),
+      LSP.notificationHandler LSP.SMethod_WorkspaceDidChangeConfiguration $ \_not -> pure (),
       LSP.requestHandler LSP.SMethod_Initialize $ \_req _resp -> do
         _resp
           ( Right $
@@ -495,20 +492,14 @@ run (Arguments comm (Host ip) (TCP p) i_f pkgPath) =
       where
         lsp s = do
           handle <- socketToHandle s ReadWriteMode
-          -- server returns IO Int, wrapper with "pure ()" so that expression
-          -- returns IO ()
-          _ <-
-            runServerC handle handle serverDef
-          pure ()
-    (FromClient, CommStdio) -> do
-      _ <- runServerC stdin stdout serverDef
-      pure ()
+          void $ runServerC handle handle serverDef
+    (FromClient, CommStdio) ->
+      void $ runServerC stdin stdout serverDef
     (InputFile f, _) -> do
       (core, dflags) <- liftIO $ compileToCoreWithForSyDePath pkgPath f
       let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
       let graphMessage = requestBounds f "sprotty" forsydeIR
       BSL8.putStrLn $ AP.encodePretty graphMessage
-      pure ()
   where
     serverDef =
       LSP.ServerDefinition
