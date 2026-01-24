@@ -151,9 +151,9 @@ In summary:
         for global input and output edges which have none.
     - The Client layout version of KLighD-VSCode currently does not have a built-in
         rendering for directed edges. Edge direction is indicated by a Unicode
-        diamond symbol on the edge port.
-    - Edges terminating in delay element have no diamond, as they are technically the same edge that
-        continues after the delay element.
+        arrow symbol on the edge port.
+    - Edges terminating in delay element have no arrow, as they are technically
+      the same edge that continues after the delay element.
 - Global input and output have no shape, just the label
 
 ## Testing
