@@ -13,7 +13,7 @@ system = s_out
 
 -- Process specifications
 a_a :: Signal Int -> Signal Int -> (Signal Int, Signal Int)
-a_a s_1 s_2 = actor22SDF (1, 1) (1, 1) fib s_1 s_2
+a_a s_1 s_2 = actor22SDF (1, 1) (1, 1) f s_1 s_2
 
 a_split :: Signal Int -> (Signal Int, Signal Int)
 a_split s_1 = actor12SDF 1 (1, 1) f_split s_1
@@ -25,8 +25,8 @@ d_2 :: Signal Int -> Signal Int
 d_2 s = delaySDF [1] s
 
 -- Function definitions
-fib :: [Int] -> [Int] -> ([Int], [Int])
-fib [first] [second] = ([second], [first + second])
+f :: [Int] -> [Int] -> ([Int], [Int])
+f [first] [second] = ([second], [first + second])
 
 f_split :: [Int] -> ([Int], [Int])
 f_split [x] = ([x], [x])
