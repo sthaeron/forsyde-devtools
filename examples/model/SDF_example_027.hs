@@ -39,7 +39,5 @@ p_5 = actor11SDF 1 1 f_5
 s_in = signal [1 .. 10]
 
 -- Expected output
-
--- * SDF_System_Model>  system s_in
-
+-- >>> system s_in
 -- {3,4,5,7,8,9,23,24,25,27,28,29,71,72,73}

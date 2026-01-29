@@ -40,17 +40,3 @@ f_3 [x] = [x + 1]
 
 f_4 :: [Int] -> [Int] -> ([Int], [Int])
 f_4 [x1, x2] [y] = ([(x1 + x2) * 2 - (x1 + x2) + y], [y])
-
--- Error messages
-
--- * Eta reduce seems not to be allowed
-
---  ==> Error message:
---   forsyde-compiler-exe: createSignalsFromArguments - No rates found
---   for process constructor: a_2
-
--- * PASS does not exist
-
---  ==> Error message:
---   forsyde-compiler-exe: Matrix rank is not equal to number of actors
---   minus one. Cannot compute repetition vector.
