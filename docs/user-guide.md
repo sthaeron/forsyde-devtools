@@ -1,6 +1,8 @@
 # User Guide
+This user guide provides usage information for the ForSyDe DevTools compiler, language server, and VSCode visualiser extension. Additionally, the guide outlines the programming restrictions which need to be followed when developing ForSyDe Shallow models for these development tools.
 
 ## Using the compiler
+The output of the usage and help prompts for the ForSyDe DevTools compiler is shown below for reference:
 
 ```sh
 $ forsyde-compiler-exe --help
@@ -91,6 +93,9 @@ server complains about not finding ForSyDe Shallow when importing it, recheck
 the build instructions (likely for stack).
 
 ## Using the language server separately
+The output of the usage and help prompts for the ForSyDe DevTools language
+server is shown below for reference:
+
 
 ```sh
 $ forsyde-lsp-exe --help
@@ -138,9 +143,9 @@ cabal run forsyde-lsp-exe
 
 This will open up a new tab in the browser with the visualiser.
 
-## Programming Guidelines/Restrictions
+## Programming guidelines and restrictions
 
-Supported examples can be found in [examples/model](../examples/model) folder. It is highly recommended to read through them and follow their style when using the ForSyDe DevTools.
+Examples of supported ForSyDe Shallow models can be found in the [examples/model](../examples/model) directory. It is highly recommended to read through them and follow their style when using the ForSyDe DevTools.
 
 The following is a set of programmer restrictions which limit what the compiler accepts as input Haskell and ForSyDe code.
 
