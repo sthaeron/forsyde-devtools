@@ -48,6 +48,26 @@ For more information on how to use the compiler and LSP provided by the ForSyDe 
 
 ## Visualiser VSCode extension installation
 
+First, install the compiler and LSP as described in the previous section.
+
+Install the VSCode extensions [KLighD
+Diagrams](https://marketplace.visualstudio.com/items?itemName=kieler.klighd-vscode)
+and
+[Haskell](https://marketplace.visualstudio.com/items?itemName=haskell.haskell).
+In addition, you also need
+[npm](https://nodejs.org/en/learn/getting-started/an-introduction-to-the-npm-package-manager)
+for building the extension.
+
+To build and install the VSCode extension:
+```sh
+cd ./vscode-ext
+npm install
+npm run compile
+./node_modules/vsce/vsce package
+code --install-extension forsyde-vscode-extension-0.1.0.vsix
+cd ..
+```
+
 For more information on how to setup and use the visualiser VSCode extension provided by the ForSyDe DevTools project, refer to your [user guide](user-guide.md).
 
 ## Contributing
