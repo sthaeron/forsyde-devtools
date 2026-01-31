@@ -1,5 +1,7 @@
 # Project Overview
-This document provides a comprehensive overview of the ForSyDe DevTools project, including its goals, structure, and the languages employed in its development and use. It also includes programming guidelines on how to write code that can be correctly compiled by the tool.
+This document provides a comprehensive overview of the ForSyDe DevTools project, including its goals, structure, and the languages employed in its development and use.
+
+See the [user-guide](user-guide.md) for information on building, running, and programming guidelines.
 
 # Table of Contents
 
@@ -22,7 +24,6 @@ This document provides a comprehensive overview of the ForSyDe DevTools project,
     - [Language Server Protocol](#language-server-protocol)
     - [Graphical Representation](#graphical-representation)
   - [Testing](#testing)
-- [Programming Guidelines/Restrictions](#programming-guidelinesrestrictions)
 
 # Project Objectives
 Create and document two development tools, one to compile, and one to visualise the SDF model subset of the ForSyDe modelling language framework. 
@@ -151,23 +152,10 @@ In summary:
         for global input and output edges which have none.
     - The Client layout version of KLighD-VSCode currently does not have a built-in
         rendering for directed edges. Edge direction is indicated by a Unicode
-        diamond symbol on the edge port.
-    - Edges terminating in delay element have no diamond, as they are technically the same edge that
-        continues after the delay element.
+        arrow symbol on the edge port.
+    - Edges terminating in delay element have no arrow, as they are technically
+      the same edge that continues after the delay element.
 - Global input and output have no shape, just the label
 
 ## Testing
 Testing is crucial to check the correctness and the integrity of the work. Tests are manually written and exposed to a test suite in order to execute them. The documentation of the testing in ForSyDe DevTools can be found in [Testing](testing.md) documentation.
-
-# Programming Guidelines/Restrictions
-The following is a set of programmer restrictions which limit what the compiler accepts as input Haskell and ForSyDe code.
-
-- The input program should be a correct Haskell/ForSyDe program. ForSyDe DevTools currently does not have any input validity checking mechanisms.
-- "where" scopes are not allowed to be nested except for the initial module scope.
-- "if" expressions are not allowed inside "system"
-- Netlists can only be defined using the identifier "system"
-- Type signatures should be written for all defined functions.
-- Current implementation support only "system" with one or two outputs.
-
-Accurate examples can be found in [examples/model](../examples/model) folder. It is highly recommended to read through them and follow their style when using the ForSyDe DevTools.
-
