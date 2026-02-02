@@ -44,7 +44,7 @@ forsyde-compiler-exe --help
 forsyde-lsp-exe --help
 ```
 
-For more information on how to use the compiler and LSP provided by the ForSyDe DevTools project, refer to your [user guide](user-guide.md).
+For more information on how to use the compiler and LSP provided by the ForSyDe DevTools project, refer to the [user guide](docs/user-guide.md).
 
 ## Visualiser VSCode extension installation
 
@@ -68,7 +68,7 @@ code --install-extension forsyde-vscode-extension-0.1.0.vsix
 cd ..
 ```
 
-For more information on how to setup and use the visualiser VSCode extension provided by the ForSyDe DevTools project, refer to your [user guide](user-guide.md).
+For more information on how to setup and use the visualiser VSCode extension provided by the ForSyDe DevTools project, refer to the [user guide](docs/user-guide.md).
 
 ## Contributing
 To contribute to the project we recommend using Nix to setup your Haskell development environment. You can install Nix onto your system with the following instructions at [nixos.org](https://nixos.org/download/). This project makes use of nix flakes which need to be manually enabled by adding the following to your `nix.conf`:
