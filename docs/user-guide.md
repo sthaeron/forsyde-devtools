@@ -56,7 +56,7 @@ ln -s $PWD/examples/model/implementation/platform_independent/include <build dir
 To build the version for the ES-LabKit you need an existing project of the [ES-Lab-Kit](https://gits-15.sys.kth.se/mabecker/ES-Lab-Kit.git) repository created with `newembproj -noRTOS <name>`.
 Specify `--target=PICO2` to `forsyde-compiler-exe` so the right headers are included.
 Link the include directory as above and build according to the instructions.
-There is some additional documentation to the ES-Lab-Kit which can be useful at [docs/es-labkit-board.md](docs/es-labkit-board.md) if you are working with the board.
+There is some additional [documentation for it](es-labkit-board.md) which can be useful if you are working with the board.
 
 ## Using the VSCode extension
 
