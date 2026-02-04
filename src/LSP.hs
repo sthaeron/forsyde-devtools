@@ -302,10 +302,10 @@ handlers =
           )
         pure (),
       LSP.notificationHandler LSP.SMethod_WorkspaceDidChangeWatchedFiles $ \_not -> do
-        _ <- recomputeModel
+        recomputeModel
         sendModel,
       LSP.notificationHandler LSP.SMethod_TextDocumentDidSave $ \_not -> do
-        _ <- recomputeModel
+        recomputeModel
         sendModel,
       LSP.notificationHandler diagramAcceptMethod $ \LSP.TNotificationMessage {_params = p} -> do
         config <- LSP.getConfig
@@ -316,13 +316,12 @@ handlers =
         -- TODO: maybe only recompute on TextDocumentDidSave
         forsydeIR <- compileToModelMaybe newfile
         -- Update config with new data
-        _ <-
-          LSP.setConfig
-            config
-              { file = Just newfile,
-                clientId = Just newId,
-                system = forsydeIR
-              }
+        LSP.setConfig
+          config
+            { file = Just newfile,
+              clientId = Just newId,
+              system = forsydeIR
+            }
 
         -- Decode elementSelected
         let sel = getSelected p & map (T.split (\_c -> _c == '$')) & map last & map T.unpack
@@ -332,21 +331,19 @@ handlers =
 
         -- Get location information on selected object
         let spans = getSelectedSpans sel forsydeIR
-        _ <-
-          if length spans > 0
-            then liftIO $ stderrLogger <& ("Selected: " <> T.show spans) `L.WithSeverity` L.Debug
-            else pure ()
+        if length spans > 0
+          then liftIO $ stderrLogger <& ("Selected: " <> T.show spans) `L.WithSeverity` L.Debug
+          else pure ()
 
         -- Send the diagram if the client wants it
-        _ <- if update then sendModel else pure ()
+        if update then sendModel else pure ()
 
         -- When an element is selcted, only that one seems to be sent.
         -- Therefore, just use the first one
-        _ <- case spans of
-          sspan : _ ->
-            let (fname, sl, sc, el, ec) = sspan
-             in LSP.sendNotification diagramOpenInTextEditor $
-                  diagramOpenInTextEditorMessage fname sl sc el ec
+        case spans of
+          (fname, sl, sc, el, ec) : _ ->
+            LSP.sendNotification diagramOpenInTextEditor $
+              diagramOpenInTextEditorMessage fname sl sc el ec
           _ -> pure ()
 
         pure ()
@@ -380,17 +377,17 @@ handlers =
           LSP.setConfig config {system = out}
     compileToModelMaybe f = do
       config <- LSP.getConfig
-      _ <- dualLogger <& ("Compiling: " <> T.show f) `L.WithSeverity` L.Debug
+      dualLogger <& ("Compiling: " <> T.show f) `L.WithSeverity` L.Debug
       result <- liftIO $ E.try $ compileToCoreWithForSyDePath (forSyDePkg config) f
       case result of
         Left e -> do
-          _ <- dualLogger <& ("Failed to compile into core: " <> T.show (e :: E.SomeException)) `L.WithSeverity` L.Error
+          dualLogger <& ("Failed to compile into core: " <> T.show (e :: E.SomeException)) `L.WithSeverity` L.Error
           pure $ system config
         Right (core, dflags) -> do
           s <- liftIO $ E.try $ E.evaluate $ translateCoreProgram dflags core
           case s of
             Left e -> do
-              _ <- dualLogger <& ("Failed to compile into ForSyDe IR: " <> T.show (e :: E.ErrorCall)) `L.WithSeverity` L.Error
+              dualLogger <& ("Failed to compile into ForSyDe IR: " <> T.show (e :: E.ErrorCall)) `L.WithSeverity` L.Error
               pure $ system config
             Right (ir, _) -> pure $ Just ir
     findSignalSpan :: IRId -> [IRSignal] -> [IRSpan]
