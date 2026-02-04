@@ -14,7 +14,7 @@ import Control.Concurrent (forkFinally)
 import qualified Control.Exception as E
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class
-import qualified CoreIRToForSyDeIR
+import CoreIRToForSyDeIR (translateCoreProgram)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Encode.Pretty as AP
@@ -37,7 +37,7 @@ import Options.Applicative
 import Prettyprinter
 import SKGraphSchema
 import System.IO
-import Utilities
+import Utilities (compileToCoreWithForSyDePath)
 
 diagramAcceptMethod :: LSP.SMethod (LSP.Method_CustomMethod "diagram/accept")
 diagramAcceptMethod = (LSP.SMethod_CustomMethod (Proxy @"diagram/accept"))
@@ -252,12 +252,9 @@ defaultConfig =
 handlers :: LSP.Handlers (LSP.LspM Config)
 handlers =
   mconcat
-    [ LSP.notificationHandler LSP.SMethod_Initialized $ \_not -> do
-        pure (),
-      LSP.notificationHandler setPreferencesMethod $ \_not -> do
-        pure (),
-      LSP.notificationHandler LSP.SMethod_WorkspaceDidChangeConfiguration $ \_not -> do
-        pure (),
+    [ LSP.notificationHandler LSP.SMethod_Initialized $ \_not -> pure (),
+      LSP.notificationHandler setPreferencesMethod $ \_not -> pure (),
+      LSP.notificationHandler LSP.SMethod_WorkspaceDidChangeConfiguration $ \_not -> pure (),
       LSP.requestHandler LSP.SMethod_Initialize $ \_req _resp -> do
         _resp
           ( Right $
@@ -317,15 +314,14 @@ handlers =
         -- What clientId should we use?
         let newId = maybe (maybe ("sprotty" :: T.Text) id $ clientId config) id (getClientId p)
         -- TODO: maybe only recompute on TextDocumentDidSave
-        (core, dflags) <- liftIO $ compileToCoreWithForSyDePath (forSyDePkg config) newfile
-        let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
+        forsydeIR <- compileToModelMaybe newfile
         -- Update config with new data
         _ <-
           LSP.setConfig
             config
               { file = Just newfile,
                 clientId = Just newId,
-                system = Just forsydeIR
+                system = forsydeIR
               }
 
         -- Decode elementSelected
@@ -335,13 +331,10 @@ handlers =
         let update = shouldUpdate p
 
         -- Get location information on selected object
-        let IRSystem _ procs sigs _ = forsydeIR
-        let s = map findSignalSpan (map IRString sel) <*> [sigs] & mconcat
-        let a = map findProcessSpan (map IRString sel) <*> [procs] & mconcat
-        let spans = s ++ a
+        let spans = getSelectedSpans sel forsydeIR
         _ <-
           if length spans > 0
-            then liftIO $ stderrLogger <& ("Selected: " <> T.show spans) `L.WithSeverity` L.Info
+            then liftIO $ stderrLogger <& ("Selected: " <> T.show spans) `L.WithSeverity` L.Debug
             else pure ()
 
         -- Send the diagram if the client wants it
@@ -359,6 +352,12 @@ handlers =
         pure ()
     ]
   where
+    getSelectedSpans sel = \case
+      Nothing -> []
+      Just (IRSystem _ procs sigs _) ->
+        let s = findSignalSpan . IRString <$> sel <*> [sigs] & mconcat
+            a = findProcessSpan . IRString <$> sel <*> [procs] & mconcat
+         in s <> a
     sendModel :: LSP.LspT Config IO ()
     sendModel = do
       config@Config {file = f, clientId = c, system = s} <- LSP.getConfig
@@ -367,49 +366,43 @@ handlers =
           LSP.sendNotification diagramAcceptMethod (setSynthesis curId)
             >> LSP.sendNotification diagramAcceptMethod (updateOptions curFile curId)
             >> LSP.sendNotification diagramAcceptMethod (requestBounds curFile curId curSystem)
-        _ -> liftIO $ stderrLogger <& ("does not have enough information to send diagram: " <> T.show config) `L.WithSeverity` L.Error
+        _ -> dualLogger <& ("does not have enough information to send diagram: " <> T.show config) `L.WithSeverity` L.Error
     recomputeModel :: LSP.LspT Config IO ()
     recomputeModel = do
       config <- LSP.getConfig
-      let pkgPath = forSyDePkg config
       out <- case config of
         Config {file = Just newfile} ->
-          liftIO $ compileToModelMaybe pkgPath newfile
+          compileToModelMaybe newfile
         _ -> pure Nothing
       case out of
         Nothing -> pure ()
         Just _ ->
           LSP.setConfig config {system = out}
-    compileToModelMaybe pkgPath f = do
-      (core, dflags) <- compileToCoreWithForSyDePath pkgPath f
-      let (irsystem, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
-      pure $ Just irsystem
-    findIR :: (a -> Maybe b) -> (a -> Bool) -> [a] -> [b]
-    findIR transform match l =
-      foldr
-        ( \e a ->
-            if match e
-              then case transform e of
-                Just ret -> ret : a
-                Nothing -> a
-              else a
-        )
-        []
-        l
+    compileToModelMaybe f = do
+      config <- LSP.getConfig
+      _ <- dualLogger <& ("Compiling: " <> T.show f) `L.WithSeverity` L.Debug
+      result <- liftIO $ E.try $ compileToCoreWithForSyDePath (forSyDePkg config) f
+      case result of
+        Left e -> do
+          _ <- dualLogger <& ("Failed to compile into core: " <> T.show (e :: E.SomeException)) `L.WithSeverity` L.Error
+          pure $ system config
+        Right (core, dflags) -> do
+          s <- liftIO $ E.try $ E.evaluate $ translateCoreProgram dflags core
+          case s of
+            Left e -> do
+              _ <- dualLogger <& ("Failed to compile into ForSyDe IR: " <> T.show (e :: E.ErrorCall)) `L.WithSeverity` L.Error
+              pure $ system config
+            Right (ir, _) -> pure $ Just ir
     findSignalSpan :: IRId -> [IRSignal] -> [IRSpan]
-    findSignalSpan sig l = findIR transform match l
+    findSignalSpan sig l = mapMaybe match l
       where
-        match (IRSignal n _ _) = sig == n
-        transform (IRSignal n _ _) = varToSpan n
+        match (IRSignal n _ _) = if sig == n then varToSpan n else Nothing
     findProcessSpan :: IRId -> [IRConstructor] -> [IRSpan]
-    findProcessSpan proc l = findIR transform match l
+    findProcessSpan proc l = mapMaybe match l
       where
         match = \case
-          IRDelay n _ _ -> proc == n
-          IRActor n _ _ _ -> proc == n
-        transform = \case
-          IRDelay n _ _ -> varToSpan n
-          IRActor n _ _ _ -> varToSpan n
+          IRDelay n _ _ -> if proc == n then varToSpan n else Nothing
+          IRActor n _ _ _ -> if proc == n then varToSpan n else Nothing
     getKey key = \case
       A.Object o -> o !? key
       _ -> Nothing
@@ -499,20 +492,14 @@ run (Arguments comm (Host ip) (TCP p) i_f pkgPath) =
       where
         lsp s = do
           handle <- socketToHandle s ReadWriteMode
-          -- server returns IO Int, wrapper with "pure ()" so that expression
-          -- returns IO ()
-          _ <-
-            runServerC handle handle serverDef
-          pure ()
-    (FromClient, CommStdio) -> do
-      _ <- runServerC stdin stdout serverDef
-      pure ()
+          void $ runServerC handle handle serverDef
+    (FromClient, CommStdio) ->
+      void $ runServerC stdin stdout serverDef
     (InputFile f, _) -> do
       (core, dflags) <- liftIO $ compileToCoreWithForSyDePath pkgPath f
-      let (forsydeIR, _lookupSignals) = CoreIRToForSyDeIR.translateCoreProgram dflags core
+      let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
       let graphMessage = requestBounds f "sprotty" forsydeIR
       BSL8.putStrLn $ AP.encodePretty graphMessage
-      pure ()
   where
     serverDef =
       LSP.ServerDefinition
