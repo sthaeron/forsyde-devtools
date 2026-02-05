@@ -6,3 +6,5 @@ cradle:
       config: {cradle: {cabal: {component: "forsyde-devtools:forsyde-lsp-exe"}}}
     - path: "test"
       config: {cradle: {cabal: {component: "forsyde-devtools:forsyde-devtools-test"}}}
+    - path: "examples"
+      config: { cradle: {cabal: {component: "lib:examples"}}}
