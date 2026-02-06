@@ -38,7 +38,7 @@ export async function activate(context: ExtensionContext) {
   const clientOptions: LanguageClientOptions = {
     documentSelector: [{ scheme: "file", pattern: "**/*.hs" }],
     synchronize: {
-      fileEvents: vscode.workspace.createFileSystemWatcher("**/*.*"),
+      fileEvents: vscode.workspace.createFileSystemWatcher("**/*.hs"),
     },
   };
 
