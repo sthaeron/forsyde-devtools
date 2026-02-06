@@ -333,13 +333,12 @@ handlers =
           then liftIO $ stderrLogger <& ("Selected: " <> T.show spans) `L.WithSeverity` L.Debug
           else pure ()
 
-        -- When an element is selcted, only that one seems to be sent.
-        -- Therefore, just use the first one
-        case spans of
-          (fname, sl, sc, el, ec) : _ ->
+        -- Send selection messages for all of the currently selected elements
+        _ <- traverse
+          (\(fname, sl, sc, el, ec) ->
             LSP.sendNotification diagramOpenInTextEditor $
               diagramOpenInTextEditorMessage fname sl sc el ec
-          _ -> pure ()
+          ) spans
 
         pure ()
     ]
