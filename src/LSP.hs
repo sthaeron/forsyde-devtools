@@ -308,35 +308,30 @@ handlers =
         recomputeModel
         sendModel,
       LSP.notificationHandler diagramAcceptMethod $ \LSP.TNotificationMessage {_params = p} -> do
-        config <- LSP.getConfig
+        initialConfig <- LSP.getConfig
         -- What file should we use?
-        let newfile = maybe (maybe "" id $ file config) id (getFilePathFromClient p)
+        let newfile = maybe (maybe "" id $ file initialConfig) id (getFilePathFromClient p)
         -- What clientId should we use?
-        let newId = maybe (maybe ("sprotty" :: T.Text) id $ clientId config) id (getClientId p)
-        -- TODO: maybe only recompute on TextDocumentDidSave
-        forsydeIR <- compileToModelMaybe newfile
+        let newId = maybe (maybe ("sprotty" :: T.Text) id $ clientId initialConfig) id (getClientId p)
         -- Update config with new data
         LSP.setConfig
-          config
+          initialConfig
             { file = Just newfile,
-              clientId = Just newId,
-              system = forsydeIR
+              clientId = Just newId
             }
 
-        -- Decode elementSelected
-        let sel = getSelected p & map (T.split (\_c -> _c == '$')) & map last & map T.unpack
-
-        -- Does the client want a diagram?
-        let update = shouldUpdate p
+        -- Recompute model and send if the client wants it
+        if shouldUpdate p
+          then recomputeModel >> sendModel
+          else pure ()
 
         -- Get location information on selected object
-        let spans = getSelectedSpans sel forsydeIR
+        config <- LSP.getConfig
+        let sel = getSelected p & map (T.split (\_c -> _c == '$')) & map last & map T.unpack
+        let spans = getSelectedSpans sel config
         if length spans > 0
           then liftIO $ stderrLogger <& ("Selected: " <> T.show spans) `L.WithSeverity` L.Debug
           else pure ()
-
-        -- Send the diagram if the client wants it
-        if update then sendModel else pure ()
 
         -- When an element is selcted, only that one seems to be sent.
         -- Therefore, just use the first one
@@ -349,7 +344,7 @@ handlers =
         pure ()
     ]
   where
-    getSelectedSpans sel = \case
+    getSelectedSpans sel Config { system = ir } = case ir of
       Nothing -> []
       Just (IRSystem _ procs sigs _) ->
         let s = findSignalSpan . IRString <$> sel <*> [sigs] & mconcat
