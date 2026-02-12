@@ -91,7 +91,8 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
           [KEllipse [KBackgroundColor 0 0 0]]
           [ (NodeLabelsPlacement [1, 4, 6]),
             (NodeSizeConstraints [3]),
-            (NodeSizeMinimum [12, 12])
+            (NodeSizeMinimum [12, 12]),
+            (PortConstraints 2)
           ]
     -- \| Find all signals which the process is the source of
     findOutputSignals sigs proc =
