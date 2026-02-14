@@ -91,7 +91,8 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
           [KEllipse [KBackgroundColor 0 0 0]]
           [ (NodeLabelsPlacement [1, 4, 6]),
             (NodeSizeConstraints [3]),
-            (NodeSizeMinimum [12, 12])
+            (NodeSizeMinimum [12, 12]),
+            (PortConstraints 2)
           ]
     -- \| Find all signals which the process is the source of
     findOutputSignals sigs proc =
@@ -302,57 +303,48 @@ handlers =
           )
         pure (),
       LSP.notificationHandler LSP.SMethod_WorkspaceDidChangeWatchedFiles $ \_not -> do
-        _ <- recomputeModel
+        recomputeModel
         sendModel,
       LSP.notificationHandler LSP.SMethod_TextDocumentDidSave $ \_not -> do
-        _ <- recomputeModel
+        recomputeModel
         sendModel,
       LSP.notificationHandler diagramAcceptMethod $ \LSP.TNotificationMessage {_params = p} -> do
-        config <- LSP.getConfig
+        initialConfig <- LSP.getConfig
         -- What file should we use?
-        let newfile = maybe (maybe "" id $ file config) id (getFilePathFromClient p)
+        let newfile = maybe (maybe "" id $ file initialConfig) id (getFilePathFromClient p)
         -- What clientId should we use?
-        let newId = maybe (maybe ("sprotty" :: T.Text) id $ clientId config) id (getClientId p)
-        -- TODO: maybe only recompute on TextDocumentDidSave
-        forsydeIR <- compileToModelMaybe newfile
+        let newId = maybe (maybe ("sprotty" :: T.Text) id $ clientId initialConfig) id (getClientId p)
         -- Update config with new data
-        _ <-
-          LSP.setConfig
-            config
-              { file = Just newfile,
-                clientId = Just newId,
-                system = forsydeIR
-              }
+        LSP.setConfig
+          initialConfig
+            { file = Just newfile,
+              clientId = Just newId
+            }
 
-        -- Decode elementSelected
-        let sel = getSelected p & map (T.split (\_c -> _c == '$')) & map last & map T.unpack
-
-        -- Does the client want a diagram?
-        let update = shouldUpdate p
+        -- Recompute model and send if the client wants it
+        if shouldUpdate p
+          then recomputeModel >> sendModel
+          else pure ()
 
         -- Get location information on selected object
-        let spans = getSelectedSpans sel forsydeIR
-        _ <-
-          if length spans > 0
-            then liftIO $ stderrLogger <& ("Selected: " <> T.show spans) `L.WithSeverity` L.Debug
-            else pure ()
+        config <- LSP.getConfig
+        let sel = getSelected p & map (T.split (\_c -> _c == '$')) & map last & map T.unpack
+        let spans = getSelectedSpans sel config
+        if length spans > 0
+          then liftIO $ stderrLogger <& ("Selected: " <> T.show spans) `L.WithSeverity` L.Debug
+          else pure ()
 
-        -- Send the diagram if the client wants it
-        _ <- if update then sendModel else pure ()
-
-        -- When an element is selcted, only that one seems to be sent.
-        -- Therefore, just use the first one
-        _ <- case spans of
-          sspan : _ ->
-            let (fname, sl, sc, el, ec) = sspan
-             in LSP.sendNotification diagramOpenInTextEditor $
-                  diagramOpenInTextEditorMessage fname sl sc el ec
-          _ -> pure ()
+        -- Send selection messages for all of the currently selected elements
+        _ <- traverse
+          (\(fname, sl, sc, el, ec) ->
+            LSP.sendNotification diagramOpenInTextEditor $
+              diagramOpenInTextEditorMessage fname sl sc el ec
+          ) spans
 
         pure ()
     ]
   where
-    getSelectedSpans sel = \case
+    getSelectedSpans sel Config { system = ir } = case ir of
       Nothing -> []
       Just (IRSystem _ procs sigs _) ->
         let s = findSignalSpan . IRString <$> sel <*> [sigs] & mconcat
@@ -380,17 +372,17 @@ handlers =
           LSP.setConfig config {system = out}
     compileToModelMaybe f = do
       config <- LSP.getConfig
-      _ <- dualLogger <& ("Compiling: " <> T.show f) `L.WithSeverity` L.Debug
+      dualLogger <& ("Compiling: " <> T.show f) `L.WithSeverity` L.Debug
       result <- liftIO $ E.try $ compileToCoreWithForSyDePath (forSyDePkg config) f
       case result of
         Left e -> do
-          _ <- dualLogger <& ("Failed to compile into core: " <> T.show (e :: E.SomeException)) `L.WithSeverity` L.Error
+          dualLogger <& ("Failed to compile into core: " <> T.show (e :: E.SomeException)) `L.WithSeverity` L.Error
           pure $ system config
         Right (core, dflags) -> do
           s <- liftIO $ E.try $ E.evaluate $ translateCoreProgram dflags core
           case s of
             Left e -> do
-              _ <- dualLogger <& ("Failed to compile into ForSyDe IR: " <> T.show (e :: E.ErrorCall)) `L.WithSeverity` L.Error
+              dualLogger <& ("Failed to compile into ForSyDe IR: " <> T.show (e :: E.ErrorCall)) `L.WithSeverity` L.Error
               pure $ system config
             Right (ir, _) -> pure $ Just ir
     findSignalSpan :: IRId -> [IRSignal] -> [IRSpan]
