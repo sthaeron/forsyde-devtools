@@ -45,12 +45,12 @@ This can be overriden by either `--stdout` or `--output <name>`.
 
 To build the C output, the header files located at `examples/implementation/platform_independent/include` are needed. This can be accomplished by adding the include path to the compiler:
 ```sh
-gcc -I examples/model/implementation/platform_independent <generated output>
+gcc -I examples/implementation/platform_independent <generated output>
 ```
 
 Another option is to link the directory to where you are building it:
 ```sh
-ln -s $PWD/examples/model/implementation/platform_independent/include <build directory>
+ln -s $PWD/examples/implementation/platform_independent/include <build directory>
 ```
 
 To build the version for the ES-LabKit you need an existing project of the [ES-Lab-Kit](https://gits-15.sys.kth.se/mabecker/ES-Lab-Kit.git) repository created with `newembproj -noRTOS <name>`.
