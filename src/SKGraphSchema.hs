@@ -15,6 +15,7 @@ import qualified Data.Text as T
 data GraphElement
   = KLabel
       { label :: !T.Text,
+        properties :: !KProperties,
         gid :: !T.Text
       }
   | KNode
@@ -242,14 +243,12 @@ instance A.ToJSON GraphElement where
         properties = p,
         gid = i
       } -> simple "node" c r p i
-    KLabel {label = l, gid = i} ->
+    KLabel {label = l, properties = p, gid = i} ->
       A.object
         [ "type" .= T.pack "label",
           "text" .= l,
           "id" .= i,
-          "properties"
-            .= A.object
-              [],
+          "properties" .= (M.fromList $ map toKV p),
           "data"
             .= Seq.fromList
               [ A.object

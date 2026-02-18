@@ -57,7 +57,7 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
       createPort' rends props [l] (pid, r)
       where
         pid = parent <> "$P$" <> T.show n
-        l = KLabel {gid = pid <> "$L$" <> T.show n, label = T.show r}
+        l = KLabel {gid = pid <> "$L$" <> T.show n, label = T.show r, properties = []}
     createPortWithoutRate parent rends props (n, r) =
       createPort' rends props [] (pid, r)
       where
@@ -116,7 +116,7 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
         outsignals = findOutputSignals signals name
         inports = map (createPort nid (maybe [] (\_l -> [KText "▶" []]) l) [PortSide 4]) insignals
         outports = map (createPort nid [] [PortSide 2]) outsignals
-        nl = maybe [] (\lc -> [KLabel {gid = nid <> "$L$" <> T.show name, label = T.show lc}]) l
+        nl = maybe [] (\lc -> [KLabel {gid = nid <> "$L$" <> T.show name, label = T.show lc, properties = []}]) l
         c = inports ++ outports ++ nl
         node =
           KNode
@@ -135,7 +135,7 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
         c =
           if n == sname || n == tname
             then []
-            else [KLabel {gid = sigid, label = T.show n}]
+            else [KLabel {gid = sigid, label = T.show n, properties = []}]
         edge =
           KEdge
             { gid = name,
@@ -335,16 +335,18 @@ handlers =
           else pure ()
 
         -- Send selection messages for all of the currently selected elements
-        _ <- traverse
-          (\(fname, sl, sc, el, ec) ->
-            LSP.sendNotification diagramOpenInTextEditor $
-              diagramOpenInTextEditorMessage fname sl sc el ec
-          ) spans
+        _ <-
+          traverse
+            ( \(fname, sl, sc, el, ec) ->
+                LSP.sendNotification diagramOpenInTextEditor $
+                  diagramOpenInTextEditorMessage fname sl sc el ec
+            )
+            spans
 
         pure ()
     ]
   where
-    getSelectedSpans sel Config { system = ir } = case ir of
+    getSelectedSpans sel Config {system = ir} = case ir of
       Nothing -> []
       Just (IRSystem _ procs sigs _) ->
         let s = findSignalSpan . IRString <$> sel <*> [sigs] & mconcat
