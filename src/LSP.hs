@@ -71,20 +71,20 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
         createNode'
           name
           (createPortWithoutRate)
-          (Just name)
+          (Just $ T.show name)
           [KRoundedRectangle [KBackgroundColor 160 160 240] 4 4]
           [ (NodeLabelsPlacement [1, 4, 6]),
             (NodeSizeConstraints [0, 1, 2, 3]),
             (NodeSizeMinimum [64, 64]),
             (PortConstraints 2)
           ]
-      (IRDelay name _ _) ->
+      (IRDelay name tokens _) ->
         createNode'
           name
           (createPortWithoutRate)
-          (Nothing :: Maybe IRId)
+          (Just $ T.show $ length tokens)
           [KEllipse [KBackgroundColor 0 0 0]]
-          [ (NodeLabelsPlacement [1, 4, 6]),
+          [ (NodeLabelsPlacement [1, 3, 7]),
             (NodeSizeConstraints [3]),
             (NodeSizeMinimum [12, 12]),
             (PortConstraints 2)
@@ -111,7 +111,7 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
         outsignals = findOutputSignals signals name
         inports = map (createPort nid (maybe [] (\_l -> [KText "▶" []]) l) [PortSide 4]) insignals
         outports = map (createPort nid [] [PortSide 2]) outsignals
-        nl = maybe [] (\lc -> [KLabel {gid = nid <> "$L$" <> T.show name, label = T.show lc, properties = []}]) l
+        nl = maybe [] (\lc -> [KLabel {gid = nid <> "$L$" <> T.show name, label = lc, properties = []}]) l
         c = inports ++ outports ++ nl
         node =
           KNode
@@ -159,8 +159,8 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
             }
     nodes =
       map createNode actors
-        ++ map (\n -> createNode' n (createPortWithoutRate) (Just n) [] [LayerConstraint 2]) inputs
-        ++ map (\n -> createNode' n (createPortWithoutRate) (Just n) [] [LayerConstraint 4]) outputs
+        ++ map (\n -> createNode' n (createPortWithoutRate) (Just $ T.show n) [] [LayerConstraint 2]) inputs
+        ++ map (\n -> createNode' n (createPortWithoutRate) (Just $ T.show n) [] [LayerConstraint 4]) outputs
     edges = map createEdge signals
     graph =
       KGraph
