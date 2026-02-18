@@ -109,7 +109,8 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
         nid = "$root$N$" <> T.show name
         insignals = findInputSignals signals name
         outsignals = findOutputSignals signals name
-        inports = map (createPort nid (maybe [] (\_l -> [KText "▶" []]) l) [PortSide 4]) insignals
+        inportlabel = if delayId name actors then [] else [KText "▶" []]
+        inports = map (createPort nid inportlabel [PortSide 4]) insignals
         outports = map (createPort nid [] [PortSide 2]) outsignals
         nl = maybe [] (\lc -> [KLabel {gid = nid <> "$L$" <> T.show name, label = lc, properties = []}]) l
         c = inports ++ outports ++ nl
