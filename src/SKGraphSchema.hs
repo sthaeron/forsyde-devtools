@@ -15,6 +15,7 @@ import qualified Data.Text as T
 data GraphElement
   = KLabel
       { label :: !T.Text,
+        properties :: !KProperties,
         gid :: !T.Text
       }
   | KNode
@@ -54,6 +55,10 @@ data KProperty
   | PortBorderOffset Float
   | PortSide Int
   | PortConstraints Int
+  | EdgeLabelsPlacement Int
+  | PortLabelsPlacement [Int]
+  | LabelNodeSpacing Int
+  | LabelPortHorizontalSpacing Float
 
 data KPlacementData
   = KTopPosition Float Float -- absolute (Float), relative (Float)
@@ -242,14 +247,12 @@ instance A.ToJSON GraphElement where
         properties = p,
         gid = i
       } -> simple "node" c r p i
-    KLabel {label = l, gid = i} ->
+    KLabel {label = l, properties = p, gid = i} ->
       A.object
         [ "type" .= T.pack "label",
           "text" .= l,
           "id" .= i,
-          "properties"
-            .= A.object
-              [],
+          "properties" .= (M.fromList $ map toKV p),
           "data"
             .= Seq.fromList
               [ A.object
@@ -325,3 +328,7 @@ instance A.ToJSON GraphElement where
         PortBorderOffset v -> ("org.eclipse.elk.port.borderOffset", A.toJSON v)
         PortSide v -> ("org.eclipse.elk.port.side", A.toJSON v)
         PortConstraints v -> ("org.eclipse.elk.portConstraints", A.toJSON v)
+        EdgeLabelsPlacement v -> ("org.eclipse.elk.edgeLabels.placement", A.toJSON v)
+        PortLabelsPlacement v -> ("org.eclipse.elk.portLabels.placement", A.toJSON v)
+        LabelNodeSpacing v -> ("org.eclipse.elk.spacing.labelNode", A.toJSON v)
+        LabelPortHorizontalSpacing v -> ("org.eclipse.elk.spacing.labelPortHorizontal", A.toJSON v)
