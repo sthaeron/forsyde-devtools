@@ -53,11 +53,6 @@ forSyDeIRToGraph :: FilePath -> IRSystem -> GraphElement
 forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
   where
     -- \| Create a port with a label for signal rate
-    createPortWithRate parent rends props (n, r) =
-      createPort' rends props [l] (pid, r)
-      where
-        pid = parent <> "$P$" <> T.show n
-        l = KLabel {gid = pid <> "$L$" <> T.show n, label = T.show r, properties = []}
     createPortWithoutRate parent rends props (n, r) =
       createPort' rends props [] (pid, r)
       where
@@ -75,7 +70,7 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
       (IRActor name _ _ _) ->
         createNode'
           name
-          (createPortWithRate)
+          (createPortWithoutRate)
           (Just name)
           [KRoundedRectangle [KBackgroundColor 160 160 240] 4 4]
           [ (NodeLabelsPlacement [1, 4, 6]),
@@ -125,17 +120,34 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
               renderings = r,
               properties = p
             }
+    -- \| Helper to check if an id belongs to a delay
+    delayId did lactors = case lactors of
+      IRDelay aid _ _ : xs
+        | aid == did -> True
+        | otherwise -> delayId did xs
+      IRActor aid _ _ _ : xs
+        | aid == did -> False
+        | otherwise -> delayId did xs
+      [] -> False
     -- \| Create an edge from an IRSignal, depends on port id
-    createEdge (IRSignal n (sname, _) (tname, _)) = edge
+    createEdge (IRSignal n (sname, srate) (tname, trate)) = edge
       where
         sn = "$root$N$" <> T.show sname <> "$P$" <> T.show n
         tn = "$root$N$" <> T.show tname <> "$P$" <> T.show n
         name = sn <> "$E$" <> T.show n
         sigid = name <> "$L$" <> T.show n
+        srclabel = if delayId sname actors then [] else [KLabel {gid = sigid <> T.show sname, label = T.show srate, properties = [EdgeLabelsPlacement 2]}]
+        tgtlabel = if delayId tname actors then [] else [KLabel {gid = sigid <> T.show tname, label = T.show trate, properties = [EdgeLabelsPlacement 1]}]
         c =
-          if n == sname || n == tname
-            then []
-            else [KLabel {gid = sigid, label = T.show n, properties = []}]
+          if n == sname
+            then tgtlabel
+            else
+              if n == tname
+                then srclabel
+                else
+                  [KLabel {gid = sigid, label = T.show n, properties = []}]
+                    <> srclabel
+                    <> tgtlabel
         edge =
           KEdge
             { gid = name,

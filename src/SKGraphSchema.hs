@@ -56,6 +56,9 @@ data KProperty
   | PortSide Int
   | PortConstraints Int
   | EdgeLabelsPlacement Int
+  | PortLabelsPlacement [Int]
+  | LabelNodeSpacing Int
+  | LabelPortHorizontalSpacing Float
 
 data KPlacementData
   = KTopPosition Float Float -- absolute (Float), relative (Float)
@@ -326,3 +329,6 @@ instance A.ToJSON GraphElement where
         PortSide v -> ("org.eclipse.elk.port.side", A.toJSON v)
         PortConstraints v -> ("org.eclipse.elk.portConstraints", A.toJSON v)
         EdgeLabelsPlacement v -> ("org.eclipse.elk.edgeLabels.placement", A.toJSON v)
+        PortLabelsPlacement v -> ("org.eclipse.elk.portLabels.placement", A.toJSON v)
+        LabelNodeSpacing v -> ("org.eclipse.elk.spacing.labelNode", A.toJSON v)
+        LabelPortHorizontalSpacing v -> ("org.eclipse.elk.spacing.labelPortHorizontal", A.toJSON v)
