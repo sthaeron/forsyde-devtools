@@ -20,6 +20,7 @@ import qualified Data.Aeson as A
 import qualified Data.Aeson.Encode.Pretty as AP
 import Data.Aeson.KeyMap ((!?))
 import qualified Data.ByteString.Lazy.Char8 as BSL8
+import Data.Coerce
 import qualified Data.Foldable as F
 import Data.Function
 import qualified Data.List.NonEmpty as NE
@@ -35,6 +36,7 @@ import qualified Language.LSP.Server as LSP
 import Network.Socket
 import Options.Applicative
 import Prettyprinter
+import SDFSchedule (computeScheduleAndBuffers)
 import SKGraphSchema
 import System.IO
 import Utilities (compileToCoreWithForSyDePath)
@@ -240,10 +242,14 @@ diagramOpenInTextEditorMessage uri sline scol eline ecol =
       "forceOpen" .= False
     ]
 
+newtype Schedule = Schedule ([IRId], [(IRId, Int)], [(IRId, IRId)])
+  deriving (Show)
+
 data Config = Config
   { file :: Maybe FilePath,
     clientId :: Maybe T.Text,
     system :: Maybe IRSystem,
+    schedule :: Maybe Schedule,
     forSyDePkg :: Maybe FilePath
   }
   deriving (Show)
@@ -254,6 +260,7 @@ defaultConfig =
     { file = Nothing,
       clientId = Nothing,
       system = Nothing,
+      schedule = Nothing,
       forSyDePkg = Nothing
     }
 
@@ -378,8 +385,11 @@ handlers =
         _ -> pure Nothing
       case out of
         Nothing -> pure ()
-        Just _ ->
+        Just ir -> do
           LSP.setConfig config {system = out}
+          sched <- computeScheduleMaybe ir
+          LSP.setConfig config {system = out, schedule = coerce sched}
+          pure ()
     compileToModelMaybe f = do
       config <- LSP.getConfig
       dualLogger <& ("Compiling: " <> T.show f) `L.WithSeverity` L.Debug
@@ -395,6 +405,13 @@ handlers =
               dualLogger <& ("Failed to compile into ForSyDe IR: " <> T.show (e :: E.ErrorCall)) `L.WithSeverity` L.Error
               pure $ system config
             Right (ir, _) -> pure $ Just ir
+    computeScheduleMaybe ir = do
+      result <- liftIO $ E.try $ E.evaluate $ computeScheduleAndBuffers ir
+      case result of
+        Left e -> do
+          dualLogger <& ("Failed to compute schedule: " <> T.show (e :: E.ErrorCall)) `L.WithSeverity` L.Error
+          pure Nothing
+        Right sched -> pure . Just $ sched
     findSignalSpan :: IRId -> [IRSignal] -> [IRSpan]
     findSignalSpan sig l = mapMaybe match l
       where
