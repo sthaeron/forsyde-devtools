@@ -51,8 +51,8 @@ setPreferencesMethod :: LSP.SMethod (LSP.Method_CustomMethod "keith/preferences/
 setPreferencesMethod = (LSP.SMethod_CustomMethod (Proxy @"keith/preferences/setPreferences"))
 
 -- | Convert ForSyDe IR into the graph representation understood by KLighD
-forSyDeIRToGraph :: FilePath -> IRSystem -> GraphElement
-forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
+forSyDeIRToGraph :: FilePath -> IRSystem -> Maybe Schedule -> GraphElement
+forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) sched = graph
   where
     -- \| Create a port with a label for signal rate
     createPort parent rends props (n, _) =
@@ -134,8 +134,16 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
         tn = "$root$N$" <> T.show tname <> "$P$" <> T.show n
         name = sn <> "$E$" <> T.show n
         sigid = name <> "$L$" <> T.show n
-        srclabel = if delayId sname actors then [] else [KLabel {gid = sigid <> T.show sname, label = T.show srate, properties = [EdgeLabelsPlacement 2]}]
-        tgtlabel = if delayId tname actors then [] else [KLabel {gid = sigid <> T.show tname, label = T.show trate, properties = [EdgeLabelsPlacement 1]}]
+        srclabel = if delayId sname actors then [] else [KLabel {gid = sigid <> "$" <> T.show sname, label = T.show srate, properties = [EdgeLabelsPlacement 2]}]
+        tgtlabel = if delayId tname actors then [] else [KLabel {gid = sigid <> "$" <> T.show tname, label = T.show trate, properties = [EdgeLabelsPlacement 1]}]
+        siglabel = [KLabel {gid = sigid, label = T.show n, properties = []}]
+        -- Only show the buffer size if this is the non-delayed signal
+        buflabel = case sched of
+          Just (Schedule (_, buffers, _)) ->
+            case lookup n buffers of
+              Just size -> [KLabel {gid = sigid, label = "|" <> T.show n <> "| = " <> T.show size, properties = []}]
+              Nothing -> siglabel
+          Nothing -> siglabel
         c =
           if n == sname
             then tgtlabel
@@ -143,7 +151,7 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) = graph
               if n == tname
                 then srclabel
                 else
-                  [KLabel {gid = sigid, label = T.show n, properties = []}]
+                  buflabel
                     <> srclabel
                     <> tgtlabel
         edge =
@@ -207,15 +215,15 @@ updateOptions f _clientId =
     ]
 
 -- | Send the graph for layout and display to the LSP client (KLighD-VSCode)
-requestBounds :: FilePath -> T.Text -> IRSystem -> A.Value
-requestBounds f _clientId ir =
+requestBounds :: FilePath -> T.Text -> IRSystem -> Maybe Schedule -> A.Value
+requestBounds f _clientId ir sched =
   A.object
     [ "clientId" .= _clientId,
       "action"
         .= A.object
           [ "kind" .= ("requestBounds" :: T.Text),
             "newRoot"
-              .= forSyDeIRToGraph f ir
+              .= forSyDeIRToGraph f ir sched
           ]
     ]
 
@@ -369,12 +377,12 @@ handlers =
          in s <> a
     sendModel :: LSP.LspT Config IO ()
     sendModel = do
-      config@Config {file = f, clientId = c, system = s} <- LSP.getConfig
+      config@Config {file = f, clientId = c, system = s, schedule = curSched} <- LSP.getConfig
       case (f, c, s) of
         (Just curFile, Just curId, Just curSystem) ->
           LSP.sendNotification diagramAcceptMethod (setSynthesis curId)
             >> LSP.sendNotification diagramAcceptMethod (updateOptions curFile curId)
-            >> LSP.sendNotification diagramAcceptMethod (requestBounds curFile curId curSystem)
+            >> LSP.sendNotification diagramAcceptMethod (requestBounds curFile curId curSystem curSched)
         _ -> dualLogger <& ("does not have enough information to send diagram: " <> T.show config) `L.WithSeverity` L.Error
     recomputeModel :: LSP.LspT Config IO ()
     recomputeModel = do
@@ -517,7 +525,8 @@ run (Arguments comm (Host ip) (TCP p) i_f pkgPath) =
     (InputFile f, _) -> do
       (core, dflags) <- liftIO $ compileToCoreWithForSyDePath pkgPath f
       let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
-      let graphMessage = requestBounds f "sprotty" forsydeIR
+      let sched = coerce $ computeScheduleAndBuffers forsydeIR
+      let graphMessage = requestBounds f "sprotty" forsydeIR (Just sched)
       BSL8.putStrLn $ AP.encodePretty graphMessage
   where
     serverDef =
