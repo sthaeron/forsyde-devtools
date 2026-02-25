@@ -100,6 +100,17 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) sched = 
         f s acc =
           let IRSignal n _ (p, rate) = s
            in if p == proc then (n, rate) : acc else acc
+    -- \| Helper to create signal label, including buffersize if schedule is known
+    signalLabel parent n = buflabel
+      where
+        sigid = parent <> "$L$" <> T.show n
+        siglabel = [KLabel {gid = sigid, label = T.show n, properties = [(NodeLabelsPlacement [1, 5, 7])]}]
+        buflabel = case sched of
+          Just (Schedule (_, buffers, _)) ->
+            case lookup n buffers of
+              Just size -> [KLabel {gid = sigid, label = "|" <> T.show n <> "| = " <> T.show size, properties = [(NodeLabelsPlacement [1, 5, 7])]}]
+              Nothing -> []
+          Nothing -> siglabel
     -- \| Helper for createNode and global inputs / outputs
     createNode' name l r p = node
       where
@@ -109,8 +120,12 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) sched = 
         inportlabel = if delayId name actors then [] else [KText "▶" []]
         inports = map (createPort nid inportlabel [PortSide 4]) insignals
         outports = map (createPort nid [] [PortSide 2]) outsignals
+        siglabel =
+          if delayId name actors
+            then map (\(sigid, _) -> signalLabel nid sigid) insignals & mconcat
+            else []
         nl = maybe [] (\lc -> [KLabel {gid = nid <> "$L$" <> T.show name, label = lc, properties = []}]) l
-        c = inports ++ outports ++ nl
+        c = inports <> outports <> siglabel <> nl
         node =
           KNode
             { gid = nid,
@@ -119,14 +134,14 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) sched = 
               properties = p
             }
     -- \| Helper to check if an id belongs to a delay
-    delayId did lactors = case lactors of
-      IRDelay aid _ _ : xs
-        | aid == did -> True
-        | otherwise -> delayId did xs
-      IRActor aid _ _ _ : xs
-        | aid == did -> False
-        | otherwise -> delayId did xs
-      [] -> False
+    delayId did =
+      any
+        ( \case
+            IRDelay aid _ _
+              | aid == did -> True
+              | otherwise -> False
+            _ -> False
+        )
     -- \| Create an edge from an IRSignal, depends on port id
     createEdge (IRSignal n (sname, srate) (tname, trate)) = edge
       where
@@ -134,26 +149,17 @@ forSyDeIRToGraph filename (IRSystem (inputs, outputs) actors signals _) sched = 
         tn = "$root$N$" <> T.show tname <> "$P$" <> T.show n
         name = sn <> "$E$" <> T.show n
         sigid = name <> "$L$" <> T.show n
-        srclabel = if delayId sname actors then [] else [KLabel {gid = sigid <> "$" <> T.show sname, label = T.show srate, properties = [EdgeLabelsPlacement 2]}]
-        tgtlabel = if delayId tname actors then [] else [KLabel {gid = sigid <> "$" <> T.show tname, label = T.show trate, properties = [EdgeLabelsPlacement 1]}]
-        siglabel = [KLabel {gid = sigid, label = T.show n, properties = []}]
-        -- Only show the buffer size if this is the non-delayed signal
-        buflabel = case sched of
-          Just (Schedule (_, buffers, _)) ->
-            case lookup n buffers of
-              Just size -> [KLabel {gid = sigid, label = "|" <> T.show n <> "| = " <> T.show size, properties = []}]
-              Nothing -> siglabel
-          Nothing -> siglabel
-        c =
-          if n == sname
-            then tgtlabel
-            else
-              if n == tname
-                then srclabel
-                else
-                  buflabel
-                    <> srclabel
-                    <> tgtlabel
+        tl = [KLabel {gid = sigid <> "$" <> T.show tname, label = T.show trate, properties = [EdgeLabelsPlacement 1]}]
+        sl = [KLabel {gid = sigid <> "$" <> T.show sname, label = T.show srate, properties = [EdgeLabelsPlacement 2]}]
+        (srclabel, tgtlabel, buflabel) = case (delayId sname actors, delayId tname actors) of
+          (True, True) -> ([], [], [])
+          (True, False) -> ([], tl, [])
+          (False, True) -> (sl, [], [])
+          (False, False) -> (sl, tl, signalLabel name n)
+        c = case n of
+          _ | n == sname -> tgtlabel
+          _ | n == tname -> srclabel
+          _ | otherwise -> buflabel <> srclabel <> tgtlabel
         edge =
           KEdge
             { gid = name,
