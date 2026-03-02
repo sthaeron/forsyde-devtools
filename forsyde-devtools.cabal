@@ -1,13 +1,12 @@
 cabal-version: 3.0
 name: forsyde-devtools
-version: 0.0.0.1
--- synopsis:
--- description:
+version: 0.1.0.0
+synopsis: Compiler and visualiser for a subset of ForSyDe-Shallow SDF models
 license: MIT
 license-file: LICENSE
--- author:
--- maintainer:
--- copyright:
+author: Michel Delli Abo, Samuel Miksits, Klara Modin, Mohammad Afif Ramadhan, Sebastian Thaeron, Zicong Zhang.
+maintainer: Sebastian Thaeron <thaeron@kth.se>, Klara Modin <smod@kth.se>
+copyright: Copyright (c) 2025-2026 Michel Delli Abo, Samuel Miksits, Klara Modin, Mohammad Afif Ramadhan, Sebastian Thaeron, Zicong Zhang
 build-type: Simple
 extra-doc-files: README.md
 
