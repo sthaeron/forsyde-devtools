@@ -45,3 +45,6 @@ result-*
 # Ignore temporary testing directories
 tmp/
 examples/implementation/platform_independent/test/
+
+# VSCode extension bundle
+**/*.vsix

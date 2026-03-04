@@ -26,8 +26,9 @@ export async function activate(context: ExtensionContext) {
           "Restart Later",
         )
         .then((sel) => {
-          if (sel === "Restart Visual Studio Code")
+          if (sel === "Restart Visual Studio Code") {
             vscode.commands.executeCommand("workbench.action.reloadWindow");
+          }
         });
     }
   });
