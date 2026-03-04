@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-haskell:
+    name: Build Haskell Binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          nix_path: nixpkgs=channel:25.05
+
+      - name: Build binaries
+        run: |
+          nix develop --command bash -c "cabal update && cabal build all"
+
+      - name: Package binaries
+        run: |
+          mkdir -p dist/bin
+          # Find and copy the executables produced by cabal
+          # They are usually deeply nested in dist-newstyle, so we use find
+          find dist-newstyle -type f -executable -name "forsyde-compiler-exe" -exec cp {} dist/bin/ \;
+          find dist-newstyle -type f -executable -name "forsyde-lsp-exe" -exec cp {} dist/bin/ \;
+          
+          # Create an archive
+          cd dist
+          tar -czvf forsyde-devtools-linux-x86_64.tar.gz bin/
+
+      - name: Upload Haskell artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: haskell-binaries
+          path: dist/forsyde-devtools-linux-x86_64.tar.gz
+          retention-days: 1
+
+  build-vscode-ext:
+    name: Build VS Code Extension
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: vscode-ext/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd vscode-ext
+          npm install
+
+      - name: Build and Package VSIX
+        run: |
+          cd vscode-ext
+          npm run compile
+          npx vsce package --out forsyde-vscode-extension.vsix
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-extension
+          path: vscode-ext/forsyde-vscode-extension.vsix
+          retention-days: 1
+
+  release:
+    name: Create GitHub Release
+    needs: [build-haskell, build-vscode-ext]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to create releases
+    steps:
+      - name: Download Haskell artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: haskell-binaries
+
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vscode-extension
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            forsyde-devtools-linux-x86_64.tar.gz
+            forsyde-vscode-extension.vsix
+          generate_release_notes: true
+          draft: false
+          prerelease: false
