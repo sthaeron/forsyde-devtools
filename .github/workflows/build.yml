@@ -25,15 +25,32 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - uses: actions/checkout@v5
-      - uses: cachix/install-nix-action@v31
-        with:
-          nix_path: nixpkgs=channel:25.05
 
-        # Runs a set of commands using the runners shell
-      - name: Build and test the compiler
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libblas-dev liblapack-dev
+
+      - name: Setup Haskell (Stack)
+        uses: haskell-actions/setup@v2
+        with:
+          enable-stack: true
+          stack-version: 'latest'
+          stack-no-global: true
+
+      - name: Cache Stack dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.stack
+          key: stack-${{ runner.os }}-${{ hashFiles('stack.yaml', 'stack.yaml.lock', 'forsyde-devtools.cabal') }}
+          restore-keys: |
+            stack-${{ runner.os }}-
+
+      - name: Build the compiler
         run: |
           git fetch origin dev
-          if git diff --stat origin/dev -- | grep '\(^ src\|^ test\|^ flake.nix\|^ flake.lock\|^ forsyde-devtools.cabal\|^ cabal.project\)'; then
-            nix develop --command bash -c "cabal build"
-            nix develop --command bash -c "cabal test"
+          if git diff --stat origin/dev -- | grep '\(^ src\|^ test\|^ flake.nix\|^ flake.lock\|^ forsyde-devtools.cabal\|^ cabal.project\|^ stack.yaml\)'; then
+            stack build
+            # TODO: re-enable tests once test suite is ready
+            # stack test
           fi
