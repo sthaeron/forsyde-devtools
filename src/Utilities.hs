@@ -154,4 +154,6 @@ scheduleAndBuffer :: FilePath -> IO Schedule
 scheduleAndBuffer filePath = do
   (core, dflags) <- (compileToCore filePath)
   let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
-  return $ computeScheduleAndBuffers forsydeIR
+  return $ case computeScheduleAndBuffers forsydeIR of
+    Left e -> error e
+    Right v -> v

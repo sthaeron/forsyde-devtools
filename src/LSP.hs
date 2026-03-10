@@ -415,11 +415,10 @@ handlers =
               dualLogger <& ("Failed to compile into ForSyDe IR: " <> T.show (e :: E.ErrorCall)) `L.WithSeverity` L.Error
               pure $ system config
             Right (ir, _) -> pure $ Just ir
-    computeScheduleMaybe ir = do
-      result <- liftIO $ E.try $ E.evaluate $ computeScheduleAndBuffers ir
-      case result of
+    computeScheduleMaybe ir =
+      case computeScheduleAndBuffers ir of
         Left e -> do
-          dualLogger <& ("Failed to compute schedule: " <> T.show (e :: E.ErrorCall)) `L.WithSeverity` L.Error
+          dualLogger <& ("Failed to compute schedule: " <> T.pack e) `L.WithSeverity` L.Error
           pure Nothing
         Right sched -> pure . Just $ sched
     findSignalSpan :: IRId -> [IRSignal] -> [IRSpan]
@@ -527,7 +526,9 @@ run (Arguments comm (Host ip) (TCP p) i_f pkgPath) =
     (InputFile f, _) -> do
       (core, dflags) <- liftIO $ compileToCoreWithForSyDePath pkgPath f
       let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
-      let sched = computeScheduleAndBuffers forsydeIR
+      let sched = case computeScheduleAndBuffers forsydeIR of
+            Left e -> error e
+            Right v -> v
       let graphMessage = requestBounds f "sprotty" forsydeIR (Just sched)
       BSL8.putStrLn $ AP.encodePretty graphMessage
   where
