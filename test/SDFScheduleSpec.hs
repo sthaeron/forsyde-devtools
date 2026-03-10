@@ -124,37 +124,37 @@ spec :: SpecWith ()
 spec = do
   describe "SDF scheduling examples" $ do
     it "exampleSystem1: System with single actor and self loop" $ do
-      let (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem1
+      let Schedule (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem1
       let expectedSchedule = [IRString "actor_1"]
       let expectedBuffers = [(IRString "s_in", 1), (IRString "s_out", 1), (IRString "s_1", 1)]
       (actualSchedule, actualBuffers) `shouldBe` (expectedSchedule, expectedBuffers)
 
     it "exampleSystem2: System with single actor and nothing else" $ do
-      let (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem2
+      let Schedule (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem2
       let expectedSchedule = [IRString "actor"]
       let expectedBuffers = [(IRString "s_in", 1), (IRString "s_out", 1)]
       (actualSchedule, actualBuffers) `shouldBe` (expectedSchedule, expectedBuffers)
 
     it "exampleSystem3: System with two actors, one self loop" $ do
-      let (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem3
+      let Schedule (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem3
       let expectedSchedule = [IRString "actor_1", IRString "actor_2"]
       let expectedBuffers = [(IRString "s_in", 1), (IRString "s_out", 1), (IRString "s_3", 1), (IRString "s_1", 1)]
       (actualSchedule, actualBuffers) `shouldBe` (expectedSchedule, expectedBuffers)
 
     it "exampleSystem4: System with multiple inputs" $ do
-      let (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem4
+      let Schedule (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem4
       let expectedSchedule = [IRString "actor_a", IRString "actor_a", IRString "actor_b", IRString "actor_c", IRString "actor_d"]
       let expectedBuffers = [(IRString "s_ina", 4), (IRString "s_inb", 1), (IRString "s_out", 2), (IRString "s_1", 2), (IRString "s_2", 2), (IRString "s_3", 1), (IRString "s_4_delay", 1)]
       (actualSchedule, actualBuffers) `shouldBe` (expectedSchedule, expectedBuffers)
 
     it "exampleSystem5" $ do
-      let (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem5
+      let Schedule (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem5
       let expectedSchedule = [IRString "a", IRString "a", IRString "b", IRString "c", IRString "c", IRString "c"]
       let expectedBuffers = [(IRString "s_in", 4), (IRString "s_out", 3), (IRString "s1", 2), (IRString "s2", 3), (IRString "s3_delay", 6)]
       (actualSchedule, actualBuffers) `shouldBe` (expectedSchedule, expectedBuffers)
 
     it "exampleSystem6" $ do
-      let (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem6
+      let Schedule (actualSchedule, actualBuffers, _) = computeScheduleAndBuffers exampleSystem6
       let expectedSchedule = [IRString "d", IRString "c", IRString "a", IRString "a", IRString "c", IRString "a", IRString "a", IRString "b", IRString "c", IRString "a", IRString "a", IRString "c", IRString "a", IRString "a", IRString "b"]
       let expectedBuffers = [(IRString "s_in", 16), (IRString "s_out", 1), (IRString "s1", 4), (IRString "s3", 4), (IRString "s4", 4), (IRString "s2_delay", 2)]
       (actualSchedule, actualBuffers) `shouldBe` (expectedSchedule, expectedBuffers)

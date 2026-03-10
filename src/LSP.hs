@@ -20,7 +20,6 @@ import qualified Data.Aeson as A
 import qualified Data.Aeson.Encode.Pretty as AP
 import Data.Aeson.KeyMap ((!?))
 import qualified Data.ByteString.Lazy.Char8 as BSL8
-import Data.Coerce
 import qualified Data.Foldable as F
 import Data.Function
 import qualified Data.List.NonEmpty as NE
@@ -36,7 +35,7 @@ import qualified Language.LSP.Server as LSP
 import Network.Socket
 import Options.Applicative
 import Prettyprinter
-import SDFSchedule (computeScheduleAndBuffers)
+import SDFSchedule (Schedule (..), computeScheduleAndBuffers)
 import SKGraphSchema
 import System.IO
 import Utilities (compileToCoreWithForSyDePath)
@@ -256,9 +255,6 @@ diagramOpenInTextEditorMessage uri sline scol eline ecol =
       "forceOpen" .= False
     ]
 
-newtype Schedule = Schedule ([IRId], [(IRId, Int)], [(IRId, IRId)])
-  deriving (Show)
-
 data Config = Config
   { file :: Maybe FilePath,
     clientId :: Maybe T.Text,
@@ -402,7 +398,7 @@ handlers =
         Just ir -> do
           LSP.setConfig config {system = out}
           sched <- computeScheduleMaybe ir
-          LSP.setConfig config {system = out, schedule = coerce sched}
+          LSP.setConfig config {system = out, schedule = sched}
           pure ()
     compileToModelMaybe f = do
       config <- LSP.getConfig
@@ -531,7 +527,7 @@ run (Arguments comm (Host ip) (TCP p) i_f pkgPath) =
     (InputFile f, _) -> do
       (core, dflags) <- liftIO $ compileToCoreWithForSyDePath pkgPath f
       let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
-      let sched = coerce $ computeScheduleAndBuffers forsydeIR
+      let sched = computeScheduleAndBuffers forsydeIR
       let graphMessage = requestBounds f "sprotty" forsydeIR (Just sched)
       BSL8.putStrLn $ AP.encodePretty graphMessage
   where

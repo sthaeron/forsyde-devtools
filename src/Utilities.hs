@@ -16,13 +16,12 @@ where
 import CoreIRToForSyDeIR (translateCoreProgram)
 import Data.Data (Data, gmapT)
 import Data.Generics (extT)
-import ForSyDeIR (IRId (..))
 import GHC
 import GHC.Driver.Main
 import GHC.Paths (libdir)
 import GHC.Plugins hiding (isEmpty)
 import GHC.Tc.Types
-import SDFSchedule (computeScheduleAndBuffers)
+import SDFSchedule (Schedule, computeScheduleAndBuffers)
 import System.FilePath (takeBaseName)
 
 newtype Stack a = Stack [a] deriving (Show, Eq)
@@ -151,7 +150,7 @@ noInlineTypecheck tcg = tcg {tcg_binds = noInline (tcg_binds tcg)}
 
 -- | Utility function to obtain output of SDF Scheduler. Meant for testing to be
 -- used in a repl.
-scheduleAndBuffer :: FilePath -> IO ([IRId], [(IRId, Int)], [(IRId, IRId)])
+scheduleAndBuffer :: FilePath -> IO Schedule
 scheduleAndBuffer filePath = do
   (core, dflags) <- (compileToCore filePath)
   let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core

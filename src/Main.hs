@@ -8,7 +8,7 @@ import ForSyDeIRToProceduralIR (translateIRSystemToProgram)
 import Options.Applicative
 import ProceduralIR (prettyProgram)
 import ProceduralIRToC (translateProgram)
-import SDFSchedule (computeScheduleAndBuffers, computeScheduleAndBuffersPrint)
+import SDFSchedule (Schedule (..), computeScheduleAndBuffers, computeScheduleAndBuffersPrint)
 import Utilities (compileToCoreWithForSyDePath)
 
 {-
@@ -72,7 +72,7 @@ run :: Arguments -> IO ()
 run (Arguments (InputFile input_file) output_file OutputC t inputType r pkgPath) = do
   (core, dflags) <- compileToCoreWithForSyDePath pkgPath input_file
   let (forsydeIR, lookupSignals) = translateCoreProgram dflags core
-  let (schedule, buffers, delayBuffers) = computeScheduleAndBuffers forsydeIR
+  let Schedule (schedule, buffers, delayBuffers) = computeScheduleAndBuffers forsydeIR
   let proceduralIR = translateIRSystemToProgram dflags schedule buffers delayBuffers lookupSignals inputType r forsydeIR
   let c = translateProgram proceduralIR t inputType True
   write_output output_file OutputC c
@@ -88,7 +88,7 @@ run (Arguments (InputFile input_file) output_file OutputForSyDeIRJSON _ _ _ pkgP
 run (Arguments (InputFile input_file) output_file OutputProceduralIR _ inputType r pkgPath) = do
   (core, dflags) <- compileToCoreWithForSyDePath pkgPath input_file
   let (forsydeIR, lookupSignals) = translateCoreProgram dflags core
-  let (schedule, buffers, delayBuffers) = computeScheduleAndBuffers forsydeIR
+  let Schedule (schedule, buffers, delayBuffers) = computeScheduleAndBuffers forsydeIR
   let proceduralIR = translateIRSystemToProgram dflags schedule buffers delayBuffers lookupSignals inputType r forsydeIR
   write_output output_file OutputProceduralIR (prettyProgram proceduralIR)
 run (Arguments (InputFile input_file) output_file OutputCore _ _ _ pkgPath) = do

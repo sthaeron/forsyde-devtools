@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
 
-module SDFSchedule (computeScheduleAndBuffers, computeScheduleAndBuffersPrint) where
+module SDFSchedule (Schedule (..), computeScheduleAndBuffers, computeScheduleAndBuffersPrint) where
 
 import Data.List (find, intercalate, nub)
 import Data.Ratio (approxRational, denominator, numerator)
@@ -511,9 +511,12 @@ verifySchedule actors edges initialTokens schedule _repetitionCounts =
 -- Library Function: compute schedule & buffer sizes
 ----------------------------------------------------------
 
+newtype Schedule = Schedule ([IRId], [(IRId, Int)], [(IRId, IRId)])
+  deriving (Show)
+
 -- | Returns schedule as actor names, buffer sizes, and delay buffer mappings
 -- Returns: (schedule_order, [(buffer_name, buffer_size)], [(original_signal, delay_buffer_name)])
-computeScheduleAndBuffers :: IRSystem -> ([IRId], [(IRId, Int)], [(IRId, IRId)])
+computeScheduleAndBuffers :: IRSystem -> Schedule
 computeScheduleAndBuffers irSystem =
   let (actors, edges) = convertIRSystem irSystem
    in if null edges
@@ -523,7 +526,7 @@ computeScheduleAndBuffers irSystem =
               repsWithNames = zip (map name actors) (replicate (length actors) 1)
               internalBufSizes = zip (map edgeName edges) (replicate (length edges) 0)
               (ioBufSizes, aliases) = computeIOBufferSizes irSystem repsWithNames
-           in (schedNames, ioBufSizes ++ internalBufSizes, aliases)
+           in Schedule (schedNames, ioBufSizes ++ internalBufSizes, aliases)
         else
           let mat = buildTopologyMatrixEdgesRows actors edges
               rankMat = rank mat
@@ -550,7 +553,7 @@ computeScheduleAndBuffers irSystem =
                                 (ioBufSizes, aliases) = computeIOBufferSizes irSystem repsWithNames
                                 delayBuffers = getBuffers edges
                              in (schedNames, ioBufSizes ++ internalBufSizes, delayBuffers ++ aliases)
-                   in finalResult
+                   in Schedule finalResult
                 else
                   error "Matrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
 
