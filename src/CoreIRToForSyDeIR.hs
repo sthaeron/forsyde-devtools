@@ -1,4 +1,4 @@
-module CoreIRToForSyDeIR where
+module CoreIRToForSyDeIR (translateCoreProgram) where
 
 import CoreIR
 import Data.List (elemIndex)
