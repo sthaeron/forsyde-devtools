@@ -409,10 +409,10 @@ handlers =
           dualLogger <& ("Failed to compile into core: " <> T.show (e :: E.SomeException)) `L.WithSeverity` L.Error
           pure $ system config
         Right (core, dflags) -> do
-          s <- liftIO $ E.try $ E.evaluate $ translateCoreProgram dflags core
+          let s = translateCoreProgram dflags core
           case s of
             Left e -> do
-              dualLogger <& ("Failed to compile into ForSyDe IR: " <> T.show (e :: E.ErrorCall)) `L.WithSeverity` L.Error
+              dualLogger <& ("Failed to compile into ForSyDe IR: " <> T.pack e) `L.WithSeverity` L.Error
               pure $ system config
             Right (ir, _) -> pure $ Just ir
     computeScheduleMaybe ir =
@@ -525,7 +525,9 @@ run (Arguments comm (Host ip) (TCP p) i_f pkgPath) =
       void $ runServerC stdin stdout serverDef
     (InputFile f, _) -> do
       (core, dflags) <- liftIO $ compileToCoreWithForSyDePath pkgPath f
-      let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
+      let (forsydeIR, _lookupSignals) = case translateCoreProgram dflags core of
+            Left e -> error e
+            Right v -> v
       let sched = case computeScheduleAndBuffers forsydeIR of
             Left e -> error e
             Right v -> v

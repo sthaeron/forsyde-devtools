@@ -50,93 +50,89 @@ initialTranslationContext dflags =
 -- | Translates a `CoreProgram` into an `IRSystem` requires `DynFlags` to
 -- safely convert GHC Core elements into strings. Starts with an empty
 -- `TranslationContext`.
-translateCoreProgram :: DynFlags -> CoreProgram -> (IRSystem, [(IRId, IRSignal)])
-translateCoreProgram dflags program =
-  let finalContext = foldl translateCoreBind (initialTranslationContext dflags) program
-   in ( IRSystem
-          (systemInputs finalContext, systemOutputs finalContext)
-          (map snd (constructors finalContext))
-          (map snd (signals finalContext))
-          (map snd (functions finalContext)),
-        signals finalContext
-      )
+translateCoreProgram :: DynFlags -> CoreProgram -> Either String (IRSystem, [(IRId, IRSignal)])
+translateCoreProgram dflags program = do
+  finalContext <- foldl translateCoreBind (pure $ initialTranslationContext dflags) program
+  pure
+    ( IRSystem
+        (systemInputs finalContext, systemOutputs finalContext)
+        (map snd (constructors finalContext))
+        (map snd (signals finalContext))
+        (map snd (functions finalContext)),
+      signals finalContext
+    )
 
 -- | Translates a top level `CoreBind`. Module information is currently ignored.
-translateCoreBind :: TranslationContext -> CoreBind -> TranslationContext
+translateCoreBind :: Either String TranslationContext -> CoreBind -> Either String TranslationContext
 translateCoreBind context (NonRec b e)
   | IRVar b == IRString "$trModule" = context
   | isSystemName (varName b) = context
-  | IRVar b == IRString "system" = translateSystem context e
-  | otherwise = translateCoreExpr context b e
+  | IRVar b == IRString "system" = context >>= \c -> translateSystem c e
+  | otherwise = context >>= \c -> translateCoreExpr c b e
 -- NOTE: Currently no SDF examples have a `Rec` in the top level of their Core
 -- output, thus unsure what the expected outcome should be.
-translateCoreBind _ (Rec _) = error "translateCoreBind - `Rec` used in top level of Core output"
+translateCoreBind _ (Rec _) = Left "translateCoreBind - `Rec` used in top level of Core output"
 
 -- | Translates the `CoreExpr` which is associated with the system netlist.
 -- Identifies system inputs, builds the netlist through a `TranslationContext`,
 -- and identifies system outputs.
-translateSystem :: TranslationContext -> CoreExpr -> TranslationContext
+translateSystem :: TranslationContext -> CoreExpr -> Either String TranslationContext
 translateSystem initialContext expr = case expr of
   -- Explicitly ignores lambdas refering to type-level binders
   Lam b e | (isTyCoVar b || (isPredTy . varType) b) -> translateSystem initialContext e
   Lam b e ->
     let newInput = IRVar b
         context1 = initialContext {systemInputs = newInput : (systemInputs initialContext)}
-        context2 = translateSystem context1 e
-     in context2
-  Let (Rec binds) out ->
-    let context1 = translateSystemBinds initialContext binds
-        context2 = translateSystem context1 out
-     in context2
-  Let (NonRec b e) out ->
+     in translateSystem context1 e
+  Let (Rec binds) out -> do
+    context1 <- translateSystemBinds initialContext binds
+    translateSystem context1 out
+  Let (NonRec b e) out -> do
     -- A `NonRec` can just be translated as a single bind
-    let context1 = translateSystemBinds initialContext [(b, e)]
-        context2 = translateSystem context1 out
-     in context2
-  Case (Let (Rec binds) out) _ _ _alts ->
-    let context1 = translateSystemBinds initialContext binds
-        context2 = translateSystem context1 out
-     in context2
-  _ -> case translateOutputs initialContext expr of
-    [] -> initialContext
-    outputs ->
-      let context1 = foldl updateSystemOutput initialContext outputs
-          context2 =
-            context1
-              { systemInputs = reverse (systemInputs context1),
-                systemOutputs = reverse (systemOutputs context1)
-              }
-          context3 = updateConstructorsAndSignals context2
-       in context3
+    context1 <- translateSystemBinds initialContext [(b, e)]
+    translateSystem context1 out
+  Case (Let (Rec binds) out) _ _ _alts -> do
+    context1 <- translateSystemBinds initialContext binds
+    translateSystem context1 out
+  _ -> do
+    outputs <- translateOutputs initialContext expr
+    context1 <- foldl' updateSystemOutput (pure initialContext) outputs
+    let context2 =
+          context1
+            { systemInputs = reverse (systemInputs context1),
+              systemOutputs = reverse (systemOutputs context1)
+            }
+    updateConstructorsAndSignals context2
 
 -- | Helper function which identifies the outputs of a system `CoreExpr`.
-translateOutputs :: TranslationContext -> CoreExpr -> [IRId]
+translateOutputs :: TranslationContext -> CoreExpr -> Either String [IRId]
 translateOutputs context expr = aux expr []
   where
     aux currentExpr outputs = case currentExpr of
-      Var out -> (IRVar out) : outputs
-      App (Var out) (Type _) -> (IRVar out) : outputs
-      App _ (Type _) -> outputs
+      Var out -> pure $ (IRVar out) : outputs
+      App (Var out) (Type _) -> pure $ (IRVar out) : outputs
+      App _ (Type _) -> pure outputs
       App e (Var out) -> aux e ((IRVar out) : outputs)
       Lam _ e -> aux e outputs
-      App e1 e2 -> aux e2 (aux e1 outputs)
+      App e1 e2 -> aux e1 outputs >>= \acc -> aux e2 acc
       -- `Case` can be ignored, as the outputs defined within were translated
       -- when the binder was defined
-      Case _ _ _ _alts -> outputs
-      e -> error ("translateOutputs - Unsupported expression\n" ++ prettyCoreExpr (flags context) e)
+      Case _ _ _ _alts -> pure outputs
+      e -> Left $ "translateOutputs - Unsupported expression\n" ++ prettyCoreExpr (flags context) e
 
-updateSystemOutput :: TranslationContext -> IRId -> TranslationContext
-updateSystemOutput initialContext outputId =
-  if not (outputId `elem` (map fst (signals initialContext)))
+updateSystemOutput :: Either String TranslationContext -> IRId -> Either String TranslationContext
+updateSystemOutput initialContext outputId = do
+  context1 <- initialContext
+  (sourceId, sourceRate) <- getSourceFromArgument context1 outputId
+  if not (outputId `elem` (map fst (signals context1)))
     then
-      let (sourceId, sourceRate) = getSourceFromArgument initialContext outputId
-          newSignal = IRSignal outputId (sourceId, sourceRate) (outputId, 1)
-          context1 =
-            initialContext
-              { systemOutputs = outputId : (systemOutputs initialContext),
-                signals = (outputId, newSignal) : (signals initialContext)
+      let newSignal = IRSignal outputId (sourceId, sourceRate) (outputId, 1)
+          context2 =
+            context1
+              { systemOutputs = outputId : (systemOutputs context1),
+                signals = (outputId, newSignal) : (signals context1)
               }
-       in context1
+       in pure context2
     else initialContext
 
 -- | Updates all the signals within `TranslationContext` which are temporarily
@@ -144,137 +140,141 @@ updateSystemOutput initialContext outputId =
 -- process constructor based on the binders accumulated within the
 -- `TranslationContext`. Also updates the outputs of the associated process
 -- constructors. Since if its a source of to signal the signal is an output.
-updateConstructorsAndSignals :: TranslationContext -> TranslationContext
-updateConstructorsAndSignals initialContext =
+updateConstructorsAndSignals :: TranslationContext -> Either String TranslationContext
+updateConstructorsAndSignals initialContext = do
   let initialSignals = map snd (signals initialContext)
-      (context1, sigs) = foldl' aux (initialContext, []) initialSignals
-   in context1 {signals = sigs}
+  (context1, sigs) <- foldl' aux (pure (initialContext, [])) initialSignals
+  pure context1 {signals = sigs}
   where
-    aux :: (TranslationContext, [(IRId, IRSignal)]) -> IRSignal -> (TranslationContext, [(IRId, IRSignal)])
-    aux (currentContext, acc) currentSignal@(IRSignal signalId (sourceId, sourceRate) (targetId, targetRate)) =
+    aux :: Either String (TranslationContext, [(IRId, IRSignal)]) -> IRSignal -> Either String (TranslationContext, [(IRId, IRSignal)])
+    aux acc' currentSignal@(IRSignal signalId (sourceId, sourceRate) (targetId, targetRate)) = do
+      (currentContext, acc) <- acc'
       let maybebinder = lookup sourceId (binders currentContext)
        in case maybebinder of
             Just associatedbinder -> case associatedbinder of
               PcId pcId ->
                 -- Signal source was a temporary binder, sourceRate represents
                 -- the index of the output rather than a rate
-                let outputRates = case (lookup pcId (pcRates currentContext)) of
-                      Just (_, rates) -> rates
-                      Nothing -> error ("updateConstructorsAndSignals - No rates found for process constructor: " ++ show pcId)
-                    newSignal = IRSignal signalId (pcId, outputRates !! sourceRate) (targetId, targetRate)
-                    context1 = updateConstructorsOutputs currentContext signalId pcId sourceRate
-                 in (context1, (signalId, newSignal) : acc)
-              _ -> error ("updateConstructorsAndSignals - Binder is not associated with any process constructors")
-            Nothing ->
+                case (lookup pcId (pcRates currentContext)) of
+                  Nothing -> Left ("updateConstructorsAndSignals - No rates found for process constructor: " ++ show pcId)
+                  Just (_, outRates) -> do
+                    let newSig = IRSignal signalId (pcId, outRates !! sourceRate) (targetId, targetRate)
+                    context1 <- updateConstructorsOutputs currentContext signalId pcId sourceRate
+                    pure (context1, (signalId, newSig) : acc)
+              _ -> Left ("updateConstructorsAndSignals - Binder is not associated with any process constructors")
+            Nothing -> do
               -- Signal source was already a process constructor meaning it
               -- only had 1 output, thus passing index zero
-              let context1 = updateConstructorsOutputs currentContext signalId sourceId 0
-               in (context1, (signalId, currentSignal) : acc)
+              context1 <- updateConstructorsOutputs currentContext signalId sourceId 0
+              pure (context1, (signalId, currentSignal) : acc)
 
 -- | Updates the outputs constructors within `TranslationContext`. It adds a
 -- signal to the output list of a specific process constructor at the specified
 -- index
-updateConstructorsOutputs :: TranslationContext -> IRId -> IRId -> Int -> TranslationContext
+updateConstructorsOutputs :: TranslationContext -> IRId -> IRId -> Int -> Either String TranslationContext
 updateConstructorsOutputs initialContext signalId pcId index =
-  let newConstructors = map (updateConstructor) (constructors initialContext)
-      context1 = initialContext {constructors = newConstructors}
-   in context1
+  case sequence $ map (updateConstructor) (constructors initialContext) of
+    Left e -> Left e
+    Right newConstructors -> pure initialContext {constructors = newConstructors}
   where
-    updateConstructor :: (IRId, IRConstructor) -> (IRId, IRConstructor)
+    updateConstructor :: (IRId, IRConstructor) -> Either String (IRId, IRConstructor)
     updateConstructor (currentPcId, currentConstructor) =
       if pcId == currentPcId
         then case currentConstructor of
           IRDelay _ tokens (inputSignal, _) ->
             if index /= 0
-              then error ("updateConstructorsOutputs - Process constructor id matches a delay but has a non-zero index")
+              then Left ("updateConstructorsOutputs - Process constructor id matches a delay but has a non-zero index")
               else
                 let newConstructor = IRDelay currentPcId tokens (inputSignal, signalId)
-                 in (currentPcId, newConstructor)
+                 in pure (currentPcId, newConstructor)
           IRActor _ actorType functionId (inputSignals, outputSignals) ->
             let newOutputSignals = take index outputSignals ++ [signalId] ++ drop (index + 1) outputSignals
                 newConstructor = IRActor currentPcId actorType functionId (inputSignals, newOutputSignals)
-             in (currentPcId, newConstructor)
-        else (currentPcId, currentConstructor)
+             in pure (currentPcId, newConstructor)
+        else pure (currentPcId, currentConstructor)
 
 -- | Translates system binds and adds identified binders to `TranslationContext`
-translateSystemBinds :: TranslationContext -> [(CoreBndr, CoreExpr)] -> (TranslationContext)
-translateSystemBinds initialcontext = foldl' translateSystemBind initialcontext
+translateSystemBinds :: TranslationContext -> [(CoreBndr, CoreExpr)] -> Either String (TranslationContext)
+translateSystemBinds initialcontext = foldl' translateSystemBind $ pure initialcontext
   where
-    translateSystemBind initialContext (b, e) =
-      let (binder, context1) = translateSystemExpr initialContext e
-       in context1 {binders = (IRVar b, binder) : (binders context1)}
+    translateSystemBind initialContext (b, e) = do
+      context <- initialContext
+      (binder, context1) <- translateSystemExpr context e
+      pure context1 {binders = (IRVar b, binder) : (binders context1)}
 
 -- | Translates system `CoreExpr`. Identifies if the expression represents an
 -- application of a process constructor or connection to a specific output of a
 -- process constructor. In either case returns a `Binder` along side a
 -- potentially updated `TranslationContext`.
-translateSystemExpr :: TranslationContext -> CoreExpr -> (Binder, TranslationContext)
+translateSystemExpr :: TranslationContext -> CoreExpr -> Either String (Binder, TranslationContext)
 translateSystemExpr initialContext expr = case expr of
   -- Explicitly ignores lambdas refering to type-level binders
   Lam b e | (isTyCoVar b || (isPredTy . varType) b) -> translateSystemExpr initialContext e
-  Let (NonRec b e) out ->
+  Let (NonRec b e) out -> do
     let bindingId = IRVar b
-        context1 = translateSystemBinds initialContext [(b, e)]
-        context2 = translateSystem context1 out
-        binder = PcId bindingId
-     in (binder, context2)
-  Case (Var i) _ _ alts ->
+    context1 <- translateSystemBinds initialContext [(b, e)]
+    context2 <- translateSystem context1 out
+    let binder = PcId bindingId
+    pure (binder, context2)
+  Case (Var i) _ _ alts -> do
     let bindingId = IRVar i
-        index = getIndexFromAlts initialContext alts
-        binder = Binding bindingId index
-     in (binder, initialContext)
-  _ ->
-    let (pcId, argumentIds) = translateProcessApplication initialContext expr
-        context1 = createSignalsFromArguments initialContext pcId argumentIds
-        binder = PcId pcId
-     in (binder, context1)
+    index <- getIndexFromAlts initialContext alts
+    let binder = Binding bindingId index
+    pure (binder, initialContext)
+  _ -> do
+    (pcId, argumentIds) <- translateProcessApplication initialContext expr
+    context1 <- createSignalsFromArguments initialContext pcId argumentIds
+    let binder = PcId pcId
+    pure (binder, context1)
 
 -- | Helper function which identifies the process being applied and its arguments, within a system `CoreExpr`.
-translateProcessApplication :: TranslationContext -> CoreExpr -> (IRId, [IRId])
+translateProcessApplication :: TranslationContext -> CoreExpr -> Either String (IRId, [IRId])
 translateProcessApplication context expr = aux expr []
   where
     aux currentExpr arguments = case currentExpr of
-      Var i -> (IRVar i, arguments)
-      (App (App (Var i) (Type _)) (Var _)) -> (IRVar i, arguments)
+      Var i -> pure (IRVar i, arguments)
+      (App (App (Var i) (Type _)) (Var _)) -> pure (IRVar i, arguments)
       App e (Var a) | isId a -> aux e ((IRVar a) : arguments)
       App e (App (Var a) (Type _)) -> aux e ((IRVar a) : arguments)
       App e (Type _) -> aux e arguments
       Lam _ e -> aux e arguments
-      e -> error ("translateProcessApplication - Unsupported CoreExpr:\n" ++ prettyCoreExpr (flags context) e)
+      e -> Left $ "translateProcessApplication - Unsupported CoreExpr:\n" ++ prettyCoreExpr (flags context) e
 
 -- | Helper function which identifies the id chosen by an `AltCon` for a `Case`.
 -- Returns the index of the identified id from a list of ids. These ids
 -- represent the outputs of a process constructor.
-getIndexFromAlts :: TranslationContext -> [Alt CoreBndr] -> Int
+getIndexFromAlts :: TranslationContext -> [Alt CoreBndr] -> Either String Int
 getIndexFromAlts context alts = case alts of
-  [] -> error ("getIndexFromAlts - Empty AltCon list")
+  [] -> Left $ "getIndexFromAlts - Empty AltCon list"
   (Alt _ ids (Var (i))) : [] ->
     let maybeIndex = elemIndex i ids
      in case maybeIndex of
-          Just index -> index
-          Nothing -> error ("getIndexFromAlts - Unable to find: " ++ show (IRVar i))
-  _ -> error ("getIndexFromAlts - More than one AltCon:\n" ++ prettyCoreAltList (flags context) alts)
+          Just index -> pure $ index
+          Nothing -> Left $ "getIndexFromAlts - Unable to find: " ++ show (IRVar i)
+  _ -> Left $ "getIndexFromAlts - More than one AltCon:\n" ++ prettyCoreAltList (flags context) alts
 
 -- | Creates signals based on the arguments of a process constructor. All
 -- signals created with this function have the process constructor as the
 -- target.
-createSignalsFromArguments :: TranslationContext -> IRId -> [IRId] -> TranslationContext
+createSignalsFromArguments :: TranslationContext -> IRId -> [IRId] -> Either String TranslationContext
 createSignalsFromArguments context pcId arguments =
   -- The input rates of the process constructor are used to determine the
   -- targetRate of created signals, the index for the input is the same as the
   -- current arguments index.
-  let inputRates = case (lookup pcId (pcRates context)) of
-        Just (rates, _) -> rates
-        Nothing -> error ("createSignalsFromArguments - No rates found for process constructor: " ++ show pcId)
-   in foldr aux context $ zip arguments inputRates
+  case (lookup pcId (pcRates context)) of
+    Just (inputRates, _) -> foldr aux (pure context) $ zip arguments inputRates
+    Nothing -> Left ("createSignalsFromArguments - No rates found for process constructor: " ++ show pcId)
   where
-    aux :: (IRId, Int) -> TranslationContext -> TranslationContext
-    aux (argument, rate) currentContext =
-      let (sourceId, sourceRate) = getSourceFromArgument currentContext argument
-          newSignal = IRSignal argument (sourceId, sourceRate) (pcId, rate)
-          newSignals = (argument, newSignal) : (signals currentContext)
-          context1 = currentContext {signals = newSignals}
-       in updateConstructorsInputs context1 pcId argument
+    aux :: (IRId, Int) -> Either String TranslationContext -> Either String TranslationContext
+    aux (argument, rate) context0 = do
+      currentContext <- context0
+      case getSourceFromArgument currentContext argument of
+        Left e -> Left e
+        Right (sourceId, sourceRate) ->
+          let newSignal = IRSignal argument (sourceId, sourceRate) (pcId, rate)
+              newSignals = (argument, newSignal) : (signals currentContext)
+              context1 = currentContext {signals = newSignals}
+           in pure $ updateConstructorsInputs context1 pcId argument
 
 -- | Updates the inputs of constructors within a `TranslationContext`. Adds a
 -- signal to the head of a process constructors input signals list.
@@ -302,27 +302,26 @@ updateConstructorsInputs initialContext pcId signalId =
 -- NOTE: If argument does not directly represent a process constructor then a
 -- temporary source is returned. It will have to be updated later by
 -- `updateConstructorsAndSignals` when all binders have been identified.
-getSourceFromArgument :: TranslationContext -> IRId -> (IRId, Int)
+getSourceFromArgument :: TranslationContext -> IRId -> Either String (IRId, Int)
 getSourceFromArgument context argument =
   if elem argument (systemInputs context)
-    then (argument, 1)
+    then pure (argument, 1)
     else
       let maybeBinder = (lookup argument (binders context))
        in case maybeBinder of
             -- Argument is associated with a binder which directly represents a
             -- process constructor meaning said constructor only has 1 output.
             Just (PcId pcId) ->
-              let outputRates = case (lookup pcId (pcRates context)) of
-                    Just (_, rates) -> rates
-                    Nothing -> error ("getSourceFromArgument - No rates found for process constructor: " ++ show pcId)
-               in (pcId, outputRates !! 0)
+              case (lookup pcId (pcRates context)) of
+                Just (_, rates) -> pure (pcId, rates !! 0)
+                Nothing -> Left ("getSourceFromArgument - No rates found for process constructor: " ++ show pcId)
             -- Argument is associated with a binder which indirectly represents
             -- a process constructor meaning said constructor has multiple
             -- outputs. Will temporarily use the binder as the signal source.
             -- This will be updated later in the translation when all binders
             -- have been identified.
-            Just (Binding bindingId index) -> (bindingId, index)
-            Nothing -> error ("getSourceFromArgument - Unable to identify argument as a system input or binder: " ++ show argument)
+            Just (Binding bindingId index) -> pure (bindingId, index)
+            Nothing -> Left ("getSourceFromArgument - Unable to identify argument as a system input or binder: " ++ show argument)
 
 -- Strip all Lams so we don't need to bother with non-eta-reduced processes.
 -- We con't count the type variables as those won't produce an App in the top
@@ -348,7 +347,7 @@ stripApps n expr = case expr of
 --
 -- NOTE: This function needs to be updated with new pattern matches for
 -- translation to support additional process constructors.
-translateCoreExpr :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
+translateCoreExpr :: TranslationContext -> CoreBndr -> CoreExpr -> Either String TranslationContext
 translateCoreExpr context' binder expr' =
   let (n, expr1) = stripLams 0 expr'
       (context, expr2) = case expr1 of
@@ -359,7 +358,7 @@ translateCoreExpr context' binder expr' =
    in case expr of
         -- ForSyDe-Shallow SDF
         App (App (Var i) _) _
-          | IRVar i == IRString "delaySDF" -> createDelaySDF context binder expr
+          | IRVar i == IRString "delaySDF" -> pure $ createDelaySDF context binder expr
         App (App (App (App (App (Var i) _) _) _) _) _
           | IRVar i == IRString "actor11SDF" -> createActorSDF context Actor11 binder expr
         App (App (App (App (App (App (Var i) _) _) _) _) _) _
@@ -385,7 +384,7 @@ translateCoreExpr context' binder expr' =
           | IRVar i == IRString "actor44SDF" -> createActorSDF context Actor44 binder expr
         -- ForSyDe-Atom SDF
         App (App (Var i) _) _
-          | IRVar i == IRString "delay" -> createDelaySDF context binder expr
+          | IRVar i == IRString "delay" -> pure $ createDelaySDF context binder expr
         App (App (App (Var i) _) _) _
           | IRVar i == IRString "actor11" -> createActorSDF context Actor11 binder expr
         App (App (App (App (Var i) _) _) _) _
@@ -409,7 +408,7 @@ translateCoreExpr context' binder expr' =
           | IRVar i == IRString "actor43" -> createActorSDF context Actor43 binder expr
         App (App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _) _
           | IRVar i == IRString "actor44" -> createActorSDF context Actor44 binder expr
-        _ -> createFunction context binder expr
+        _ -> pure $ createFunction context binder expr
 
 createDelaySDF :: TranslationContext -> CoreBndr -> CoreExpr -> TranslationContext
 createDelaySDF context binder expr =
@@ -419,12 +418,12 @@ createDelaySDF context binder expr =
       newActorsList = (delayId, ([1], [1])) : (pcRates context)
    in context {constructors = (delayId, newDelay) : (constructors context), pcRates = newActorsList}
 
-createActorSDF :: TranslationContext -> ActorType -> CoreBndr -> CoreExpr -> TranslationContext
+createActorSDF :: TranslationContext -> ActorType -> CoreBndr -> CoreExpr -> Either String TranslationContext
 createActorSDF initialContext actorType binder expr =
   let lits = getLits expr []
       maybeFunctionName = getFunctionName initialContext expr
    in case maybeFunctionName of
-        Nothing -> error "createActorSDF - No function found for actor"
+        Nothing -> Left "createActorSDF - No function found for actor"
         Just functionName ->
           let (inputRates, outputRates) = splitAt (getActorSplit actorType) lits
               actorId = IRVar binder
@@ -433,7 +432,7 @@ createActorSDF initialContext actorType binder expr =
               newActors = (actorId, (inputRates, outputRates)) : (pcRates initialContext)
               newConstructors = (actorId, newActor) : (constructors initialContext)
               context1 = initialContext {pcRates = newActors, constructors = newConstructors}
-           in context1
+           in pure context1
 
 -- | Helper function for `createDelaySDF` and `createActorSDF` which returns
 -- all integer literals within their expression as a list.

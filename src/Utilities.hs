@@ -152,8 +152,10 @@ noInlineTypecheck tcg = tcg {tcg_binds = noInline (tcg_binds tcg)}
 -- used in a repl.
 scheduleAndBuffer :: FilePath -> IO Schedule
 scheduleAndBuffer filePath = do
-  (core, dflags) <- (compileToCore filePath)
-  let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
-  return $ case computeScheduleAndBuffers forsydeIR of
+  (core, dflags) <- compileToCore filePath
+  case translateCoreProgram dflags core of
     Left e -> error e
-    Right v -> v
+    Right (forsydeIR, _lookupSignals) ->
+      pure $ case computeScheduleAndBuffers forsydeIR of
+        Left e -> error e
+        Right v -> v

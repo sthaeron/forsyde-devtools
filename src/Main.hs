@@ -71,7 +71,9 @@ run :: Arguments -> IO ()
 -- "Normal run"
 run (Arguments (InputFile input_file) output_file OutputC t inputType r pkgPath) = do
   (core, dflags) <- compileToCoreWithForSyDePath pkgPath input_file
-  let (forsydeIR, lookupSignals) = translateCoreProgram dflags core
+  let (forsydeIR, lookupSignals) = case translateCoreProgram dflags core of
+        Left e -> error e
+        Right v -> v
   let Schedule (schedule, buffers, delayBuffers) = case computeScheduleAndBuffers forsydeIR of
         Left e -> error e
         Right v -> v
@@ -80,16 +82,22 @@ run (Arguments (InputFile input_file) output_file OutputC t inputType r pkgPath)
   write_output output_file OutputC c
 run (Arguments (InputFile input_file) output_file OutputForSyDeIR _ _ _ pkgPath) = do
   (core, dflags) <- compileToCoreWithForSyDePath pkgPath input_file
-  let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
+  let (forsydeIR, _lookupSignals) = case translateCoreProgram dflags core of
+        Left e -> error e
+        Right v -> v
   write_output output_file OutputForSyDeIR (prettyIRSystem dflags forsydeIR)
 run (Arguments (InputFile input_file) output_file OutputForSyDeIRJSON _ _ _ pkgPath) = do
   (core, dflags) <- compileToCoreWithForSyDePath pkgPath input_file
-  let (forsydeIR, _lookupSignals) = translateCoreProgram dflags core
+  let (forsydeIR, _lookupSignals) = case translateCoreProgram dflags core of
+        Left e -> error e
+        Right v -> v
   let ir_json = prettyIRJSON forsydeIR
   write_output output_file OutputForSyDeIRJSON ir_json
 run (Arguments (InputFile input_file) output_file OutputProceduralIR _ inputType r pkgPath) = do
   (core, dflags) <- compileToCoreWithForSyDePath pkgPath input_file
-  let (forsydeIR, lookupSignals) = translateCoreProgram dflags core
+  let (forsydeIR, lookupSignals) = case translateCoreProgram dflags core of
+        Left e -> error e
+        Right v -> v
   let Schedule (schedule, buffers, delayBuffers) = case computeScheduleAndBuffers forsydeIR of
         Left e -> error e
         Right v -> v
@@ -100,7 +108,9 @@ run (Arguments (InputFile input_file) output_file OutputCore _ _ _ pkgPath) = do
   write_output output_file OutputCore (prettyCoreProgram dflags core)
 run (Arguments (InputFile input_file) output_file OutputSchedule _ _ _ pkgPath) = do
   (core, dflags) <- compileToCoreWithForSyDePath pkgPath input_file
-  let (forsydeIR, _) = translateCoreProgram dflags core
+  let (forsydeIR, _) = case translateCoreProgram dflags core of
+        Left e -> error e
+        Right v -> v
   write_output output_file OutputSchedule (computeScheduleAndBuffersPrint forsydeIR)
 
 main :: IO ()
