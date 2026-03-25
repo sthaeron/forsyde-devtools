@@ -94,10 +94,11 @@ function createServerOptions(context: ExtensionContext): ServerOptions {
       vscode.workspace.getConfiguration("forsydeDevtoolsLSP");
     console.log("Spawning to language server as a process.");
     const lsp_executable = context.asAbsolutePath(`server/forsyde-lsp-exe`);
+    const stack_config = context.asAbsolutePath(`client/stack.yaml`);
 
-    let args = ["--stdio"];
+    let args = ["exec", "--stack-yaml", stack_config, "--", "forsyde-lsp-exe", "--stdio"];
     if (stackPkgPath && stackPkgPath.length > 0) {
-      args = ["--forsyde-pkgpath", stackPkgPath, "--stdio"];
+      args.push("--forsyde-pkgpath", stackPkgPath);
     }
 
     if (existsSync(lsp_executable)) {
@@ -107,8 +108,8 @@ function createServerOptions(context: ExtensionContext): ServerOptions {
       };
     } else {
       return {
-        run: { command: `forsyde-lsp-exe`, args },
-        debug: { command: `forsyde-lsp-exe`, args },
+        run: { command: `stack`, args },
+        debug: { command: `stack`, args },
       };
     }
   }
