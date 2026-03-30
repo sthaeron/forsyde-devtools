@@ -92,9 +92,7 @@ executable forsyde-lsp-exe
     CoreIR
     CoreIRToForSyDeIR
     ForSyDeIR
-    ForSyDeIRToProceduralIR
     ProceduralIR
-    ProceduralIRToC
     SDFSchedule
     SKGraphSchema
     Utilities
