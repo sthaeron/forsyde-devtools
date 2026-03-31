@@ -93,16 +93,21 @@ translateSystem initialContext expr = case expr of
     let context1 = translateSystemBinds initialContext [(b, e)]
         context2 = translateSystem context1 out
      in context2
-  _ ->
-    let outputs = translateOutputs initialContext expr
-        context1 = foldl updateSystemOutput initialContext outputs
-        context2 =
-          context1
-            { systemInputs = reverse (systemInputs context1),
-              systemOutputs = reverse (systemOutputs context1)
-            }
-        context3 = updateConstructorsAndSignals context2
-     in context3
+  Case (Let (Rec binds) out) _ _ _alts ->
+    let context1 = translateSystemBinds initialContext binds
+        context2 = translateSystem context1 out
+     in context2
+  _ -> case translateOutputs initialContext expr of
+    [] -> initialContext
+    outputs ->
+      let context1 = foldl updateSystemOutput initialContext outputs
+          context2 =
+            context1
+              { systemInputs = reverse (systemInputs context1),
+                systemOutputs = reverse (systemOutputs context1)
+              }
+          context3 = updateConstructorsAndSignals context2
+       in context3
 
 -- | Helper function which identifies the outputs of a system `CoreExpr`.
 translateOutputs :: TranslationContext -> CoreExpr -> [IRId]
@@ -114,18 +119,25 @@ translateOutputs context expr = aux expr []
       App _ (Type _) -> outputs
       App e (Var out) -> aux e ((IRVar out) : outputs)
       Lam _ e -> aux e outputs
+      App e1 e2 -> aux e2 (aux e1 outputs)
+      -- `Case` can be ignored, as the outputs defined within were translated
+      -- when the binder was defined
+      Case _ _ _ _alts -> outputs
       e -> error ("translateOutputs - Unsupported expression\n" ++ prettyCoreExpr (flags context) e)
 
 updateSystemOutput :: TranslationContext -> IRId -> TranslationContext
 updateSystemOutput initialContext outputId =
-  let (sourceId, sourceRate) = getSourceFromArgument initialContext outputId
-      newSignal = IRSignal outputId (sourceId, sourceRate) (outputId, 1)
-      context1 =
-        initialContext
-          { systemOutputs = outputId : (systemOutputs initialContext),
-            signals = (outputId, newSignal) : (signals initialContext)
-          }
-   in context1
+  if not (outputId `elem` (map fst (signals initialContext)))
+    then
+      let (sourceId, sourceRate) = getSourceFromArgument initialContext outputId
+          newSignal = IRSignal outputId (sourceId, sourceRate) (outputId, 1)
+          context1 =
+            initialContext
+              { systemOutputs = outputId : (systemOutputs initialContext),
+                signals = (outputId, newSignal) : (signals initialContext)
+              }
+       in context1
+    else initialContext
 
 -- | Updates all the signals within `TranslationContext` which are temporarily
 -- using a binder as the signal source. Replaces them with their associated
@@ -198,6 +210,14 @@ translateSystemBinds initialcontext = foldl' translateSystemBind initialcontext
 -- potentially updated `TranslationContext`.
 translateSystemExpr :: TranslationContext -> CoreExpr -> (Binder, TranslationContext)
 translateSystemExpr initialContext expr = case expr of
+  -- Explicitly ignores lambdas refering to type-level binders
+  Lam b e | (isTyCoVar b || (isPredTy . varType) b) -> translateSystemExpr initialContext e
+  Let (NonRec b e) out ->
+    let bindingId = IRVar b
+        context1 = translateSystemBinds initialContext [(b, e)]
+        context2 = translateSystem context1 out
+        binder = PcId bindingId
+     in (binder, context2)
   Case (Var i) _ _ alts ->
     let bindingId = IRVar i
         index = getIndexFromAlts initialContext alts
