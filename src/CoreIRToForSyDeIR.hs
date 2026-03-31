@@ -77,9 +77,8 @@ translateCoreBind _ (Rec _) = error "translateCoreBind - `Rec` used in top level
 -- and identifies system outputs.
 translateSystem :: TranslationContext -> CoreExpr -> TranslationContext
 translateSystem initialContext expr = case expr of
-  -- Ignores Lambdas that refer to binders which are typed, always comes in
-  -- pairs. These Lambdas are resent when no explicit type is declared.
-  Lam b (Lam _ e) | isTyVar b -> translateSystem initialContext e
+  -- Explicitly ignores lambdas refering to type-level binders
+  Lam b e | (isTyCoVar b || (isPredTy . varType) b) -> translateSystem initialContext e
   Lam b e ->
     let newInput = IRVar b
         context1 = initialContext {systemInputs = newInput : (systemInputs initialContext)}
@@ -310,7 +309,8 @@ getSourceFromArgument context argument =
 -- level definition.
 stripLams :: Integer -> CoreExpr -> (Integer, CoreExpr)
 stripLams n expr = case expr of
-  Lam b (Lam _ e) | isTyVar b -> stripLams n e
+  -- Explicitly strips lambdas refering to type-level binders
+  Lam b e | (isTyCoVar b || (isPredTy . varType) b) -> stripLams n e
   Lam _ e | otherwise -> stripLams (n + 1) e
   _ -> (n, expr)
 
