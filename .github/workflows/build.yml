@@ -36,4 +36,5 @@ jobs:
           if git diff --stat origin/dev -- | grep '\(^ src\|^ test\|^ flake.nix\|^ flake.lock\|^ forsyde-devtools.cabal\|^ cabal.project\)'; then
             nix develop --command bash -c "cabal build"
             nix develop --command bash -c "cabal test"
+            nix develop --command bash -c "./scripts/test.sh --cabal"
           fi
