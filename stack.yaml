@@ -47,6 +47,8 @@ packages:
 #
 extra-deps:
   - forsyde-shallow-3.5.0.0@sha256:6746d7f6173c8c7b212d7ef0ecb0a4efad8ef9399073707701973c1e5c118f9c,4377
+  - git: https://github.com/forsyde/forsyde-atom.git
+    commit: a24e65741832fe807cd530e160934d5156c76460
 
 # Override default flag values for project packages and extra-deps
 # flags: {}

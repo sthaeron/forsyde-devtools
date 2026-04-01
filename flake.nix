@@ -1,11 +1,23 @@
 {
   description = "ForSyDe Development Flake";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-  inputs.flake-utils.url = "github:numtide/flake-utils";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+    forsyde-atom = {
+      url = "github:forsyde/forsyde-atom/a24e65741832fe807cd530e160934d5156c76460";
+      flake = false;
+    };
+  };
 
   outputs =
-    { self, flake-utils, ... }@inputs:
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+      forsyde-atom,
+      ...
+    }@inputs:
     let
       ghcVersion = "ghc9102";
       overlay = final: prev: {
@@ -13,6 +25,18 @@
           packages = prev.haskell.packages // {
             "${ghcVersion}" = prev.haskell.packages.${ghcVersion}.extend (
               hfinal: hprev: {
+                forsyde-atom =
+                  let
+                    pkg = hfinal.callCabal2nix "forsyde-atom" forsyde-atom { };
+                  in
+                  final.haskell.lib.compose.overrideCabal (old: {
+                    # cabal fails due to haddock include wildcard fails, using a
+                    # dummy file as a workaround
+                    postPatch = ''
+                      mkdir -p fig
+                      touch fig/dummy.png
+                    '';
+                  }) pkg;
                 forsyde-devtools =
                   let
                     unmodified = hprev.callCabal2nix "forsyde-devtools" ./. { };

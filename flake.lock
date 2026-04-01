@@ -18,6 +18,23 @@
         "type": "github"
       }
     },
+    "forsyde-atom": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1762522343,
+        "narHash": "sha256-+/7u9DMy5BrNE7ryf6Ncy9L5Q4mKjrFyD3jYxFQvir0=",
+        "owner": "forsyde",
+        "repo": "forsyde-atom",
+        "rev": "a24e65741832fe807cd530e160934d5156c76460",
+        "type": "github"
+      },
+      "original": {
+        "owner": "forsyde",
+        "repo": "forsyde-atom",
+        "rev": "a24e65741832fe807cd530e160934d5156c76460",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1759632233,
@@ -37,6 +54,7 @@
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
+        "forsyde-atom": "forsyde-atom",
         "nixpkgs": "nixpkgs"
       }
     },
