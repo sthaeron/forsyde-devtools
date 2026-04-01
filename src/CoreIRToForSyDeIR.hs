@@ -403,7 +403,7 @@ translateCoreExpr context' binder expr' =
         App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _
           | IRVar i == IRString "actor24" -> createActorSDF context Actor24 binder expr
           | IRVar i == IRString "actor33" -> createActorSDF context Actor33 binder expr
-          | IRVar i == IRString "actor43" -> createActorSDF context Actor42 binder expr
+          | IRVar i == IRString "actor42" -> createActorSDF context Actor42 binder expr
         App (App (App (App (App (App (App (App (Var i) _) _) _) _) _) _) _) _
           | IRVar i == IRString "actor34" -> createActorSDF context Actor34 binder expr
           | IRVar i == IRString "actor43" -> createActorSDF context Actor43 binder expr
