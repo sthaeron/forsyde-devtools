@@ -116,9 +116,8 @@ getFunctionDefinition context parametersList functionId =
 -- matched binder represents.
 translateFunctionExpr :: TranslationContext -> Int -> Int -> CoreExpr -> TranslationContext
 translateFunctionExpr context inputId inputIndex expr = case expr of
-  -- Ignores Lambdas that refer to binders which are typed, always comes in
-  -- pairs. These Lambdas are resent when no explicit type is declared.
-  Lam b (Lam _ e) | isTyVar b -> translateFunctionExpr context inputId inputIndex e
+  -- Explicitly ignore lambdas refering to type-level binders
+  Lam b e | (isTyCoVar b || (isPredTy . varType) b) -> translateFunctionExpr context inputId inputIndex e
   -- Function with 4 inputs
   Lam b1 (Lam b2 (Lam b3 (Lam b4 e))) ->
     let context1 = context {functionInputs = [(IRVar b1), (IRVar b2), (IRVar b3), (IRVar b4)]}

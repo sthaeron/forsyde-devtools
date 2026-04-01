@@ -5,10 +5,7 @@ import Data.List (elemIndex)
 import ForSyDeIR
 import GHC hiding (targetId)
 import GHC.Core
-import GHC.Driver.Ppr (showPprUnsafe)
 import GHC.Plugins
-import GHC.Plugins (IdDetails (CoVarId))
-import GHC.Types.Var (isTyVar)
 
 -- | The `TranslationContext` is a data type which is used to pass around
 -- context required to complete the translation of Core IR to ForSyDe IR.
@@ -80,9 +77,8 @@ translateCoreBind _ (Rec _) = error "translateCoreBind - `Rec` used in top level
 -- and identifies system outputs.
 translateSystem :: TranslationContext -> CoreExpr -> TranslationContext
 translateSystem initialContext expr = case expr of
-  -- Ignores Lambdas that refer to binders which are typed, always comes in
-  -- pairs. These Lambdas are resent when no explicit type is declared.
-  Lam b (Lam _ e) | isTyVar b -> translateSystem initialContext e
+  -- Explicitly ignores lambdas refering to type-level binders
+  Lam b e | (isTyCoVar b || (isPredTy . varType) b) -> translateSystem initialContext e
   Lam b e ->
     let newInput = IRVar b
         context1 = initialContext {systemInputs = newInput : (systemInputs initialContext)}
@@ -97,64 +93,51 @@ translateSystem initialContext expr = case expr of
     let context1 = translateSystemBinds initialContext [(b, e)]
         context2 = translateSystem context1 out
      in context2
-  _ -> translateSystemOutputs initialContext expr
+  Case (Let (Rec binds) out) _ _ _alts ->
+    let context1 = translateSystemBinds initialContext binds
+        context2 = translateSystem context1 out
+     in context2
+  _ -> case translateOutputs initialContext expr of
+    [] -> initialContext
+    outputs ->
+      let context1 = foldl updateSystemOutput initialContext outputs
+          context2 =
+            context1
+              { systemInputs = reverse (systemInputs context1),
+                systemOutputs = reverse (systemOutputs context1)
+              }
+          context3 = updateConstructorsAndSignals context2
+       in context3
 
--- | Identifies the system outputs of the netlist and does the final clean-up
--- of the `TranslationContext` by updating constructors and signals.
---
--- NOTE: This function needs to be updated with new pattern matches for
--- translation to support netlists with additional system ouputs.
-translateSystemOutputs :: TranslationContext -> CoreExpr -> TranslationContext
-translateSystemOutputs initialContext expr = case expr of
-  -- System has 1 output
-  Var out ->
-    let context1 = updateSystemOutput initialContext out
-        context2 = context1 {systemInputs = reverse (systemInputs context1)}
-        context3 = updateConstructorsAndSignals context2
-     in context3
-  -- System has 2 outputs
-  App (App (App (App (Var _) (Type _)) (Type _)) (Var out1)) (Var out2) ->
-    let context1 = foldl updateSystemOutput initialContext [out1, out2]
-        context2 =
-          context1
-            { systemInputs = reverse (systemInputs context1),
-              systemOutputs = reverse (systemOutputs context1)
-            }
-        context3 = updateConstructorsAndSignals context2
-     in context3
-  -- System has 3 outputs
-  App (App (App (App (App (App (Var _) (Type _)) (Type _)) (Type _)) (Var out1)) (Var out2)) (Var out3) ->
-    let context1 = foldl updateSystemOutput initialContext [out1, out2, out3]
-        context2 =
-          context1
-            { systemInputs = reverse (systemInputs context1),
-              systemOutputs = reverse (systemOutputs context1)
-            }
-        context3 = updateConstructorsAndSignals context2
-     in context3
-  -- System has 4 outputs
-  App (App (App (App (App (App (App (App (Var _) (Type _)) (Type _)) (Type _)) (Type _)) (Var out1)) (Var out2)) (Var out3)) (Var out4) ->
-    let context1 = foldl updateSystemOutput initialContext [out1, out2, out3, out4]
-        context2 =
-          context1
-            { systemInputs = reverse (systemInputs context1),
-              systemOutputs = reverse (systemOutputs context1)
-            }
-        context3 = updateConstructorsAndSignals context2
-     in context3
-  _ -> error ("translateSystemOutputs - Unsupported expression\n" ++ prettyCoreExpr (flags initialContext) expr)
+-- | Helper function which identifies the outputs of a system `CoreExpr`.
+translateOutputs :: TranslationContext -> CoreExpr -> [IRId]
+translateOutputs context expr = aux expr []
+  where
+    aux currentExpr outputs = case currentExpr of
+      Var out -> (IRVar out) : outputs
+      App (Var out) (Type _) -> (IRVar out) : outputs
+      App _ (Type _) -> outputs
+      App e (Var out) -> aux e ((IRVar out) : outputs)
+      Lam _ e -> aux e outputs
+      App e1 e2 -> aux e2 (aux e1 outputs)
+      -- `Case` can be ignored, as the outputs defined within were translated
+      -- when the binder was defined
+      Case _ _ _ _alts -> outputs
+      e -> error ("translateOutputs - Unsupported expression\n" ++ prettyCoreExpr (flags context) e)
 
-updateSystemOutput :: TranslationContext -> Id -> TranslationContext
-updateSystemOutput initialContext output =
-  let outputId = IRVar output
-      (sourceId, sourceRate) = getSourceFromArgument initialContext outputId
-      newSignal = IRSignal outputId (sourceId, sourceRate) (outputId, 1)
-      context1 =
-        initialContext
-          { systemOutputs = outputId : (systemOutputs initialContext),
-            signals = (outputId, newSignal) : (signals initialContext)
-          }
-   in context1
+updateSystemOutput :: TranslationContext -> IRId -> TranslationContext
+updateSystemOutput initialContext outputId =
+  if not (outputId `elem` (map fst (signals initialContext)))
+    then
+      let (sourceId, sourceRate) = getSourceFromArgument initialContext outputId
+          newSignal = IRSignal outputId (sourceId, sourceRate) (outputId, 1)
+          context1 =
+            initialContext
+              { systemOutputs = outputId : (systemOutputs initialContext),
+                signals = (outputId, newSignal) : (signals initialContext)
+              }
+       in context1
+    else initialContext
 
 -- | Updates all the signals within `TranslationContext` which are temporarily
 -- using a binder as the signal source. Replaces them with their associated
@@ -225,89 +208,39 @@ translateSystemBinds initialcontext = foldl' translateSystemBind initialcontext
 -- application of a process constructor or connection to a specific output of a
 -- process constructor. In either case returns a `Binder` along side a
 -- potentially updated `TranslationContext`.
---
--- NOTE: This function needs to be updated with new pattern matches for
--- translation to support process constructors with more inputs.
 translateSystemExpr :: TranslationContext -> CoreExpr -> (Binder, TranslationContext)
 translateSystemExpr initialContext expr = case expr of
-  -- Application of process constructors with 1 input
-  App (Var i) (Var a) ->
-    let pcId = IRVar i
-        aId = IRVar a
-        arguments = [aId]
-        context1 = createSignalsFromArguments initialContext pcId arguments
-        binder = PcId pcId
-     in (binder, context1)
-  App (App (App (Var i) (Type _)) (Var _)) (Var a) ->
-    let pcId = IRVar i
-        aId = IRVar a
-        arguments = [aId]
-        context1 = createSignalsFromArguments initialContext pcId arguments
-        binder = PcId pcId
-     in (binder, context1)
-  -- Application of process constructors with 2 input
-  App (App (Var i) (Var a1)) (Var a2) ->
-    let pcId = IRVar i
-        a1Id = IRVar a1
-        a2Id = IRVar a2
-        arguments = [a1Id, a2Id]
-        context1 = createSignalsFromArguments initialContext pcId arguments
-        binder = PcId pcId
-     in (binder, context1)
-  App (App (App (App (Var i) (Type _)) (Var _)) (Var a1)) (Var a2) ->
-    let pcId = IRVar i
-        a1Id = IRVar a1
-        a2Id = IRVar a2
-        arguments = [a1Id, a2Id]
-        context1 = createSignalsFromArguments initialContext pcId arguments
-        binder = PcId pcId
-     in (binder, context1)
-  -- Application of process constructors with 3 input
-  App (App (App (Var i) (Var a1)) (Var a2)) (Var a3) ->
-    let pcId = IRVar i
-        a1Id = IRVar a1
-        a2Id = IRVar a2
-        a3Id = IRVar a3
-        arguments = [a1Id, a2Id, a3Id]
-        context1 = createSignalsFromArguments initialContext pcId arguments
-        binder = PcId pcId
-     in (binder, context1)
-  App (App (App (App (App (Var i) (Type _)) (Var _)) (Var a1)) (Var a2)) (Var a3) ->
-    let pcId = IRVar i
-        a1Id = IRVar a1
-        a2Id = IRVar a2
-        a3Id = IRVar a3
-        arguments = [a1Id, a2Id, a3Id]
-        context1 = createSignalsFromArguments initialContext pcId arguments
-        binder = PcId pcId
-     in (binder, context1)
-  -- Application of process constructors with 4 input
-  App (App (App (App (Var i) (Var a1)) (Var a2)) (Var a3)) (Var a4) ->
-    let pcId = IRVar i
-        a1Id = IRVar a1
-        a2Id = IRVar a2
-        a3Id = IRVar a3
-        a4Id = IRVar a4
-        arguments = [a1Id, a2Id, a3Id, a4Id]
-        context1 = createSignalsFromArguments initialContext pcId arguments
-        binder = PcId pcId
-     in (binder, context1)
-  App (App (App (App (App (App (Var i) (Type _)) (Var _)) (Var a1)) (Var a2)) (Var a3)) (Var a4) ->
-    let pcId = IRVar i
-        a1Id = IRVar a1
-        a2Id = IRVar a2
-        a3Id = IRVar a3
-        a4Id = IRVar a4
-        arguments = [a1Id, a2Id, a3Id, a4Id]
-        context1 = createSignalsFromArguments initialContext pcId arguments
-        binder = PcId pcId
-     in (binder, context1)
+  -- Explicitly ignores lambdas refering to type-level binders
+  Lam b e | (isTyCoVar b || (isPredTy . varType) b) -> translateSystemExpr initialContext e
+  Let (NonRec b e) out ->
+    let bindingId = IRVar b
+        context1 = translateSystemBinds initialContext [(b, e)]
+        context2 = translateSystem context1 out
+        binder = PcId bindingId
+     in (binder, context2)
   Case (Var i) _ _ alts ->
     let bindingId = IRVar i
         index = getIndexFromAlts initialContext alts
         binder = Binding bindingId index
      in (binder, initialContext)
-  _ -> error ("translateSystemExpr - Unsupported CoreExpr:\n" ++ prettyCoreExpr (flags initialContext) expr)
+  _ ->
+    let (pcId, argumentIds) = translateProcessApplication initialContext expr
+        context1 = createSignalsFromArguments initialContext pcId argumentIds
+        binder = PcId pcId
+     in (binder, context1)
+
+-- | Helper function which identifies the process being applied and its arguments, within a system `CoreExpr`.
+translateProcessApplication :: TranslationContext -> CoreExpr -> (IRId, [IRId])
+translateProcessApplication context expr = aux expr []
+  where
+    aux currentExpr arguments = case currentExpr of
+      Var i -> (IRVar i, arguments)
+      (App (App (Var i) (Type _)) (Var _)) -> (IRVar i, arguments)
+      App e (Var a) | isId a -> aux e ((IRVar a) : arguments)
+      App e (App (Var a) (Type _)) -> aux e ((IRVar a) : arguments)
+      App e (Type _) -> aux e arguments
+      Lam _ e -> aux e arguments
+      e -> error ("translateProcessApplication - Unsupported CoreExpr:\n" ++ prettyCoreExpr (flags context) e)
 
 -- | Helper function which identifies the id chosen by an `AltCon` for a `Case`.
 -- Returns the index of the identified id from a list of ids. These ids
@@ -396,7 +329,8 @@ getSourceFromArgument context argument =
 -- level definition.
 stripLams :: Integer -> CoreExpr -> (Integer, CoreExpr)
 stripLams n expr = case expr of
-  Lam b (Lam _ e) | isTyVar b -> stripLams n e
+  -- Explicitly strips lambdas refering to type-level binders
+  Lam b e | (isTyCoVar b || (isPredTy . varType) b) -> stripLams n e
   Lam _ e | otherwise -> stripLams (n + 1) e
   _ -> (n, expr)
 
