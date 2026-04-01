@@ -43,3 +43,8 @@ f_4 [x, y] [z, w] = [x + z, y + w]
 
 f_5 :: [Int] -> [Int] -> [Int] -> [Int]
 f_5 [x, y] [z] [w, v, q, r] = [x + y + z + w + v + q + r]
+
+main :: IO ()
+main =
+  getLine >>= \line ->
+    putStrLn . unwords . map show . fromSignal . system . signal . map read . words $ line

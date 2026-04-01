@@ -16,3 +16,8 @@ a_add s_in = actor11SDF 1 1 f_add s_in
 
 f_add :: [Int] -> [Int]
 f_add [x] = [x + 1]
+
+main :: IO ()
+main =
+  getLine >>= \line ->
+    putStrLn . unwords . map show . fromSignal . system . signal . map read . words $ line

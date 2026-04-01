@@ -27,3 +27,8 @@ d_out s = delaySDF [0, 1] s
 -- Function definitions
 f :: [Int] -> [Int] -> [Int] -> ([Int], [Int], [Int])
 f [index] [first] [second] = ([index + first + second], [second], [index + first + second])
+
+main :: IO ()
+main =
+  getLine >>= \line ->
+    putStrLn . unwords . map show . fromSignal . system . signal . map read . words $ line

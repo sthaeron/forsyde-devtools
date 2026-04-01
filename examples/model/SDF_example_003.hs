@@ -19,3 +19,8 @@ d_1 s_1 = delaySDF [0] s_1
 -- Function definitions
 add :: [Int] -> [Int] -> ([Int], [Int])
 add [x] [y] = ([x + y], [x + y])
+
+main :: IO ()
+main =
+  getLine >>= \line ->
+    putStrLn . unwords . map show . fromSignal . system . signal . map read . words $ line
