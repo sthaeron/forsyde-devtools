@@ -94,7 +94,7 @@ translateContextToMain context scheduleList =
         (Predefined, (Limited _)) -> [SIf (EBinOp Equal (EVar "run_current") (EVar "run_max")) (SScope [SBreak]) Nothing]
       whileStmt = SWhile (EInt 1) (SScope (scheduledStmts ++ scheduledInputStmts ++ scheduledRunsStmts))
       mainInitInputStmts = case (inputType context) of
-        StdIn -> [SExpr (ECall "init" []), SVarDecl TInt "status"]
+        StdIn -> [SExpr (ECall "init" []), SVarDef TInt "status" (EInt 1)]
         Predefined -> [SExpr (ECall "init" []), SVarDef TInt "iteration_current" (EInt (0))]
       mainInitRunsStmts = case ((inputType context), (runs context)) of
         (StdIn, _) -> []
@@ -230,7 +230,7 @@ translateIRConstructor initialContext constructor = case constructor of
                 breakIfStmt = SIf (EBinOp Less (EVar "status") (EInt 1)) (SScope [SBreak]) Nothing
                 writeForStmt =
                   SFor
-                    (SVarDef TInt "i" (EInt 0))
+                    (SVarDef TInt "i" (ECall "contained_tokens" [EVar $ show signalId]))
                     (EBinOp Less (EVar "i") (EInt (bufferSize)))
                     (SExpr (EUnOp Increment (EVar "i")))
                     (SScope [SExpr (ECall "write_token" [EVar $ show signalId, EArrayAccess (EVar ("input_" ++ show signalId)) (EVar "i")])])
