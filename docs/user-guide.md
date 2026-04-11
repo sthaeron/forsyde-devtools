@@ -5,7 +5,7 @@ This user guide provides usage information for the ForSyDe DevTools compiler, la
 The output of the usage and help prompts for the ForSyDe DevTools compiler is shown below for reference:
 
 ```sh
-$ forsyde-compiler-exe --help
+$ stack exec forsyde-compiler-exe -- --help
 ForSyDe DevTools
 
 Usage: forsyde-compiler-exe INPUT [(-o|--output OUTPUT) | --stdout] 
@@ -98,7 +98,7 @@ server is shown below for reference:
 
 
 ```sh
-$ forsyde-lsp-exe --help
+$ stack exec forsyde-lsp-exe -- --help
 ForSyDe DevTools
 
 Usage: forsyde-lsp-exe [--tcp | --stdio] [-a|--address IP] [-p|--port PORT] 
