@@ -86,6 +86,11 @@
           withHoogle = true;
           packages = (p: [ p.forsyde-devtools ]);
           buildInputs = [
+            # General dev tools
+            pkgs.clang-tools # For clang-format generated C code
+            pkgs.clang
+            pkgs.gcc
+            pkgs.gnumake
             # Haskell specific dev tools
             hspkgs.cabal-install
             hspkgs.haskell-language-server
@@ -94,9 +99,6 @@
             # For making mkkdocs site
             pypkgs.mkdocs-material
             pypkgs.mkdocs-mermaid2-plugin
-            # General dev tools
-            pkgs.gnumake
-            pkgs.clang-tools # For clang-format generated C code
           ];
           nativeBuildInputs = [ hspkgs.ghc ];
           shellHook = ''

@@ -41,3 +41,8 @@ s_in = signal [1 .. 10]
 -- Expected output
 -- >>> system s_in
 -- {3,4,5,7,8,9,23,24,25,27,28,29,71,72,73}
+
+main :: IO ()
+main =
+  getLine >>= \line ->
+    putStrLn . unwords . map show . fromSignal . system . signal . map read . words $ line

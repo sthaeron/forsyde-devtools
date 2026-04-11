@@ -17,3 +17,8 @@ f_base64 [a0, a1, a2] =
     a1 * 4 - (a1 `div` 16) * 64 + a2 `div` 64,
     a2 - (a2 `div` 64) * 64
   ]
+
+main :: IO ()
+main =
+  getLine >>= \line ->
+    putStrLn . unwords . map show . fromSignal . system . signal . map read . words $ line
