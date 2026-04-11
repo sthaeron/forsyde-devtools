@@ -42,9 +42,6 @@ result-*
 # Ignore mac specific directory file
 .DS_Store
 
-# Ignore temporary testing directories
+# Ignore temporary and testing directories
 tmp/
 examples/implementation/platform_independent/test/
-
-# VSCode extension bundle
-**/*.vsix
