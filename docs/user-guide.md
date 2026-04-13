@@ -3,7 +3,6 @@ This user guide provides usage information for the ForSyDe DevTools compiler, la
 
 ## Using the compiler
 The output of the usage and help prompts for the ForSyDe DevTools compiler is shown below for reference:
-
 ```sh
 $ stack exec forsyde-compiler-exe -- --help
 ForSyDe DevTools
@@ -80,11 +79,7 @@ element being rendered by clicking on it, which will select it in the window
 with the source code editor. The language server currently does not support the
 reverse, i.e. selecting the diagram element when clicking in the source code.
 
-When editing a model, it is not uncommon to save intermediary steps which might
-not be valid Haskell or a valid model. In that case the language server can
-crash due to lacking exception handling. To restart the extension, type
-CTRL+Shift+P and select "Developer: Reload Window" (start to write reload
-window in the text field if it does not appear).
+If at any point while using the Visualiser VSCode extension, the ForSyDe DevTools language server crashes, you can restart the extension using the `ctrl+shift+p` command and selecting "Developer: Reload Window" (start typing "reload window" in the text field if it does not appear). This might happen because certain edge cases are not caught when attempting to visualise an invalid model or incomplete Haskell code.
 
 If you have no diagram (or an outdated one) or the "Current synthesis:"
 drop-down is empty, try the above step. For further debugging you can select
@@ -95,8 +90,6 @@ the build instructions (likely for stack).
 ## Using the language server separately
 The output of the usage and help prompts for the ForSyDe DevTools language
 server is shown below for reference:
-
-
 ```sh
 $ stack exec forsyde-lsp-exe -- --help
 ForSyDe DevTools
@@ -134,7 +127,6 @@ message which would be sent to the language client when the model is
 visualised (with some small differences).
 
 To run with KLighD CLI:
-
 ```sh
 cabal run forsyde-lsp-exe
 # In a separate shell
@@ -150,29 +142,23 @@ Examples of supported ForSyDe Shallow models can be found in the [examples/model
 The following is a set of programmer restrictions which limit what the compiler accepts as input Haskell and ForSyDe code.
 
 - The input program should be a correct Haskell/ForSyDe program. ForSyDe DevTools currently does not have any input validity checking mechanisms.
-- "if" expressions are not allowed.
-- Netlists can only be defined using the identifier "system".
-- It is recommended to have type signatures for all defined functions.
-    Omitting them can work but is not supported for all cases. In particular,
-    if you use `undefined`, types are required for the application of that
-    process constructor or the function.
-- Current implementation supports only up to four "system" inputs (curried).
-- Current implementation supports only up to four "system" outputs (in a tuple).
-- "where" scopes are not allowed to be nested except for the initial module scope.
+- `if` expressions are not supported.
+- Netlists can only be defined using the identifier `system`.
+- `where` scopes are not allowed to be nested except for the initial module scope.
     Example of unallowed pattern:
     ```Haskell
     system :: Signal Int -> Signal Int
     system s_in = s_out where
-        s_out = p_1 s_in
+      s_out = p_1 s_in
         where
-            p_1 = actor11SDF 1 1 f
-            f [x] = [x]
+          p_1 = actor11SDF 1 1 f
+          f [x] = [x]
     ```
     Define a separate function instead:
     ```Haskell
     system :: Signal Int -> Signal Int
     system s_in = s_out where
-        s_out = p_1 s_in
+      s_out = p_1 s_in
     p_1 = actor11SDF 1 1 f
     f [x] = [x]
     ```
@@ -181,13 +167,13 @@ The following is a set of programmer restrictions which limit what the compiler 
     ```Haskell
     system :: Signal Int -> Signal Int
     system s_in = s_out where
-        s_out = delaySDF [0] s_in
+      s_out = delaySDF [0] s_in
     ```
     Define a separate function instead:
     ```Haskell
     system :: Signal Int -> Signal Int
     system s_in = s_out where
-        s_out = d_1 s_in
+      s_out = d_1 s_in
     d_1 = delaySDF [0]
     ```
 - Only signals are allowed inside the system.
@@ -195,14 +181,14 @@ The following is a set of programmer restrictions which limit what the compiler 
     ```Haskell
     system :: Signal Int -> Signal Int
     system s_in = s_out where
-        s_out = d_1 s_in
-        d_1 = delaySDF [0]
+      s_out = d_1 s_in
+      d_1 = delaySDF [0]
     ```
     Define a separate function instead:
     ```Haskell
     system :: Signal Int -> Signal Int
     system s_in = s_out where
-        s_out = d_1 s_in
+      s_out = d_1 s_in
     d_1 = delaySDF [0]
     ```
 - Signals cannot be implicitly split.
@@ -210,17 +196,17 @@ The following is a set of programmer restrictions which limit what the compiler 
     ```Haskell
     system :: Signal Int -> (Signal Int, Signal Int)
     system s_in = (s_out, s_1) where
-        s_1 = p_1 s_in
-        s_out = p_2 s_1
+      s_1 = p_1 s_in
+      s_out = p_2 s_1
     -- ...
     ```
     Split the signal explicitly instead:
     ```Haskell
     system :: Signal Int -> (Signal Int, Signal Int)
     system s_in = (s_out, s_1b) where
-        s_1 = p_1 s_in
-        (s_1a, s_1b) = p_split s_1
-        s_out = p_2 s_1a
+      s_1 = p_1 s_in
+      (s_1a, s_1b) = p_split s_1
+      s_out = p_2 s_1a
     p_split = actor12SDF 1 (1, 1) split
     split [x] = ([x], [x])
     -- ...
