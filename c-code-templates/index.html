@@ -1,0 +1,1297 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../chaos/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>C Code generation using actor templates - ForSyDe Compiler Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#c-code-generation-using-actor-templates" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ForSyDe Compiler Docs" class="md-header__button md-logo" aria-label="ForSyDe Compiler Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ForSyDe Compiler Docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              C Code generation using actor templates
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ForSyDe Compiler Docs" class="md-nav__button md-logo" aria-label="ForSyDe Compiler Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ForSyDe Compiler Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ForSyDe Devtools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C Code generation using actor templates
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C Code generation using actor templates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#top-of-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Top of file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#main" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Main
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Main">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bsp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BSP
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#status-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inputoutput-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Input/Output tokens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buffers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Buffers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#initial-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initial tokens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#while-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        While loop
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="While loop">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Input
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schedule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#predefined-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predefined input
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#end" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        End
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#end-of-main" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        End of main
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chaos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chaos Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contribution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contribution Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../core-ir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core IR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../es-labkit-board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Using the Embedded Systems Lab-Kit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../forsyde-ir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ForSyDe IR Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../procedural-ir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Procedural IR Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scheduling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduling Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../visualisation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualisation Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vscode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visual Studio Code Extension
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#top-of-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Top of file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#main" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Main
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Main">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bsp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BSP
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#status-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inputoutput-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Input/Output tokens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buffers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Buffers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#initial-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initial tokens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#while-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        While loop
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="While loop">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Input
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schedule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schedule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#predefined-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predefined input
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#end" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        End
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#end-of-main" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        End of main
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="c-code-generation-using-actor-templates">C Code generation using actor templates</h1>
+<p>This file will provide an overview on how to generate C code using
+actor templates and the surrounding libraries. It is loosely based
+on the file <code>/examples/implementation/platform_independent/main_platform_independent.c</code></p>
+<h2 id="layout">Layout</h2>
+<p>The general file layout will consist of the top of the file, containing
+some imports and definitions. Afterwards, the functions will be placed,
+followed by the main function.</p>
+<h2 id="top-of-file">Top of file</h2>
+<p>The top of the file should contain the following imports and declarations:</p>
+<pre><code class="language-C">typedef xxxx token;
+#define PLATFORM {platform}
+#include &lt;stdio.h&gt;
+#include &quot;include/common.h&quot;
+</code></pre>
+<p>where <code>xxxx</code> should be the numerical type used for <code>Signal</code> in the SDF model,
+typically <code>int</code>, <code>float</code> or <code>double</code> . Note that this will limit the whole SDF model to
+have a singular data type that the whole graph needs to use, this is because
+<code>actor_templates.h</code> relies on the <code>token</code> definition. Afterwards, the platform is
+defined via the <code>PLATFORM</code> pre-processor variable. This helps wrap platform
+abstractions later for the <code>include/common.h</code> file, which in turns also pulls
+in <code>include/actor_templates.h</code>.</p>
+<p>If the <code>--input-type</code> flag is used for the compiler, and this variable is set to <code>predefined</code>,
+instead of relying on <code>scanf</code> to feed input tokens, the code should use a file called
+<code>input.h</code> defining the following variables:</p>
+<pre><code class="language-C">int iteration_max = x;
+</code></pre>
+<p>where <code>x</code> is how many hyperperiods the provided input signal contains. Furthermore, the inputs need to be defined following the naming conventions of the <code>input_</code> variables, example file</p>
+<pre><code class="language-C">int iteration_max = 4;
+
+token input_s_in_x[4] = {1,2,3,4};
+token input_s_in_y[4] = {1,2,3,4};
+</code></pre>
+<p>This file needs to be imported in this mode in the C code with</p>
+<pre><code class="language-c">#include &quot;input.h&quot;
+</code></pre>
+<h2 id="functions">Functions</h2>
+<p>After the top of the file, the functions should be placed. When used with the
+actor templates, all functions should have the signature <code>static void</code>, and as
+such should perform computation strictly on input/output <code>token</code> pointers.</p>
+<p>An example actor function implementation is shown below:</p>
+<pre><code class="language-C">// D = actor22SDF (2,1) (1,2) f_d where
+//  f_d [x,y] [z] = ([x + y + z], [x + y, x + y + z])
+static void f_d(token *in1, token *in2, token *out1, token *out2) {
+    out1[0] = in1[0] + in1[1] + in2[0];
+    out2[0] = in1[0] + in1[1];
+    out2[1] = in1[0] + in1[1] + in2[0];
+}
+</code></pre>
+<p>The argument order for the function should follow the port order of the actor,
+and the tokens with lowest index number should be produced/consumed first.</p>
+<h2 id="main">Main</h2>
+<h3 id="start">Start</h3>
+<p>Start the <code>main</code> block with:</p>
+<pre><code class="language-C">int main() {
+</code></pre>
+<h3 id="bsp">BSP</h3>
+<p>Afterwards, include a line that initializes the environment, typically a board support package:</p>
+<pre><code class="language-C">init()
+</code></pre>
+<p>This line is wrapped in <code>common.h</code> and contains whatever the platform needs to initialize, so that
+the compiler implementation does not have to worry about it.</p>
+<h3 id="status-variables">Status variables</h3>
+<p>After <code>init()</code>, declare a return variable that can handle returns for <code>scanf</code>
+calls:</p>
+<pre><code class="language-C">int status;
+</code></pre>
+<p>in the case when input mode for <code>stdin</code> is used. If the <code>predefined</code> mode is used,
+then declare and assign an iteration variable in the following manner:</p>
+<pre><code class="language-C">int iteration_current = 0;
+</code></pre>
+<p>if the <code>--runs</code> flag is set to <code>inf</code>. If the <code>runs</code> flag is set to <code>--runs={x}</code> then additionally declare</p>
+<pre><code class="language-C">int run_current = 0;
+int run_max = {x};
+</code></pre>
+<p>In <code>predefined</code> mode, a cumulative iteration variable needs to be created for every actor that
+takes inputs. This is due to the fact that an input actor can take input tokens at multiple
+occasions in the period. Declare them with the name <code>i_</code> followed by the signal name,
+for instance</p>
+<pre><code class="language-C">int i_s_in_b = 0;
+int i_s_in_a = 0;
+</code></pre>
+<p>for the signals <code>s_in_b</code>, <code>s_in_a</code>.</p>
+<h3 id="inputoutput-tokens">Input/Output tokens</h3>
+<p>This section should be followed by a declaration of arrays for input/output tokens:</p>
+<ul>
+<li>
+<p>The output tokens should be scalar, of type <code>token</code>, since the for-loop will iterate
+and read a token into this scalar each iteration of the loop. This means that one
+<code>output</code> variable can be created regardless of how many outputs the graph features.</p>
+</li>
+<li>
+<p>The input tokens should be of type <code>token *</code>, and a unique array needs to be created
+for every input in the graph. The input arrays should <strong>only</strong> be declared in <code>stdin</code> input mode,
+and should be ommitted in the <code>predefined</code> mode since they are already defined in the <code>input.h</code> file.</p>
+</li>
+</ul>
+<p>Example:</p>
+<pre><code class="language-C">// Temporary tokens for print/scan functions for input and output
+token input_a[2];
+token input_b[1];
+token output;
+</code></pre>
+<p>where <code>input_a</code> for actor a requires 2 tokens per firing and <code>input_b</code> for actor b requires 1 token
+per firing.</p>
+<h3 id="buffers">Buffers</h3>
+<p>Declare all of the local non-blocking buffers, example:</p>
+<pre><code class="language-C">buffer_nonblocking *s_1 = buffer_nonblocking_new(x);
+</code></pre>
+<h3 id="initial-tokens">Initial tokens</h3>
+<p>Before the main while-loop starts for the schedules, place any initial tokens
+in this portion of the code. Place initial tokens using <code>write_token()</code> function
+for non-blocking buffers. Example:</p>
+<pre><code>write_token(s_4, 0);
+</code></pre>
+<p>to put initial token <code>0</code> on buffer <code>s_4</code>.</p>
+<h3 id="while-loop">While loop</h3>
+<h4 id="start_1">Start</h4>
+<p>The while loop should have the form:</p>
+<pre><code class="language-C">while(1) {
+</code></pre>
+<h4 id="input">Input</h4>
+<p>The start of the while loop should be followed by input processing. In order
+to process input tokens in the <code>stdin</code> input mode, the <code>scanf</code> function should be
+used to read all tokens.</p>
+<p>Each input in the SDF model should have a translation block consisting of the
+following 3 steps:</p>
+<ol>
+<li>Read the input tokens with <code>scanf</code>, and store the return value in <code>ret</code></li>
+<li>Check if the return value <code>ret</code> is less than 1</li>
+<li>Write the tokens into the corresponding buffer</li>
+</ol>
+<p>Example:</p>
+<pre><code class="language-C">for (i = 0; i &lt; 2; i++) {
+    ret = scanf(&quot;%d&quot;, &amp;input_a[i]);
+}
+if (ret &lt; 1) {
+    break;
+}
+for(i = 0; i &lt; 2; i++) {
+    write_token(s_in_a, input_a[i]);
+}
+</code></pre>
+<p>where <code>%d</code> needs to be replaced in case another data type than decimal is read.
+The upper bound on the for-loop for (1.) needs to consider how many tokens this
+input needs every firing.</p>
+<p>For (2.), only the final <code>scanf</code> return value is checked for that particular
+input, which will break out of the main while-loop. Afterwards for (3.), a
+for-loop is used to run <code>write_token()</code> to write the input tokens to their
+corresponding buffers. All <code>for</code> and <code>if</code> scopes shall be enclosed with curly
+braces.</p>
+<p>In the case when <code>predetermined</code> input is used, a modified version of step (3.) is
+used. The signal input will contain strided data for each full period of the
+schedule, so the <code>write_token</code> needs to subindex within a period. This is done with
+for example:</p>
+<pre><code class="language-C">for(i = 0; i &lt; 2; i++) {
+    write_token(s_in_a, input_s_in_a[iteration_current * 4 + i_s_in_a]);
+    i_s_in_a = i_s_in_a + 1;
+}
+</code></pre>
+<p>since each period contains 4 tokens of data, where only 2 tokens are consumed each firing.</p>
+<h4 id="schedule">Schedule</h4>
+<p>After all of the input tokens have been handled, the schedule should be
+executed, using the <code>actorSDF[1-4][1-4]()</code> function calls. Example:</p>
+<pre><code class="language-C">actor21SDF(2, 1, 1, a_1, a_4, a_3, f_c);
+</code></pre>
+<p>Since the actor is of type <code>actor21SDF</code>, the first 2 arguments are consumption
+rates for the inputs, the 3rd argument is the production rate on the output.
+Arguments 5-6 are the input buffer pointers, 7 is the output buffer pointer.
+The last argument is a function pointer to the function that the actor shall
+execute. For <code>actorXYSDF</code>
+- Argument 1 -&gt; X - Token consumption rates
+- Argument X + 1 -&gt; X + Y + 1 - Token production rates
+- Argument X + Y + 2 -&gt; 2X + Y + 2 - Input buffers
+- Argument 2X + Y + 3 -&gt; 2X + 2Y + 3 - Output buffers
+- Last argument - Function pointer</p>
+<h4 id="output">Output</h4>
+<p>For the output, all of the output buffers' tokens should be read into the
+<code>output</code> variable through the <code>read_token()</code> function, and printed directly
+after the token is read. Example:</p>
+<pre><code class="language-C">for(i = 0; i &lt; 2; i++) {
+    read_token(s_out, &amp;output);
+    printf(&quot;%d &quot;, output);
+}
+</code></pre>
+<p>or another format than <code>%d</code> if something else than integer is used. After
+all of the tokens have been printed, print a new line to end the schedule:</p>
+<pre><code class="language-C">printf(&quot;\n&quot;);
+</code></pre>
+<h4 id="predefined-input">Predefined input</h4>
+<p>If in <code>predefined</code> input mode with runs set to <code>inf</code>, it needs to be checked
+whether all the data has been consumed. Start by incrementing the iteration
+counter, and then wrap the value back to 0 if all inputs have been consumed:</p>
+<pre><code class="language-C">iteration_current = iteration_current + 1;
+i_s_in_b = 0;
+i_s_in_a = 0;
+if (iteration_current == iteration_max) {
+    iteration_current = 0;
+}
+</code></pre>
+<p>The accumulating subindices for the flattened array <code>i_s_in_b</code> and
+<code>i_s_in_a</code> need to be reset to 0 since the period is over.</p>
+<p>In the case where runs is set to <code>runs={x}</code>, then use the following code block</p>
+<pre><code class="language-C">iteration_current = iteration_current + 1;
+i_s_in_b = 0;
+i_s_in_a = 0;
+if (iteration_current == iteration_max) {
+    iteration_current = 0;
+    run_current = run_current + 1;
+}
+if (run_current == run_max) {
+    break;
+}
+</code></pre>
+<h4 id="end">End</h4>
+<p>After the output, end the while loop with a closing curl:</p>
+<pre><code class="language-C">}
+</code></pre>
+<h3 id="end-of-main">End of main</h3>
+<p>The end of the main should call <code>buffer_nonblocking_free()</code> for every
+buffer that was created before the while-loop. Example:</p>
+<pre><code class="language-C">buffer_nonblocking_free(s_in_a);
+</code></pre>
+<p>After free, call <code>return 0;</code> and terminate the file with a curl followed by a
+newline:</p>
+<pre><code class="language-C">}
+
+</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

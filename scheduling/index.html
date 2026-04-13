@@ -1,0 +1,916 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../procedural-ir/">
+      
+      
+        <link rel="next" href="../testing/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Scheduling Documentation - ForSyDe Compiler Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#scheduling-documentation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ForSyDe Compiler Docs" class="md-header__button md-logo" aria-label="ForSyDe Compiler Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ForSyDe Compiler Docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Scheduling Documentation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ForSyDe Compiler Docs" class="md-nav__button md-logo" aria-label="ForSyDe Compiler Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ForSyDe Compiler Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ForSyDe Devtools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../c-code-templates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C Code generation using actor templates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chaos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chaos Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contribution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contribution Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../core-ir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core IR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../es-labkit-board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Using the Embedded Systems Lab-Kit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../forsyde-ir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ForSyDe IR Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../procedural-ir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Procedural IR Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduling Documentation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduling Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preprocessing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preprocessing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Algorithm
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Algorithm">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#special-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Special Case:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitation-and-future-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitation and Future Work
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../visualisation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualisation Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vscode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visual Studio Code Extension
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preprocessing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preprocessing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Algorithm
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Algorithm">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#special-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Special Case:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitation-and-future-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitation and Future Work
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="scheduling-documentation">Scheduling Documentation</h1>
+<p>A simple implementation of SDF Graph Scheduling with basic verification</p>
+<h2 id="overview">Overview</h2>
+<p>This tool takes a ForSyDeIR 'IRSystem' and generates:
+- A valid execution schedule that respects data dependencies
+- The required buffer size for each edge during execution</p>
+<p>The function can be used is defined as follows:</p>
+<pre><code class="language-Haskell">-- | Returns schedule as actor names, buffer sizes, and delay buffer mappings
+-- Returns: (schedule_order, [(buffer_name, buffer_size)], [(original_signal, delay_buffer_name)])
+computeScheduleAndBuffers :: IRSystem -&gt; ([IRId], [(IRId, Int)], [(IRId, IRId)])
+
+-- | Returns a string with topology matrix, repetition vector, schedule, verification results, and buffer usage.
+computeScheduleAndBuffersPrint :: IRSystem -&gt; String
+</code></pre>
+<h2 id="preprocessing">Preprocessing</h2>
+<p>Before generating the schedule, the IRSystem is converted to a data structure for better usage in scheduler.
+The scheduler data structure is defined as:</p>
+<pre><code class="language-Haskell">data Actor = Actor
+  { name :: IRId,
+    isInput :: Bool
+  }
+  deriving (Show, Eq, Generic)
+
+data Edge = Edge
+  { edgeName :: IRId,
+    src :: Actor,
+    dst :: Actor,
+    prod :: Int,
+    cons :: Int,
+    isDelay :: Bool,
+    initTokens :: Int, -- Count of Init tokens for delay edges
+    buffers :: Maybe [(IRId, IRId)]
+  }
+  deriving (Show, Eq, Generic)
+</code></pre>
+<p>The proprocessing steps are:
+1. <strong>Actor and Edge Construction</strong>
+    - Create actors for all <code>IRActor</code> nodes (excluding delays)
+    - Mark actors as input if they receive signals from global inputs or are global inputs themselves
+    - Create edges for signals that are not connected to delays, global inputs, or global outputs</p>
+<ol>
+<li>
+<p><strong>Delay Actor Folding</strong></p>
+<ul>
+<li>Identify all <code>IRDelay</code> nodes in the constructors</li>
+<li>Delay actors are folded into edges</li>
+<li>For a delay between Actor A → Delay → Actor B, a single edge from A → B is created. Input signal id is used as the delay edge id.</li>
+<li>Create a mapping of original signals and delay buffers.</li>
+<li>Ignore delays connected to global I/O - if delay input comes from global input or output goes to global output, the delay edge is omitted.</li>
+<li>Preserve initial token count from the delay constructor.</li>
+</ul>
+</li>
+<li>
+<p><strong>Self-loop Validation</strong></p>
+<ul>
+<li>Edges where the source and destination are the same actor (self-loops) are checked</li>
+<li>If the production rate (<code>prod</code>) and consumption rate (<code>cons</code>) differ, the graph is considered invalid</li>
+<li>Legal self-loops (prod == cons) are retained but do not contribute to the topology matrix</li>
+</ul>
+</li>
+</ol>
+<h2 id="core-algorithm">Core Algorithm</h2>
+<p>The algorithm works in three phases:
+1. <strong>Topology Matrix and Repetition Vector Generation</strong>
+    - Generate the Topology Matrix from the input actors a nd edges
+      - Self-loops are treated as zero rows in the matrix (do not affect the matrix)
+    - Calculate nullspace of the matrix and approximate to minimum integer
+    - Verify the approximated repetition vector</p>
+<ol>
+<li>
+<p><strong>Schedule Generation</strong></p>
+<ul>
+<li>Choose the first fireable actor to fire</li>
+<li>When no actor is fireable, deadlock happens and becomes error</li>
+<li>Record the execution order</li>
+</ul>
+</li>
+<li>
+<p><strong>Buffer Analysis</strong></p>
+<ul>
+<li>
+<p><strong>Internal Buffer Simulation</strong>:</p>
+<ol>
+<li>Simulate the schedule execution with initial tokens.</li>
+<li>For each edge, track the maximum number of tokens present during simulation.</li>
+<li>This maximum becomes the required buffer size for that edge.</li>
+</ol>
+</li>
+<li>
+<p><strong>I/O Buffer Calculation</strong>:</p>
+<ol>
+<li><strong>Input buffers</strong>: <code>consumptionRate × destinationActorRepetitionCount</code>.</li>
+<li><strong>Output buffers</strong>: <code>productionRate × sourceActorRepetitionCount</code>.</li>
+<li>These are calculated separately for edges connected to global inputs/outputs.</li>
+</ol>
+</li>
+<li>
+<p><strong>Combined Results</strong>: Internal and I/O buffer sizes are concatenated in the final output.</p>
+</li>
+<li>
+<p><strong>Delay Buffer Mapping</strong>: For delay edges, maintain mapping between original signal IDs and their corresponding buffer names.</p>
+</li>
+</ul>
+</li>
+</ol>
+<h3 id="special-case">Special Case:</h3>
+<p>If the system has no internal edges (only I/O connections):
+- All actors fire exactly once in arbitrary order.
+- No internal buffers required (all buffer sizes = 0).
+- I/O buffers are still calculated based on rates.</p>
+<h2 id="usage-example">Usage Example</h2>
+<p>You can use the scheduler either as a library function to get schedule and buffer sizes, or use the pretty-print version to see detailed intermediate results.</p>
+<pre><code class="language-haskell">main :: IO ()
+main = do
+  -- Using the library function to get schedule, buffer sizes, and delay buffer mapping
+  let (schedule, buffers, delayBuffers) = computeScheduleAndBuffers forsydeIR
+</code></pre>
+<h2 id="limitation-and-future-work">Limitation and Future Work</h2>
+<ul>
+<li>Currently the scheduler cannot convert an IRSystem with delays that is connected together. It uses <code>findActorByName</code> on the <code>src</code> and <code>dst</code> that a delay actor connects to, which should find the name of non-delay actor, where an error would occur if it is a delay actor. Updating the function to recursively find the first non-delay actor would fix the issue.</li>
+<li>The scheduler generates a valid schedule but not necessarily with minimal buffer size. Buffer size optimization could be improved with better actor selection strategies.</li>
+<li>The scheduler uses Hmatrix which depends on C libraries. It would be better to use a pure Haskell matrix library so that the executable would be easier to link as well as being able to build with cabal without installing external dependencies.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

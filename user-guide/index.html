@@ -1,0 +1,916 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../testing/">
+      
+      
+        <link rel="next" href="../visualisation/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>User Guide - ForSyDe Compiler Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#user-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ForSyDe Compiler Docs" class="md-header__button md-logo" aria-label="ForSyDe Compiler Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ForSyDe Compiler Docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              User Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ForSyDe Compiler Docs" class="md-nav__button md-logo" aria-label="ForSyDe Compiler Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ForSyDe Compiler Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ForSyDe Devtools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../c-code-templates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C Code generation using actor templates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chaos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chaos Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contribution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contribution Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../core-ir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core IR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../es-labkit-board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Using the Embedded Systems Lab-Kit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../forsyde-ir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ForSyDe IR Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../procedural-ir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Procedural IR Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scheduling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduling Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-compiler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using the compiler
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-vscode-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using the VSCode extension
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-language-server-separately" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using the language server separately
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#programming-guidelines-and-restrictions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Programming guidelines and restrictions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../visualisation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualisation Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vscode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visual Studio Code Extension
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-compiler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using the compiler
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-vscode-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using the VSCode extension
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-language-server-separately" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using the language server separately
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#programming-guidelines-and-restrictions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Programming guidelines and restrictions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="user-guide">User Guide</h1>
+<p>This user guide provides usage information for the ForSyDe DevTools compiler, language server, and VSCode visualiser extension. Additionally, the guide outlines the programming restrictions which need to be followed when developing ForSyDe Shallow models for these development tools.</p>
+<h2 id="using-the-compiler">Using the compiler</h2>
+<p>The output of the usage and help prompts for the ForSyDe DevTools compiler is shown below for reference:</p>
+<pre><code class="language-sh">$ stack exec forsyde-compiler-exe -- --help
+ForSyDe DevTools
+
+Usage: forsyde-compiler-exe INPUT [(-o|--output OUTPUT) | --stdout] 
+                            [--output-c | --output-core | --output-forsyde-ir | 
+                              --output-forsyde-ir-json | 
+                              --output-procedural-ir | --output-schedule] 
+                            [-t|--target TARGET] [--input-type INPUTTYPE] 
+                            [--runs RUNS] [--forsyde-pkgpath ARG]
+
+  Compile a ForSyDe model
+
+Available options:
+  INPUT                    Input filename
+  -o,--output OUTPUT       Output filename
+  --stdout                 Print output to stdout
+  --output-c               Output file in C (default)
+  --output-core            Output file in Core
+  --output-forsyde-ir      Output file in ForSyDe-IR
+  --output-forsyde-ir-json Output file in ForSyDe-IR-JSON
+  --output-procedural-ir   Output file in Procedural-IR
+  --output-schedule        Output the SDF schedule to file instead of code
+  -t,--target TARGET       Target platform for C code. (PC default, PC and PICO2
+                           supported)
+  --input-type INPUTTYPE   Source of input tokens for the SDF models in the C
+                           code. (stdin default, stdin and predefined supported)
+  --runs RUNS              How many times to loop input data, when input mode is
+                           set to 'predefined'. 1 By default, pass an integer
+                           for a limited number or 'inf' to run the program
+                           perpetually
+  --forsyde-pkgpath ARG    The path to the ForSyDe Shallow package (unspecified
+                           by default)
+  -h,--help                Show this help text
+</code></pre>
+<p>By default the compiler will output a file named <code>main</code> with a specific extension depending on the output format.
+This can be overriden by either <code>--stdout</code> or <code>--output &lt;name&gt;</code>.</p>
+<p>To build the C output, the header files located at <code>examples/implementation/platform_independent/include</code> are needed. This can be accomplished by adding the include path to the compiler:</p>
+<pre><code class="language-sh">gcc -I examples/implementation/platform_independent &lt;generated output&gt;
+</code></pre>
+<p>Another option is to link the directory to where you are building it:</p>
+<pre><code class="language-sh">ln -s $PWD/examples/implementation/platform_independent/include &lt;build directory&gt;
+</code></pre>
+<p>To build the version for the ES-LabKit you need an existing project of the <a href="https://gits-15.sys.kth.se/mabecker/ES-Lab-Kit.git">ES-Lab-Kit</a> repository created with <code>newembproj -noRTOS &lt;name&gt;</code>.
+Specify <code>--target=PICO2</code> to <code>forsyde-compiler-exe</code> so the right headers are included.
+Link the include directory as above and build according to the instructions.
+There is some additional <a href="../es-labkit-board/">documentation for it</a> which can be useful if you are working with the board.</p>
+<h2 id="using-the-vscode-extension">Using the VSCode extension</h2>
+<p>Once the extension is installed, it can be used on supported models. To try it
+out, select one from the <code>examples/model</code> directory, e.g. <code>SDF_example_002.hs</code>.
+Select "Open in Diagram" from the right-click menu inside the source file
+editor if it does not open automatically.</p>
+<p>If you see no image the first time that is expected. This is due the client
+layout being disabled by default in the KLighD extension. In the cog-wheel of
+the diagram window, first check "Debug Options" and then check "Client
+Layout" at the bottom of the settings list which should make the diagram
+visible. The setting should persist, but if you get no diagram it is a good
+thing to check.</p>
+<p><img alt="location of the debug option" src="../klighd-debug.png" />
+<img alt="location of the client layout option" src="../klighd-client-layout.png" /></p>
+<p>Once you have a diagram, you can get to the source code related to the visual
+element being rendered by clicking on it, which will select it in the window
+with the source code editor. The language server currently does not support the
+reverse, i.e. selecting the diagram element when clicking in the source code.</p>
+<p>If at any point while using the Visualiser VSCode extension, the ForSyDe DevTools language server crashes, you can restart the extension using the <code>ctrl+shift+p</code> command and selecting "Developer: Reload Window" (start typing "reload window" in the text field if it does not appear). This might happen because certain edge cases are not caught when attempting to visualise an invalid model or incomplete Haskell code.</p>
+<p>If you have no diagram (or an outdated one) or the "Current synthesis:"
+drop-down is empty, try the above step. For further debugging you can select
+"ForSyDe DevTools LSP" in the Output window. E.g. in the case when the language
+server complains about not finding ForSyDe Shallow when importing it, recheck
+the build instructions (likely for stack).</p>
+<h2 id="using-the-language-server-separately">Using the language server separately</h2>
+<p>The output of the usage and help prompts for the ForSyDe DevTools language
+server is shown below for reference:</p>
+<pre><code class="language-sh">$ stack exec forsyde-lsp-exe -- --help
+ForSyDe DevTools
+
+Usage: forsyde-lsp-exe [--tcp | --stdio] [-a|--address IP] [-p|--port PORT] 
+                       [INPUT | --input-client] [--forsyde-pkgpath ARG]
+
+  Run a ForSyDe LSP
+
+Available options:
+  --tcp                    Protocol communcation over TCP (default)
+  --stdio                  Protocol communication over standard input/output
+  -a,--address IP          Host IP
+  -p,--port PORT           Host TCP Port
+  INPUT                    Input filename (debug option), if unset get file from
+                           client
+  --input-client           Input from client (default)
+  --forsyde-pkgpath ARG    The path to the ForSyDe Shallow package (unspecified
+                           by default)
+  -h,--help                Show this help text
+</code></pre>
+<p>The language server can be run separately which is primarily useful during
+development or when using KLighD CLI. To run the VSCode extension using the
+language server separately, launch VSCode with <code>dev=1 code</code>.</p>
+<p>This can also be combined with running the VSCode extension without installing
+it:</p>
+<pre><code class="language-sh">code --extensionDevelopmentPath=$PWD/vscode-ext
+</code></pre>
+<p>When the langauge server is run on an input file directly it outputs the JSON
+message which would be sent to the language client when the model is
+visualised (with some small differences).</p>
+<p>To run with KLighD CLI:</p>
+<pre><code class="language-sh">cabal run forsyde-lsp-exe
+# In a separate shell
+./klighd-linux --ls_port 5007 &lt;path/to/model.hs&gt;
+</code></pre>
+<p>This will open up a new tab in the browser with the visualiser.</p>
+<h2 id="programming-guidelines-and-restrictions">Programming guidelines and restrictions</h2>
+<p>Examples of supported ForSyDe Shallow models can be found in the <a href="../examples/model">examples/model</a> directory. It is highly recommended to read through them and follow their style when using the ForSyDe DevTools.</p>
+<p>The following is a set of programmer restrictions which limit what the compiler accepts as input Haskell and ForSyDe code.</p>
+<ul>
+<li>The input program should be a correct Haskell/ForSyDe program. ForSyDe DevTools currently does not have any input validity checking mechanisms.</li>
+<li><code>if</code> expressions are not supported.</li>
+<li>Netlists can only be defined using the identifier <code>system</code>.</li>
+<li><code>where</code> scopes are not allowed to be nested except for the initial module scope.
+    Example of unallowed pattern:
+    <code>Haskell
+    system :: Signal Int -&gt; Signal Int
+    system s_in = s_out where
+      s_out = p_1 s_in
+        where
+          p_1 = actor11SDF 1 1 f
+          f [x] = [x]</code>
+    Define a separate function instead:
+    <code>Haskell
+    system :: Signal Int -&gt; Signal Int
+    system s_in = s_out where
+      s_out = p_1 s_in
+    p_1 = actor11SDF 1 1 f
+    f [x] = [x]</code></li>
+<li>Inline process constructor applications in the system are not supported.
+    Example of unallowed pattern:
+    <code>Haskell
+    system :: Signal Int -&gt; Signal Int
+    system s_in = s_out where
+      s_out = delaySDF [0] s_in</code>
+    Define a separate function instead:
+    <code>Haskell
+    system :: Signal Int -&gt; Signal Int
+    system s_in = s_out where
+      s_out = d_1 s_in
+    d_1 = delaySDF [0]</code></li>
+<li>Only signals are allowed inside the system.
+    Example of unallowed pattern:
+    <code>Haskell
+    system :: Signal Int -&gt; Signal Int
+    system s_in = s_out where
+      s_out = d_1 s_in
+      d_1 = delaySDF [0]</code>
+    Define a separate function instead:
+    <code>Haskell
+    system :: Signal Int -&gt; Signal Int
+    system s_in = s_out where
+      s_out = d_1 s_in
+    d_1 = delaySDF [0]</code></li>
+<li>Signals cannot be implicitly split.
+    Example of unallowed pattern:
+    <code>Haskell
+    system :: Signal Int -&gt; (Signal Int, Signal Int)
+    system s_in = (s_out, s_1) where
+      s_1 = p_1 s_in
+      s_out = p_2 s_1
+    -- ...</code>
+    Split the signal explicitly instead:
+    <code>Haskell
+    system :: Signal Int -&gt; (Signal Int, Signal Int)
+    system s_in = (s_out, s_1b) where
+      s_1 = p_1 s_in
+      (s_1a, s_1b) = p_split s_1
+      s_out = p_2 s_1a
+    p_split = actor12SDF 1 (1, 1) split
+    split [x] = ([x], [x])
+    -- ...</code></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
