@@ -1,6 +1,8 @@
-out
-node_modules
-client/server
-.vscode-test
-*tsbuildinfo
-server/*
+# VSCode extension build and compile ignores
+out/
+server/
+node_modules/
+*.tsbuildinfo
+
+# VSCode bundled extension
+*.vsix

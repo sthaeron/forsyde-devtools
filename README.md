@@ -6,64 +6,38 @@ A pre-study related to this project was conducted as part of the [II2211 Researc
 The original algorithm for generating code from SDF (Synchronous Data Flow) models written in ForSyDe can be found in this [paper](https://www.icas.org/icas_archive/ICAS2022/data/papers/ICAS2022_0604_paper.pdf).
 
 ## Compiler and LSP installation
-The ForSyDe DevTools compiler and LSP have been developed using a specific version of the GHC API as the frontend. The current version of GHC being used is `9.10.2`. We suggest installing this specific version of GHC using `ghcup`. The installation instructions for `ghcup` can be found [here](https://www.haskell.org/ghcup/install/); all config options can be left as default.
+The ForSyDe DevTools compiler and LSP have been developed using a specific version of the GHC API as the frontend; the current version of GHC being used is `9.10.2`. Thus, `stack` is required to build the devtools. We suggest using [`ghcup`](https://www.haskell.org/ghcup/install/) to install it. Using your system's package manager should work too.
 
-Once you have `ghcup` installed, you can use the following commands to install and set GHC `9.10.2` as your current version:
-
-```
-ghcup install ghc 9.10.2
-ghcup set ghc 9.10.2
-```
-
-The ForSyDe DevTools compiler depends on the OpenBLAS and LAPACK external libraries. These have to be installed separately, using your system's package manager. For a Debian-based system, this would be:
-
+The ForSyDe DevTools compiler requires the OpenBLAS and LAPACK external libraries. These must be installed separately using your system's package manager. On Debian-based systems, use the command:
 ```
 apt install libblas-dev liblapack-dev
 ```
 
-To be able to run the ForSyDe DevTools compiler and LSP without using `stack` or `cabal`, the ForSyDe Shallow library needs to be installed globally on your system. This can be done with the following command:
-
-```
-cabal v1-install forsyde-shallow
-```
-
-From this point, you can simply `clone` this repository and use `stack install` to build and install the compiler and language server.
-
+With all dependencies resolved, you can install `forsyde-devtools` by cloning this repository and running `stack install` to build and install the compiler and language server.
 ```
 git clone https://github.com/sthaeron/forsyde-devtools.git
 cd forsyde-devtools
 stack install
 ```
 
-This will install the compiler and LSP to `~/.local/bin`. Make sure this directory is in your shell path. Check by running `echo $PATH`. If it is not included, add `export PATH="$HOME/.local/bin:$PATH"` to your shell configuration file. Then reinitialise your terminal shell.
-
-If you have successfully installed and added the compiler and LSP executables to your shell path, you should be able to run the following commands:
-
+This installs the compiler and LSP to `~/.local/bin`. Make sure this directory is in your shell path. Check by running `echo $PATH`. If it is not included, add `export PATH="$HOME/.local/bin:$PATH"` to your shell configuration file. Then reinitialise your terminal shell. If you have successfully installed the devtools in your shell's path, you should be able to run the following commands:
 ```
-forsyde-compiler-exe --help
-forsyde-lsp-exe --help
+stack exec forsyde-compiler-exe -- --help
+stack exec forsyde-lsp-exe -- --help
 ```
 
 For more information on how to use the compiler and LSP provided by the ForSyDe DevTools project, refer to the [user guide](docs/user-guide.md).
 
 ## Visualiser VSCode extension installation
 
-First, install the compiler and LSP as described in the previous section.
+First, install the compiler and LSP as described in the previous section. Then, install the [KLighD Diagrams](https://marketplace.visualstudio.com/items?itemName=kieler.klighd-vscode) and [Haskell](https://marketplace.visualstudio.com/items?itemName=haskell.haskell) VSCode extensions. You will also need `npm`, at least version `11.11.*`, to build and package the extension. We recommend installing `npm` through the following [guide](https://nodejs.org/en/download).
 
-Install the VSCode extensions [KLighD
-Diagrams](https://marketplace.visualstudio.com/items?itemName=kieler.klighd-vscode)
-and
-[Haskell](https://marketplace.visualstudio.com/items?itemName=haskell.haskell).
-In addition, you also need
-[npm](https://nodejs.org/en/learn/getting-started/an-introduction-to-the-npm-package-manager)
-for building the extension.
-
-To build and install the VSCode extension:
+To build and install the VSCode extension, from the root of the `forsyde-devtools` repo, run the commands:
 ```sh
 cd ./vscode-ext
 npm install
 npm run compile
-./node_modules/vsce/vsce package
+npm run package
 code --install-extension forsyde-vscode-extension-0.1.0.vsix
 cd ..
 ```
@@ -75,6 +49,7 @@ To contribute to the project we recommend using Nix to setup your Haskell develo
 ```
 experimental-features = nix-command flakes
 ```
+
 Automatically entering and exiting the Haskell development environment can be accomplished by installing the utilities [`direnv`](https://direnv.net/) and [`nix-direnv`](https://github.com/nix-community/nix-direnv). Upon entering the project directory or changing the `.envrc` file you will be prompted to run the command `direnv allow`, which will allow for the automatic loading and unloading of the nix flake.
 
 The compiler and LSP can be individually built and run using the `nix build` and `nix run` commands, such as:
