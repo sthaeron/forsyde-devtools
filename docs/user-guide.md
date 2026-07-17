@@ -64,15 +64,19 @@ out, select one from the `examples/model` directory, e.g. `SDF_example_002.hs`.
 Select "Open in Diagram" from the right-click menu inside the source file
 editor if it does not open automatically.
 
-If you see no image the first time that is expected. This is due the client
-layout being disabled by default in the KLighD extension. In the cog-wheel of
-the diagram window, first check "Debug Options" and then check "Client
-Layout" at the bottom of the settings list which should make the diagram
-visible. The setting should persist, but if you get no diagram it is a good
-thing to check.
+The language server automatically enables the KLighD "Client Layout" option,
+which is required for the diagram to show up. If you still see no image, you
+can check it manually: in the cog-wheel of the diagram window, first check
+"Debug Options" and then check "Client Layout" at the bottom of the settings
+list.
 
 ![location of the debug option](klighd-debug.png)
 ![location of the client layout option](klighd-client-layout.png)
+
+The compiler can also be run directly from VSCode: open a model file and run
+"ForSyDe: Compile Current File" from the command palette or the editor
+right-click menu. This runs `forsyde-compiler-exe` on the file in a terminal,
+so the compiler needs to be on your shell path (see the install instructions).
 
 Once you have a diagram, you can get to the source code related to the visual
 element being rendered by clicking on it, which will select it in the window

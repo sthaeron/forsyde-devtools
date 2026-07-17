@@ -22,6 +22,12 @@
   ],
   "main": "./client/out/extension",
   "contributes": {
+    "commands": [
+      {
+        "command": "forsyde-devtools.compileFile",
+        "title": "ForSyDe: Compile Current File"
+      }
+    ],
     "menus": {
       "editor/title": [
         {
@@ -35,6 +41,11 @@
           "when": "resourceLangId == haskell",
           "command": "klighd-vscode.diagram.open",
           "group": "navigation"
+        },
+        {
+          "when": "resourceLangId == haskell",
+          "command": "forsyde-devtools.compileFile",
+          "group": "navigation"
         }
       ],
       "explorer/context": [
@@ -42,6 +53,12 @@
           "when": "resourceLangId == haskell",
           "command": "klighd-vscode.diagram.open",
           "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "forsyde-devtools.compileFile",
+          "when": "editorLangId == haskell"
         }
       ]
     },

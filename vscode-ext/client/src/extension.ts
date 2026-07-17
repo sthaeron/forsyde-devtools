@@ -33,6 +33,30 @@ export async function activate(context: ExtensionContext) {
     }
   });
 
+  // Run the ForSyDe compiler on the file in the active editor (issue #322)
+  context.subscriptions.push(
+    vscode.commands.registerCommand("forsyde-devtools.compileFile", () => {
+      const document = vscode.window.activeTextEditor?.document;
+      if (!document || !document.fileName.endsWith(".hs")) {
+        vscode.window.showErrorMessage(
+          "ForSyDe DevTools: open a Haskell model file to compile it.",
+        );
+        return;
+      }
+      const terminal =
+        vscode.window.terminals.find((t) => t.name === "ForSyDe Compiler") ??
+        vscode.window.createTerminal("ForSyDe Compiler");
+      terminal.show();
+      const { stackPkgPath } =
+        vscode.workspace.getConfiguration("forsydeDevtoolsLSP");
+      let compileCommand = `forsyde-compiler-exe "${document.fileName}"`;
+      if (stackPkgPath && stackPkgPath.length > 0) {
+        compileCommand += ` --forsyde-pkgpath "${stackPkgPath}"`;
+      }
+      terminal.sendText(compileCommand);
+    }),
+  );
+
   const serverOptions: ServerOptions = createServerOptions(context);
 
   // Options to control the language client
@@ -96,7 +120,7 @@ function createServerOptions(context: ExtensionContext): ServerOptions {
     const lsp_executable = context.asAbsolutePath(`server/forsyde-lsp-exe`);
     const stack_config = context.asAbsolutePath(`client/stack.yaml`);
 
-    let args = ["exec", "--stack-yaml", stack_config, "--", "forsyde-lsp-exe", "--stdio"];
+    const args = ["exec", "--stack-yaml", stack_config, "--", "forsyde-lsp-exe", "--stdio"];
     if (stackPkgPath && stackPkgPath.length > 0) {
       args.push("--forsyde-pkgpath", stackPkgPath);
     }

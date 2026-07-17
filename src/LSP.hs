@@ -219,6 +219,26 @@ updateOptions f _clientId =
           ]
     ]
 
+-- | Ask the client to enable client-side layout. This server performs no
+-- layout of its own, so the diagram stays empty without it and users had to
+-- enable the option manually through the diagram debug settings.
+enableClientLayout :: T.Text -> A.Value
+enableClientLayout _clientId =
+  A.object
+    [ "clientId" .= _clientId,
+      "action"
+        .= A.object
+          [ "kind" .= ("setPreferences" :: T.Text),
+            "options"
+              .= Seq.fromList
+                [ A.object
+                    [ "id" .= ("diagram.clientLayout" :: T.Text),
+                      "value" .= True
+                    ]
+                ]
+          ]
+    ]
+
 -- | Send the graph for layout and display to the LSP client (KLighD-VSCode)
 requestBounds :: FilePath -> T.Text -> IRSystem -> Maybe Schedule -> A.Value
 requestBounds f _clientId ir sched =
@@ -382,7 +402,8 @@ handlers =
       config@Config {file = f, clientId = c, system = s, schedule = curSched} <- LSP.getConfig
       case (f, c, s) of
         (Just curFile, Just curId, Just curSystem) ->
-          LSP.sendNotification diagramAcceptMethod (setSynthesis curId)
+          LSP.sendNotification diagramAcceptMethod (enableClientLayout curId)
+            >> LSP.sendNotification diagramAcceptMethod (setSynthesis curId)
             >> LSP.sendNotification diagramAcceptMethod (updateOptions curFile curId)
             >> LSP.sendNotification diagramAcceptMethod (requestBounds curFile curId curSystem curSched)
         _ -> dualLogger <& ("does not have enough information to send diagram: " <> T.show config) `L.WithSeverity` L.Error
