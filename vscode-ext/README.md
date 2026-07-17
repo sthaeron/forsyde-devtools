@@ -9,7 +9,7 @@ This extension provides LSP integration and diagram visualization for [ForSyDe S
 
 2. **KLighD Diagrams Extension** — Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=kieler.klighd-vscode).
 
-3. **ForSyDe Shallow Package** — If you installed `forsyde-shallow` via Stack, you may need to configure the package database path in VS Code settings.
+3. **ForSyDe Shallow Package** — If you installed `forsyde-shallow` via Stack, the extension auto-detects the package database path. You only need to configure it in VS Code settings if auto-detection fails or picks the wrong database.
 
 ## Installation
 
@@ -35,9 +35,9 @@ code --install-extension forsyde-vscode-extension-0.1.0.vsix
 
 Open VS Code settings and search for "ForSyDe DevTools LSP":
 
-- **`forsydeDevtoolsLSP.stackPkgPath`** — Path to the Stack package database containing `forsyde-shallow`. Required if you installed via Stack instead of Cabal.
+- **`forsydeDevtoolsLSP.stackPkgPath`** — Optional override for the Stack package database containing `forsyde-shallow`. When left empty, the extension auto-detects it by scanning the Stack root (`$STACK_ROOT`, or `~/.stack` by default). Set it manually only if auto-detection fails or picks the wrong database.
 
-  To find this path, run:
+  To find the path manually, run:
   ```sh
   find $HOME/.stack -name '*forsyde-shallow*' | grep -o '^.*/pkgdb'
   ```

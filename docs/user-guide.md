@@ -85,7 +85,10 @@ If you have no diagram (or an outdated one) or the "Current synthesis:"
 drop-down is empty, try the above step. For further debugging you can select
 "ForSyDe DevTools LSP" in the Output window. E.g. in the case when the language
 server complains about not finding ForSyDe Shallow when importing it, recheck
-the build instructions (likely for stack).
+the build instructions (likely for stack). The extension auto-detects the stack
+package database containing ForSyDe Shallow; if detection fails or picks the
+wrong database, it can be overridden with the `forsydeDevtoolsLSP.stackPkgPath`
+setting.
 
 ## Using the language server separately
 The output of the usage and help prompts for the ForSyDe DevTools language

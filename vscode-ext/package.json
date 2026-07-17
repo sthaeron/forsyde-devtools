@@ -52,7 +52,7 @@
         "forsydeDevtoolsLSP.stackPkgPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Specify where the package DB which contains ForSyDe Shallow is located. Use the command: \n`find $HOME/.stack -name '*forsyde-shallow*' | grep -o '^.*/pkgdb'`. Invalid pathname will cause the LSP server to not start."
+          "markdownDescription": "Optional override for the package DB which contains ForSyDe Shallow. When left empty, it is auto-detected by scanning the Stack root (`$STACK_ROOT` or `~/.stack`). To find the path manually, use the command: \n`find $HOME/.stack -name '*forsyde-shallow*' | grep -o '^.*/pkgdb'`. Invalid pathname will cause the LSP server to not start."
         }
       }
     }
