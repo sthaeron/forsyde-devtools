@@ -1,0 +1,100 @@
+# Builds release artifacts: the VSCode extension (.vsix) with the LSP server
+# binary bundled inside, plus a tarball of the standalone binaries.
+# Runs on version tags (v*) and uploads the files as release assets.
+
+name: Release
+
+on:
+  # Triggers the workflow on version tags, e.g. v0.1.0
+  push:
+    tags: ["v*"]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # Linux x64 only for now
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # The compiler requires the OpenBLAS and LAPACK external libraries
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libblas-dev liblapack-dev
+
+      - name: Set up stack
+        uses: haskell-actions/setup@v2
+        with:
+          enable-stack: true
+          stack-version: "latest"
+
+      - name: Cache stack dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.stack
+            .stack-work
+          key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml', 'stack.yaml.lock', 'forsyde-devtools.cabal') }}
+          restore-keys: |
+            ${{ runner.os }}-stack-
+
+      - name: Build the compiler and LSP
+        run: stack build
+
+      - name: Install binaries
+        run: |
+          stack path --local-install-root
+          stack install --local-bin-path "$PWD/bin"
+          ls -l bin
+
+      # The extension prefers a bundled server binary at server/forsyde-lsp-exe
+      # (relative to the extension root) over a stack-based launch
+      - name: Bundle the LSP server into the extension
+        run: |
+          mkdir -p vscode-ext/server
+          cp bin/forsyde-lsp-exe vscode-ext/server/forsyde-lsp-exe
+          chmod +x vscode-ext/server/forsyde-lsp-exe
+
+      - name: Set up node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Build and package the VSCode extension
+        working-directory: vscode-ext
+        run: |
+          npm ci
+          npm run compile
+          npm run package
+
+      - name: Package standalone binaries
+        run: tar -czf forsyde-devtools-linux-x64.tar.gz -C bin forsyde-compiler-exe forsyde-lsp-exe
+
+      - name: Upload extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: forsyde-vscode-extension
+          path: vscode-ext/*.vsix
+          if-no-files-found: error
+
+      - name: Upload binaries artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: forsyde-devtools-linux-x64
+          path: forsyde-devtools-linux-x64.tar.gz
+          if-no-files-found: error
+
+      - name: Attach assets to the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            vscode-ext/*.vsix
+            forsyde-devtools-linux-x64.tar.gz
