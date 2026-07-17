@@ -58,6 +58,24 @@ export async function activate(context: ExtensionContext) {
     ["hs"],
   );
 
+  // Mirror the editor selection into the diagram (code -> diagram)
+  context.subscriptions.push(
+    vscode.window.onDidChangeTextEditorSelection((e) => {
+      if (!e.textEditor.document.fileName.endsWith(".hs")) {
+        return;
+      }
+      const pos = e.selections[0]?.active;
+      if (!pos) {
+        return;
+      }
+      client?.sendNotification("forsyde/cursorPosition", {
+        uri: e.textEditor.document.uri.toString(),
+        line: pos.line,
+        character: pos.character,
+      });
+    }),
+  );
+
   // Start the client. This will also launch the server
   console.debug("Starting ForSyDe Language Server...");
   client.start();
@@ -96,7 +114,7 @@ function createServerOptions(context: ExtensionContext): ServerOptions {
     const lsp_executable = context.asAbsolutePath(`server/forsyde-lsp-exe`);
     const stack_config = context.asAbsolutePath(`client/stack.yaml`);
 
-    let args = ["exec", "--stack-yaml", stack_config, "--", "forsyde-lsp-exe", "--stdio"];
+    const args = ["exec", "--stack-yaml", stack_config, "--", "forsyde-lsp-exe", "--stdio"];
     if (stackPkgPath && stackPkgPath.length > 0) {
       args.push("--forsyde-pkgpath", stackPkgPath);
     }

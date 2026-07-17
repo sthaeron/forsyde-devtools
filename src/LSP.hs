@@ -46,6 +46,9 @@ diagramAcceptMethod = (LSP.SMethod_CustomMethod (Proxy @"diagram/accept"))
 diagramOpenInTextEditor :: LSP.SMethod (LSP.Method_CustomMethod "diagram/openInTextEditor")
 diagramOpenInTextEditor = (LSP.SMethod_CustomMethod (Proxy @"diagram/openInTextEditor"))
 
+cursorPositionMethod :: LSP.SMethod (LSP.Method_CustomMethod "forsyde/cursorPosition")
+cursorPositionMethod = (LSP.SMethod_CustomMethod (Proxy @"forsyde/cursorPosition"))
+
 setPreferencesMethod :: LSP.SMethod (LSP.Method_CustomMethod "keith/preferences/setPreferences")
 setPreferencesMethod = (LSP.SMethod_CustomMethod (Proxy @"keith/preferences/setPreferences"))
 
@@ -232,6 +235,31 @@ requestBounds f _clientId ir sched =
           ]
     ]
 
+-- | Deselect everything currently selected in the diagram
+deselectAllMessage :: T.Text -> A.Value
+deselectAllMessage _clientId =
+  A.object
+    [ "clientId" .= _clientId,
+      "action"
+        .= A.object
+          [ "kind" .= ("allSelected" :: T.Text),
+            "select" .= False
+          ]
+    ]
+
+-- | Select the given diagram elements
+selectElementsMessage :: T.Text -> [T.Text] -> A.Value
+selectElementsMessage _clientId ids =
+  A.object
+    [ "clientId" .= _clientId,
+      "action"
+        .= A.object
+          [ "kind" .= ("elementSelected" :: T.Text),
+            "selectedElementsIDs" .= ids,
+            "deselectedElementsIDs" .= ([] :: [T.Text])
+          ]
+    ]
+
 diagramOpenInTextEditorMessage :: String -> Int -> Int -> Int -> Int -> A.Value
 diagramOpenInTextEditorMessage uri sline scol eline ecol =
   A.object
@@ -288,7 +316,16 @@ handlers =
                 { _capabilities =
                     LSP.ServerCapabilities
                       { _positionEncoding = Nothing,
-                        _textDocumentSync = Nothing,
+                        _textDocumentSync =
+                          Just $
+                            LSP.InL
+                              LSP.TextDocumentSyncOptions
+                                { LSP._openClose = Just True,
+                                  LSP._change = Just LSP.TextDocumentSyncKind_None,
+                                  LSP._willSave = Nothing,
+                                  LSP._willSaveWaitUntil = Nothing,
+                                  LSP._save = Just (LSP.InL True)
+                                },
                         _notebookDocumentSync = Nothing,
                         _completionProvider = Nothing,
                         _hoverProvider = Nothing,
@@ -330,9 +367,27 @@ handlers =
       LSP.notificationHandler LSP.SMethod_WorkspaceDidChangeWatchedFiles $ \_not -> do
         recomputeModel
         sendModel,
+      LSP.notificationHandler LSP.SMethod_TextDocumentDidOpen $ \_not -> pure (),
+      LSP.notificationHandler LSP.SMethod_TextDocumentDidClose $ \_not -> pure (),
       LSP.notificationHandler LSP.SMethod_TextDocumentDidSave $ \_not -> do
         recomputeModel
         sendModel,
+      LSP.notificationHandler cursorPositionMethod $ \LSP.TNotificationMessage {_params = p} -> do
+        config <- LSP.getConfig
+        case (clientId config, system config, file config) of
+          (Just cid, Just ir, Just curFile) ->
+            case (getUriFromParams p, getPosNum "line" p, getPosNum "character" p) of
+              (Just uri, Just line0, Just col0)
+                | uri == curFile -> do
+                    -- Editor positions are 0-based, GHC source spans are 1-based
+                    let ids = elementIdsAtPosition (line0 + 1) (col0 + 1) ir
+                    if null ids
+                      then pure ()
+                      else do
+                        LSP.sendNotification diagramAcceptMethod (deselectAllMessage cid)
+                        LSP.sendNotification diagramAcceptMethod (selectElementsMessage cid ids)
+              _ -> pure ()
+          _ -> pure (),
       LSP.notificationHandler diagramAcceptMethod $ \LSP.TNotificationMessage {_params = p} -> do
         initialConfig <- LSP.getConfig
         -- What file should we use?
@@ -462,6 +517,38 @@ handlers =
                 _ -> l
           )
           []
+    getUriFromParams params =
+      Just params
+        >>= getKey "uri"
+        >>= \case
+          A.String _a -> Just $ T.unpack $ snd $ T.splitAt 7 _a
+          _ -> Nothing
+    getPosNum key params =
+      Just params
+        >>= getKey key
+        >>= \case
+          A.Number _n -> Just (round _n :: Int)
+          _ -> Nothing
+    -- \| Graph element ids of all IR elements whose source span contains the position
+    elementIdsAtPosition line col (IRSystem _ procs sigs _) = actorIds <> signalIds
+      where
+        inSpan = \case
+          Just (_, sl, sc, el, ec) -> (line, col) >= (sl, sc) && (line, col) < (el, ec)
+          Nothing -> False
+        ctorId = \case
+          IRActor n _ _ _ -> n
+          IRDelay n _ _ -> n
+        actorIds =
+          [ "$root$N$" <> T.show n
+          | ctor <- procs,
+            let n = ctorId ctor,
+            inSpan (varToSpan n)
+          ]
+        signalIds =
+          [ "$root$N$" <> T.show sname <> "$P$" <> T.show n <> "$E$" <> T.show n
+          | IRSignal n (sname, _) _ <- sigs,
+            inSpan (varToSpan n)
+          ]
     getFilePathFromClient params =
       Just params
         >>= getKey "action"
