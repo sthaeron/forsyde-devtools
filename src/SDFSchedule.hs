@@ -3,11 +3,10 @@
 
 module SDFSchedule (Schedule (..), computeScheduleAndBuffers, computeScheduleAndBuffersPrint) where
 
-import Data.List (find, intercalate, nub)
-import Data.Ratio (approxRational, denominator, numerator)
+import Data.List (elemIndex, find, intercalate, nub)
+import Data.Ratio (denominator, numerator)
 import ForSyDeIR
 import GHC.Generics (Generic)
-import Numeric.LinearAlgebra as LinearAlgebra hiding (find)
 
 -- | Convert ForSyDe IR to SDF data structures
 convertIRSystem :: IRSystem -> Either String ([Actor], [Edge])
@@ -160,9 +159,9 @@ data Edge = Edge
 -- - If actor is the source of the edge, the value is the production rate
 -- - If actor is the destination of the edge, the value is the negative consumption rate
 -- - Otherwise, the value is 0
-buildTopologyMatrixEdgesRows :: [Actor] -> [Edge] -> Matrix R
+buildTopologyMatrixEdgesRows :: [Actor] -> [Edge] -> [[Integer]]
 buildTopologyMatrixEdgesRows actors edges =
-  fromLists [[topo actor edge | actor <- actors] | edge <- edges]
+  [[topo actor edge | actor <- actors] | edge <- edges]
   where
     topo actor edge
       | src edge == dst edge = 0
@@ -170,50 +169,70 @@ buildTopologyMatrixEdgesRows actors edges =
       | dst edge == actor = -fromIntegral (cons edge)
       | otherwise = 0
 
--- | Compute the null space (repetition vector for actors)
-computeNullSpace :: Matrix R -> Matrix R
-computeNullSpace = nullspace
+-- | Reduced row echelon form via exact Gaussian elimination over the rationals.
+-- Returns the reduced rows and the pivot column indices, in pivot order.
+rowReduce :: [[Rational]] -> ([[Rational]], [Int])
+rowReduce rowsIn = go rowsIn 0 []
+  where
+    nCols = case rowsIn of
+      [] -> 0
+      (r : _) -> length r
+    go rows col pivots
+      | col >= nCols = (rows, reverse pivots)
+      | otherwise =
+          let (done, rest) = splitAt (length pivots) rows
+           in case break (\r -> r !! col /= 0) rest of
+                (_, []) -> go rows (col + 1) pivots
+                (above, pivotRow : below) ->
+                  let normalized = map (/ (pivotRow !! col)) pivotRow
+                      eliminate r =
+                        let factor = r !! col
+                         in if factor == 0
+                              then r
+                              else zipWith (\a b -> a - factor * b) r normalized
+                   in go
+                        (map eliminate done ++ [normalized] ++ map eliminate (above ++ below))
+                        (col + 1)
+                        (col : pivots)
 
--- | Normalize the real null space vector to a minimal integer repetition vector
---
--- Steps:
---  1. Ignore near-zero components (|x| < 1e-12) when finding the smallest non-zero magnitude.
---  2. Divide all components by that smallest positive magnitude to obtain a proportional vector.
---  3. Multiply by a scaling factor (here 10000) and round to nearest integers for stability.
---  4. If all components are negative, flip the sign so the first non-zero becomes positive.
---  5. Divide by the GCD of all non-zero entries to produce the minimal integer vector.
---
--- Returns a list of Integers of same length as the input vector.
--- Edge cases:
---  - All-zero input -> returns all zeros.
---  - Components very close to 0 are treated as 0 by `epsilon` tolerance.
-normalizeToInteger :: Vector Double -> [Integer]
-normalizeToInteger v =
-  let components = LinearAlgebra.toList v
-      -- Find the smallest non-zero
-      absComponents = map abs components
-      nonZero = filter (\x -> x > 1e-12) absComponents
-      minNonZero = if null nonZero then 1 else minimum (map abs nonZero)
+matrixRank :: [[Integer]] -> Int
+matrixRank = length . snd . rowReduce . map (map fromInteger)
 
-      -- Round to integer
-      scaled = map (\x -> round (x / minNonZero * 10000)) components
+-- | Basis vectors of the null space of an integer matrix, as exact rationals.
+-- One basis vector per free column of the reduced matrix.
+nullspaceBasis :: [[Integer]] -> [[Rational]]
+nullspaceBasis mat =
+  let (rref, pivots) = rowReduce (map (map fromInteger) mat)
+      nCols = case mat of
+        [] -> 0
+        (r : _) -> length r
+      freeCols = [c | c <- [0 .. nCols - 1], c `notElem` pivots]
+      entry freeCol col
+        | col == freeCol = 1
+        | otherwise = case elemIndex col pivots of
+            Just i -> negate (rref !! i !! freeCol)
+            Nothing -> 0
+   in [[entry f c | c <- [0 .. nCols - 1]] | f <- freeCols]
 
-      -- Ensure positive
-      finalScaled =
-        if all (< 0) scaled
-          then map abs scaled
-          else scaled
+-- | Scale an exact rational vector to the smallest integer vector pointing in
+-- the same direction. An all-negative vector is flipped to positive.
+toMinimalIntegers :: [Rational] -> [Integer]
+toMinimalIntegers xs =
+  let commonDenom = foldl' lcm 1 (map denominator xs)
+      ints = [numerator x * (commonDenom `div` denominator x) | x <- xs]
+      gcdAll = foldl' gcd 0 ints
+      reduced = if gcdAll == 0 then ints else map (`div` gcdAll) ints
+   in if all (< 0) reduced then map negate reduced else reduced
 
-      -- Normalize by GCD
-      gcdAll = foldl1 gcd (map abs finalScaled)
-   in if gcdAll == 0 then finalScaled else map (`div` gcdAll) finalScaled
+multiplyMatrixVector :: [[Integer]] -> [Integer] -> [Integer]
+multiplyMatrixVector mat vec = map (sum . zipWith (*) vec) mat
 
 -- | Return the matrix as a string with edges as rows and actors as columns
-matrixEdgesRowsToString :: [Edge] -> [Actor] -> Matrix R -> String
+matrixEdgesRowsToString :: [Edge] -> [Actor] -> [[Integer]] -> String
 matrixEdgesRowsToString edges actors topoMatrix =
   let -- Calculate the maximum width of each column
       actorNameWidths = map (length . show . name) actors
-      rowValueWidths = map (maximum . map (length . show)) (toLists topoMatrix)
+      rowValueWidths = map (maximum . map (length . show)) topoMatrix
       colWidths = zipWith max actorNameWidths rowValueWidths
       totalColWidths = map (+ 2) colWidths -- Add 2 to each column width for spacing
 
@@ -230,7 +249,7 @@ matrixEdgesRowsToString edges actors topoMatrix =
       separator = replicate totalWidth '-'
 
       -- Build the matrix rows
-      matrixRows = map (rowToString edgeLabelWidth totalColWidths) (zip edges (toLists topoMatrix))
+      matrixRows = map (rowToString edgeLabelWidth totalColWidths) (zip edges topoMatrix)
 
       -- Combine everything
       result =
@@ -534,32 +553,30 @@ computeScheduleAndBuffers irSystem = do
             pure $ Schedule (schedNames, ioBufSizes ++ internalBufSizes, aliases)
     else
       let mat = buildTopologyMatrixEdgesRows actors edges
-          rankMat = rank mat
+          rankMat = matrixRank mat
        in if rankMat == length actors - 1
-            then
-              let ns = computeNullSpace mat
-                  repVec = flatten (takeColumns 1 ns)
-                  repInt = normalizeToInteger repVec
+            then case nullspaceBasis mat of
+              [] -> Left "No repetition vector found: null space is empty."
+              (basisVec : _) ->
+                let repInt = toMinimalIntegers basisVec
 
-                  -- Verification
-                  repVector = fromIntegral <$> repInt :: [R]
-                  verificationResult = mat #> vector repVector
-                  isZeroVector = all (\x -> abs x < 1e-9) (LinearAlgebra.toList verificationResult)
+                    -- Verification
+                    isZeroVector = all (== 0) (multiplyMatrixVector mat repInt)
 
-                  finalResult =
-                    if not isZeroVector
-                      then Left "Verification failed: repetition vector is not in null space"
-                      else
-                        let repCounts = map fromIntegral repInt :: [Int]
-                            repsWithNames = zip (map name actors) repCounts
-                            delayBuffers = getBuffers edges
-                         in do
-                              schedIdxs <- greedySchedule actors edges repCounts
-                              internalBufSizes <- pure $ simulateBufferUsage actors edges (map initTokens edges) schedIdxs
-                              schedNames <- pure $ map (name . (actors !!)) schedIdxs
-                              (ioBufSizes, aliases) <- computeIOBufferSizes irSystem repsWithNames
-                              pure $ Schedule (schedNames, ioBufSizes ++ internalBufSizes, delayBuffers ++ aliases)
-               in finalResult
+                    finalResult
+                      | not isZeroVector = Left "Verification failed: repetition vector is not in null space"
+                      | any (<= 0) repInt = Left "Cannot compute a strictly positive repetition vector for this graph."
+                      | otherwise =
+                          let repCounts = map fromIntegral repInt :: [Int]
+                              repsWithNames = zip (map name actors) repCounts
+                              delayBuffers = getBuffers edges
+                           in do
+                                schedIdxs <- greedySchedule actors edges repCounts
+                                internalBufSizes <- pure $ simulateBufferUsage actors edges (map initTokens edges) schedIdxs
+                                schedNames <- pure $ map (name . (actors !!)) schedIdxs
+                                (ioBufSizes, aliases) <- computeIOBufferSizes irSystem repsWithNames
+                                pure $ Schedule (schedNames, ioBufSizes ++ internalBufSizes, delayBuffers ++ aliases)
+                 in finalResult
             else
               Left "Matrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
 
@@ -606,7 +623,7 @@ computeScheduleAndBuffersPrint irSystem =
                 let mat = buildTopologyMatrixEdgesRows actors edges
                     matrixStr = matrixEdgesRowsToString edges actors mat
 
-                    rankMat = rank mat
+                    rankMat = matrixRank mat
                     header =
                       matrixStr
                         ++ "\n\nMatrix Rank: "
@@ -617,18 +634,18 @@ computeScheduleAndBuffersPrint irSystem =
                         ++ show (length edges)
                  in if rankMat == length actors - 1
                       then
-                        let ns = computeNullSpace mat
-                            repVec = flatten (takeColumns 1 ns)
-                            repInt = normalizeToInteger repVec
+                        let basisVec = case nullspaceBasis mat of
+                              (v : _) -> v
+                              [] -> error "No repetition vector found: null space is empty."
+                            repInt = toMinimalIntegers basisVec
 
                             -- Verification: multiply the integer repetition vector back to the topology matrix
-                            repVector = fromIntegral <$> repInt :: [R]
-                            verificationResult = mat #> vector repVector
-                            isZeroVector = all (\x -> abs x < 1e-9) (LinearAlgebra.toList verificationResult)
+                            verificationResult = multiplyMatrixVector mat repInt
+                            isZeroVector = all (== 0) verificationResult
 
                             nullSpaceStr =
                               "\n\nNull Space (fractional repetition vector for actors):\n"
-                                ++ dispToString 4 ns
+                                ++ nullspaceVectorToString basisVec
 
                             verificationStr =
                               "\n\nVerification of null space vector:"
@@ -704,18 +721,10 @@ computeScheduleAndBuffersPrint irSystem =
                         header ++ "\n\nMatrix rank is not equal to number of actors minus one. Cannot compute repetition vector."
        in outputString ++ "\n"
 
--- Helper function to convert matrix display to string
-dispToString :: Int -> Matrix R -> String
-dispToString digits mat =
-  let matrixRows = toLists mat
-      formattedRows = map (map (formatNumber digits)) matrixRows
-   in unlines (map (intercalate "  " . map (pad 10)) formattedRows)
+-- Helper function to display the null space vector, one component per line
+nullspaceVectorToString :: [Rational] -> String
+nullspaceVectorToString = unlines . map formatRational
   where
-    formatNumber _ x
-      | abs x < 1e-12 = "0"
-      | denominator rat == 1 = show (numerator rat)
-      | otherwise = show (numerator rat) ++ "/" ++ show (denominator rat)
-      where
-        rat = approxRational x (1e-12)
-
-    pad width str = take width (str ++ repeat ' ')
+    formatRational x
+      | denominator x == 1 = show (numerator x)
+      | otherwise = show (numerator x) ++ "/" ++ show (denominator x)
