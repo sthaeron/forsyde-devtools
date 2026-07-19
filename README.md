@@ -8,11 +8,6 @@ The original algorithm for generating code from SDF (Synchronous Data Flow) mode
 ## Compiler and LSP installation
 The ForSyDe DevTools compiler and LSP have been developed using a specific version of the GHC API as the frontend; the current version of GHC being used is `9.10.2`. Thus, `stack` is required to build the devtools. We suggest using [`ghcup`](https://www.haskell.org/ghcup/install/) to install it. Using your system's package manager should work too.
 
-The ForSyDe DevTools compiler requires the OpenBLAS and LAPACK external libraries. These must be installed separately using your system's package manager. On Debian-based systems, use the command:
-```
-apt install libblas-dev liblapack-dev
-```
-
 With all dependencies resolved, you can install `forsyde-devtools` by cloning this repository and running `stack install` to build and install the compiler and language server.
 ```
 git clone https://github.com/sthaeron/forsyde-devtools.git

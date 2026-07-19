@@ -105,4 +105,3 @@ main = do
 ## Limitation and Future Work
 - Currently the scheduler cannot convert an IRSystem with delays that is connected together. It uses `findActorByName` on the `src` and `dst` that a delay actor connects to, which should find the name of non-delay actor, where an error would occur if it is a delay actor. Updating the function to recursively find the first non-delay actor would fix the issue.
 - The scheduler generates a valid schedule but not necessarily with minimal buffer size. Buffer size optimization could be improved with better actor selection strategies.
-- The scheduler uses Hmatrix which depends on C libraries. It would be better to use a pure Haskell matrix library so that the executable would be easier to link as well as being able to build with cabal without installing external dependencies.
