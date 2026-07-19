@@ -96,20 +96,29 @@ function createServerOptions(context: ExtensionContext): ServerOptions {
     const lsp_executable = context.asAbsolutePath(`server/forsyde-lsp-exe`);
     const stack_config = context.asAbsolutePath(`client/stack.yaml`);
 
-    let args = ["exec", "--stack-yaml", stack_config, "--", "forsyde-lsp-exe", "--stdio"];
+    const lspArgs = ["--stdio"];
     if (stackPkgPath && stackPkgPath.length > 0) {
-      args.push("--forsyde-pkgpath", stackPkgPath);
+      lspArgs.push("--forsyde-pkgpath", stackPkgPath);
     }
+    const stackArgs = [
+      "exec",
+      "--stack-yaml",
+      stack_config,
+      "--",
+      "forsyde-lsp-exe",
+      ...lspArgs,
+    ];
 
     if (existsSync(lsp_executable)) {
+      // A bundled server binary takes the LSP arguments directly
       return {
-        run: { command: lsp_executable, args },
-        debug: { command: lsp_executable, args },
+        run: { command: lsp_executable, args: lspArgs },
+        debug: { command: lsp_executable, args: lspArgs },
       };
     } else {
       return {
-        run: { command: `stack`, args },
-        debug: { command: `stack`, args },
+        run: { command: `stack`, args: stackArgs },
+        debug: { command: `stack`, args: stackArgs },
       };
     }
   }

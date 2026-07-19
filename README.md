@@ -5,6 +5,16 @@ A pre-study related to this project was conducted as part of the [II2211 Researc
 
 The original algorithm for generating code from SDF (Synchronous Data Flow) models written in ForSyDe can be found in this [paper](https://www.icas.org/icas_archive/ICAS2022/data/papers/ICAS2022_0604_paper.pdf).
 
+## Installing from a release
+The easiest way to install the ForSyDe DevTools is to download a pre-built release from the [GitHub Releases](https://github.com/sthaeron/forsyde-devtools/releases) page. Each release provides the VSCode extension as a `.vsix` file, with the LSP server already bundled inside, as well as a tarball with the standalone `forsyde-compiler-exe` and `forsyde-lsp-exe` binaries. Pre-built releases are currently only available for Linux x86-64.
+
+To install the extension, download the `.vsix` file from the latest release and run:
+```
+code --install-extension forsyde-vscode-extension-0.1.0.vsix
+```
+
+If you prefer to build the devtools from source instead, follow the instructions in the sections below.
+
 ## Compiler and LSP installation
 The ForSyDe DevTools compiler and LSP have been developed using a specific version of the GHC API as the frontend; the current version of GHC being used is `9.10.2`. Thus, `stack` is required to build the devtools. We suggest using [`ghcup`](https://www.haskell.org/ghcup/install/) to install it. Using your system's package manager should work too.
 
