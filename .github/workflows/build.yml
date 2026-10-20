@@ -35,14 +35,14 @@ jobs:
           path: |
             ${{ steps.setup.outputs.cabal-store }}
             dist-newstyle
-          key: cabal-${{ hashFiles('forsyde-devtools.cabal', 'cabal.project') }}
-          restore-keys: cabal-
+          key: ${{ runner.os }}-ghc-9.10.2-${{ hashFiles('forsyde-devtools.cabal', 'cabal.project') }}
+          restore-keys: ${{ runner.os }}-ghc-9.10.2-
 
         # Runs a set of commands using the runners shell
       - name: Build and test the compiler
         run: |
           git fetch origin dev
-          if git diff --stat origin/dev -- | grep '\(^ src\|^ test\|^ forsyde-devtools.cabal\|^ cabal.project\|^ .github/workflows/build.yml\)'; then
+          if git diff --stat origin/dev -- | grep '\(^ src\|^ test\|^ forsyde-devtools.cabal\|^ cabal.project\|^ scripts\|^ examples\|^ .github/workflows/build.yml\)'; then
             cabal build
             cabal test
             ./scripts/test.sh --cabal

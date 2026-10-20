@@ -6,7 +6,8 @@ ret=0
 
 # The compiler's embedded GHC ignores cabal's package environment, so point it at the store
 cabal_comp() {
-	echo "env GHC_PACKAGE_PATH=$(echo "$(cabal path --store-dir)"/ghc-"$(ghc --numeric-version)"*/package.db): $(cabal list-bin forsyde-compiler-exe)"
+	ghc_id=$(ghc --info | sed -n 's/.*"Project Unit Id","\([^"]*\)".*/\1/p')
+	echo "env GHC_PACKAGE_PATH=$(cabal path --store-dir)/$ghc_id/package.db: $(cabal list-bin forsyde-compiler-exe)"
 }
 
 if command -v stack; then
