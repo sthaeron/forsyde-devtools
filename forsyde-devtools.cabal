@@ -106,6 +106,7 @@ test-suite forsyde-devtools-test
     -rtsopts
     -with-rtsopts=-N
 
+  build-tool-depends: hspec-discover:hspec-discover
   other-modules:
     ForSyDeIRSpec
     ProceduralIRSpec

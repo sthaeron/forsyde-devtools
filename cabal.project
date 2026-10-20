@@ -1,3 +1,10 @@
 packages: ./
 tests: True
 package forsyde-devtools
+
+source-repository-package
+  type: git
+  location: https://github.com/forsyde/forsyde-atom.git
+  tag: a24e65741832fe807cd530e160934d5156c76460
+  -- the repo lacks fig/, which its extra-doc-files wildcard requires
+  post-checkout-command: sh -c "mkdir -p fig && touch fig/dummy.png"
