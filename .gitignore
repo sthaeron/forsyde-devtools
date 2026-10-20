@@ -32,13 +32,6 @@ cabal.project.local~
 !/examples/test/*.fir
 !/examples/test/*.pir
 
-# Ignore build outputs from performing a nix-build or `nix build` command
-result
-result-*
-
-# Ignore automatically generated direnv output
-.direnv
-
 # Ignore mac specific directory file
 .DS_Store
 
