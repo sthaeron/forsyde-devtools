@@ -40,19 +40,22 @@ cd ..
 For more information on how to setup and use the visualiser VSCode extension provided by the ForSyDe DevTools project, refer to the [user guide](docs/user-guide.md).
 
 ## Contributing
-To contribute to the project we recommend using Nix to setup your Haskell development environment. You can install Nix onto your system with the following instructions at [nixos.org](https://nixos.org/download/). This project makes use of nix flakes which need to be manually enabled by adding the following to your `nix.conf`:
-```
-experimental-features = nix-command flakes
-```
-
-Automatically entering and exiting the Haskell development environment can be accomplished by installing the utilities [`direnv`](https://direnv.net/) and [`nix-direnv`](https://github.com/nix-community/nix-direnv). Upon entering the project directory or changing the `.envrc` file you will be prompted to run the command `direnv allow`, which will allow for the automatic loading and unloading of the nix flake.
-
-The compiler and LSP can be individually built and run using the `nix build` and `nix run` commands, such as:
+The development environment is managed with [mise](https://mise.jdx.dev). It installs ghcup, cabal and the Haskell formatters, and its `setup` task installs GHC and HLS through ghcup and enables the git hooks:
 ```sh
-nix build
-nix run ".#forsyde-lsp" -- --help
-nix run ".#forsyde-compiler" -- examples/model/SDF_example_008.hs --stdout
+mise install
+mise run setup
 ```
+
+GHC also needs a few system libraries, on Fedora `gmp-devel ncurses-devel zlib-devel` and on Debian/Ubuntu `libgmp-dev libncurses-dev zlib1g-dev`.
+
+The compiler and LSP are built and tested with cabal:
+```sh
+cabal build
+cabal test
+./scripts/test.sh --cabal
+```
+
+The documentation site can be served locally with `mise run docs`.
 
 For more information about contributing refer to our contribution [docs](docs/contribution.md).
 

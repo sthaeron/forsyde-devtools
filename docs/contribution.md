@@ -101,24 +101,21 @@ incoming responses other than from latest request.
 
 ## Development environment
 
-### Prerequisites
-
-- [Nix](https://nixos.org/download.html) (multi-user or single-user installation)
-
 ### Setup
 
-1. Install Nix by following the instructions at <https://nixos.org/download.html>
+1. Install [mise](https://mise.jdx.dev/getting-started.html)
 
-2. Enter the development environment:
+2. Install the tools, GHC and HLS:
 
 ```bash
-nix-shell
+mise install
+mise run setup
 ```
 
 3. You now have all required dependencies available in your environment.
 
 ### Adding Dependencies
-Dependencies for the compiler that take the form of a Haskell package should be added using cabal under the `build-depends:` of `common-options` in the [forsyde-devtools.cabal](../forsyde-devtools.cabal) file. The Nix flake reads this cabal file and the dependency will be downloaded when you next enter the development environment using `nix develop`. Any development and non-Haskell build dependencies should be added directly to the Nix flake under `buildInputs` in the [flake.nix](../flake.nix) file. Search for dependencies package name in `nixpkgs` using [search.nixos.org](https://search.nixos.org/packages).
+Dependencies for the compiler that take the form of a Haskell package should be added using cabal under the `build-depends:` of `common-options` in the [forsyde-devtools.cabal](../forsyde-devtools.cabal) file. Cabal downloads it on the next `cabal build`. Development tools should be added to [mise.toml](../mise.toml).
 
 ## Continuous Integration
 
@@ -129,11 +126,10 @@ There are two relevant features we are using for this project:
 
 ### Local git hooks
 
-These need to be copied into your local `.git/hooks` directory.
-If you use the nix environment, this is done automatically, but otherwise:
+These are enabled by `mise run setup`, or manually with:
 
 ```bash
-cp -r ./.githooks/. ./.git/hooks
+git config core.hooksPath .githooks
 ```
 
 At this point, they are used to ensure a consistent formatting of Haskell source code.
