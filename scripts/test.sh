@@ -4,12 +4,17 @@ tests=$(find examples/model examples/atom -name '*.hs' -type f -exec grep -l '^m
 inputs=12
 ret=0
 
+# The compiler's embedded GHC ignores cabal's package environment, so point it at the store
+cabal_comp() {
+	echo "env GHC_PACKAGE_PATH=$(echo "$(cabal path --store-dir)"/ghc-"$(ghc --numeric-version)"*/package.db): $(cabal list-bin forsyde-compiler-exe)"
+}
+
 if command -v stack; then
 	build_hs="stack ghc --"
 	run_comp="stack run forsyde-compiler-exe --"
 else
 	build_hs="cabal exec ghc --"
-	run_comp="cabal exec forsyde-compiler-exe --"
+	run_comp="$(cabal_comp)"
 fi
 
 while [ -n "$1" ]; do
@@ -21,7 +26,7 @@ while [ -n "$1" ]; do
 			;;
 		"--cabal")
 			build_hs="cabal exec ghc --"
-			run_comp="cabal exec forsyde-compiler-exe --"
+			run_comp="$(cabal_comp)"
 			shift
 			;;
 	esac
